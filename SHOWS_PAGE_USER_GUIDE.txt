@@ -1,0 +1,373 @@
+================================================================================
+                    SHOWS PAGE - WHAT YOU CAN DO
+                          User Guide (Plain English)
+================================================================================
+
+📍 WHAT THIS PAGE IS FOR
+================================================================================
+
+The /shows page is your command center for managing all your concert dates
+and gigs. Think of it like a tour calendar meets a spreadsheet, but way more
+user-friendly.
+
+
+================================================================================
+✅ WHAT CURRENTLY WORKS
+================================================================================
+
+1. VIEW ALL YOUR SHOWS
+--------------------------------------------------------------------------------
+   • See a list of all your upcoming concerts/gigs
+   • Shows appear in a clean table on the left side
+   • Each show displays:
+     - Venue name
+     - Date and time
+     - Location (city, state)
+     - Status badge (Confirmed, Pending, Draft, Cancelled)
+     - Door time and show time
+
+
+2. QUICK PREVIEW ON THE RIGHT
+--------------------------------------------------------------------------------
+   • The right side shows a compact, scrollable list of your upcoming shows
+   • Perfect for quick scanning without scrolling through the full table
+   • Shows the most important info at a glance
+   • Stays visible as you scroll (sticky rail)
+
+
+3. FILTER YOUR SHOWS
+--------------------------------------------------------------------------------
+   • BY STATUS: See only Confirmed, Pending, Draft, or Cancelled shows
+   • BY TOUR: Group shows by which tour they're part of
+   • SEARCH: Type to find specific venues or cities
+   • Shows update instantly as you filter
+
+
+4. GOOGLE CALENDAR INTEGRATION
+--------------------------------------------------------------------------------
+   • "Add to Calendar" button on each show
+     - Syncs the show to your Google Calendar
+     - Creates a proper event with venue, time, and location
+     - Button changes to "Synced ✓" after adding (but there's currently
+       a bug where this doesn't persist - we're working on it)
+
+   • "Connect Google Calendar" button at the top
+     - Links your Google account once
+     - After that, all shows can be synced with one click
+
+
+5. SELECT MULTIPLE SHOWS
+--------------------------------------------------------------------------------
+   • Checkboxes on each show row
+   • "Select All" checkbox in the header
+   • Once selected, you get bulk actions (like "Add to Tour")
+
+
+6. CALENDAR VIEW TOGGLE
+--------------------------------------------------------------------------------
+   • Switch between List View (table) and Calendar View (monthly grid)
+   • Calendar view shows your shows as events on a visual calendar
+   • Navigate between months
+   • See which days have shows at a glance
+
+
+7. CREATE NEW SHOWS
+--------------------------------------------------------------------------------
+   • Big blue "Add Show" button at the top right
+   • Opens a modal form to enter show details:
+     - Venue information
+     - Date and time
+     - Deal details (guarantee, door split, etc.)
+     - Contact information
+
+
+8. INDIVIDUAL SHOW ACTIONS
+--------------------------------------------------------------------------------
+   Each show has action buttons:
+   • EDIT - Modify show details
+   • ADD TO CALENDAR - Sync to Google Calendar
+   • CANCEL SHOW - Mark the show as cancelled
+
+
+================================================================================
+🔧 WHAT'S STILL BEING FIXED
+================================================================================
+
+THE CALENDAR SYNC PERSISTENCE ISSUE
+--------------------------------------------------------------------------------
+   ✅ You CAN add shows to Google Calendar (this works!)
+   ✅ Event appears in your Google Calendar (works!)
+   ❌ Button doesn't stay "Synced ✓" after page refresh
+   ❌ You can accidentally create duplicate events
+
+   WHY: The event ID isn't being saved to the database yet
+   STATUS: We've fixed the frontend code, now debugging the backend
+
+
+================================================================================
+🎯 REAL-WORLD EXAMPLE
+================================================================================
+
+SCENARIO: You just booked a show at The Venue in Portland on March 15th.
+
+STEP 1: Click "Add Show" button
+
+STEP 2: Fill in:
+   • Venue: "The Venue"
+   • City: "Portland, OR"
+   • Date: March 15, 2026
+   • Show time: 8:00 PM
+   • Contact: venue@email.com
+
+STEP 3: Save the show
+
+STEP 4: Show appears in your table
+
+STEP 5: Click "Add to Calendar" next to the show
+
+STEP 6: Authorize Google Calendar (one-time)
+
+STEP 7: Event instantly appears in your Google Calendar
+
+STEP 8: You can now see it on your phone, laptop, etc.
+
+WHAT YOU GET:
+   • Central database of all your shows
+   • Automatic calendar sync
+   • Easy filtering and searching
+   • Tour organization
+   • All show details in one place
+
+
+================================================================================
+💡 THINK OF IT AS...
+================================================================================
+
+   • SPOTIFY FOR YOUR TOUR DATES
+     All your shows organized and accessible
+
+   • GOOGLE CALENDAR ON STEROIDS
+     More info than a regular calendar event
+
+   • TOUR MANAGEMENT LITE
+     Track confirmations, deals, and logistics
+
+   • YOUR PERSONAL BOOKING ASSISTANT
+     Keep everything organized without spreadsheets
+
+
+================================================================================
+🎨 THE LAYOUT
+================================================================================
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ Header: Logo | Notifications | Account                               │
+├──────────────────────────────────────────────────────────────────────┤
+│ [Connect Calendar] [Add Show Button]                                 │
+├────────────────────────────────────┬─────────────────────────────────┤
+│                                    │  UPCOMING SHOWS                 │
+│  Filters:                          │  ┌──────────────────────────┐  │
+│  [All Status ▼] [Search...]        │  │ Venue 1                  │  │
+│                                    │  │ Feb 27 • City            │  │
+│  SHOWS TABLE                       │  └──────────────────────────┘  │
+│  ┌──────────────────────────────┐ │  ┌──────────────────────────┐  │
+│  │ ☐ Venue 1 | Feb 27 | ...    │ │  │ Venue 2                  │  │
+│  │ [Edit] [+Cal] [Cancel]       │ │  │ Feb 28 • City            │  │
+│  ├──────────────────────────────┤ │  └──────────────────────────┘  │
+│  │ ☐ Venue 2 | Feb 28 | ...    │ │                                  │
+│  │ [Edit] [+Cal] [Cancel]       │ │  (Scrollable list)              │
+│  └──────────────────────────────┘ │                                  │
+│                                    │                                  │
+│  (Main scrollable area)            │  (Sticky, always visible)       │
+└────────────────────────────────────┴─────────────────────────────────┘
+
+
+================================================================================
+🚀 BOTTOM LINE
+================================================================================
+
+You have a fully functional show management system that:
+
+   ✅ Stores all your shows
+   ✅ Syncs with Google Calendar
+   ✅ Filters and searches
+   ✅ Organizes by tours
+   ✅ Looks professional and clean
+
+The only issue is the calendar sync button doesn't "remember" it synced
+after you refresh (but the event IS in your calendar). We're fixing that now!
+
+
+================================================================================
+🎸 FEATURES IN DETAIL
+================================================================================
+
+STATUS BADGES
+--------------------------------------------------------------------------------
+Shows have color-coded status badges:
+   • GREEN = Confirmed (locked in, ready to go)
+   • YELLOW = Pending (waiting for confirmation)
+   • BLUE = Draft (still working on details)
+   • RED = Cancelled (show won't happen)
+
+
+FILTERING OPTIONS
+--------------------------------------------------------------------------------
+   • All (2) - See all shows regardless of status
+   • Confirmed (2) - Only shows that are locked in
+   • Pending (0) - Shows awaiting confirmation
+   • Draft (0) - Shows still being planned
+   • Cancelled (0) - Shows that won't happen
+
+   • All Tours - See shows from all tours
+   • Standalone - Shows not part of any tour
+   • [Tour Name] - Shows from a specific tour
+
+
+BULK ACTIONS
+--------------------------------------------------------------------------------
+Select multiple shows with checkboxes, then:
+   • Add to Tour - Group multiple shows into a tour
+   • Remove from Tour - Take shows out of a tour
+   • Clear Selection - Unselect all shows
+
+
+CALENDAR VIEW
+--------------------------------------------------------------------------------
+   • Monthly grid layout (like Google Calendar)
+   • Shows appear on their scheduled dates
+   • Click on a show to see details
+   • Navigate between months with arrow buttons
+   • Today button to jump to current month
+
+
+================================================================================
+📱 RESPONSIVE DESIGN
+================================================================================
+
+   • DESKTOP: Full table + right rail side-by-side
+   • TABLET: Stacked layout, optimized for touch
+   • MOBILE: Single column, simplified view
+   • All features work on all screen sizes
+
+
+================================================================================
+🔐 SECURITY & PRIVACY
+================================================================================
+
+   • Google Calendar integration uses OAuth (secure)
+   • Your calendar data is never stored on our servers
+   • Only you can see your shows
+   • Each user has their own isolated data
+   • All API calls are authenticated with your session token
+
+
+================================================================================
+⚡ PERFORMANCE
+================================================================================
+
+   • Shows load instantly from database
+   • Filtering happens in real-time (no page reload)
+   • Sticky right rail for easy scanning
+   • Optimized for 100+ shows
+   • Smooth animations and transitions
+
+
+================================================================================
+🎯 KEYBOARD SHORTCUTS (Coming Soon)
+================================================================================
+
+   • N - New show
+   • / - Focus search
+   • Escape - Close modals
+   • Space - Select/deselect show
+   • Arrow keys - Navigate between shows
+
+
+================================================================================
+📊 DATA YOU CAN TRACK PER SHOW
+================================================================================
+
+BASIC INFO:
+   • Venue name
+   • Venue address
+   • City, State, Country
+   • Date and time
+   • Door time
+   • Show time
+   • Set length
+
+FINANCIAL:
+   • Guarantee amount
+   • Deal type (guarantee, door split, vs. split)
+   • Door split percentage
+   • Advance ticket price
+   • Door ticket price
+   • Currency (USD, EUR, etc.)
+
+LOGISTICS:
+   • Venue capacity
+   • Technical requirements
+   • Notes
+   • Contact name
+   • Contact phone
+   • Contact email
+
+STATUS TRACKING:
+   • Draft → Pending → Confirmed → Cancelled
+   • Created date
+   • Updated date
+   • Confirmed date
+   • Cancelled date
+   • Who created it
+   • Who cancelled it (if applicable)
+
+
+================================================================================
+🌟 COMING SOON
+================================================================================
+
+   • Export to CSV/Excel
+   • Print tour itinerary
+   • Email show details to band/crew
+   • Attach contracts/riders
+   • Budget tracking per show
+   • Expense logging
+   • Settlement sheets
+   • Automatic routing optimization
+   • Drive time calculations
+   • Hotel booking integration
+   • Weather forecasts
+   • Venue reviews/ratings
+
+
+================================================================================
+📞 SUPPORT
+================================================================================
+
+Having issues? Check these first:
+
+   1. Make sure you're signed in
+   2. Try refreshing the page (Cmd+R or Ctrl+R)
+   3. Check your internet connection
+   4. Clear browser cache if things look broken
+   5. Make sure JavaScript is enabled
+
+Still stuck? Contact support@scenegen.io
+
+
+================================================================================
+🎵 HAPPY TOURING!
+================================================================================
+
+This tool was built by musicians, for musicians. We know the chaos of
+booking tours, tracking dates, and keeping everyone in the loop. This is
+our attempt to make your life easier.
+
+Rock on! 🤘
+
+
+================================================================================
+Last Updated: February 5, 2026
+Version: 1.0
+================================================================================

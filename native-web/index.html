@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#11140f" />
+    <title>SceneGen</title>
+    <style>
+      html,body{height:100%;margin:0;background:#11140f;color:#f7f2e8;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      body{display:grid;place-items:center}.shell{max-width:340px;padding:24px;text-align:center}.mark{display:grid;width:72px;height:72px;margin:auto;place-items:center;border-radius:20px;background:#ff5a36;font-size:34px;font-weight:900}.name{margin-top:18px;font-size:22px;font-weight:900;letter-spacing:.12em}.copy{margin-top:8px;color:#aaa59c;font-size:13px;line-height:1.5}button{display:none;min-height:48px;margin:24px auto 0;border:1px solid #ffffff33;border-radius:999px;background:#ff5a36;color:white;padding:0 24px;font-weight:800}.failed button{display:block}
+    </style>
+  </head>
+  <body><main class="shell"><div class="mark">S</div><div class="name">SCENEGEN</div><div class="copy" id="status">Connecting to live operations…</div><button type="button" onclick="location.reload()">Try again</button></main><script>setTimeout(function(){document.querySelector('.shell').classList.add('failed');document.getElementById('status').textContent='SceneGen could not reach the server. Check your connection and try again. Your saved road packs remain on this iPhone.'},12000)</script></body>
+</html>

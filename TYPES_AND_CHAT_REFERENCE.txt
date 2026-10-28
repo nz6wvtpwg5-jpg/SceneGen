@@ -1,0 +1,414 @@
+================================================================================
+SCENEGEN APP - CURRENT TYPES AND CHAT IMPLEMENTATION REFERENCE
+================================================================================
+Last Updated: January 27, 2026
+================================================================================
+
+TABLE OF CONTENTS:
+1. Artist Types
+2. Promoter Types
+3. Entity Store Types
+4. Chat/Conversation Types
+5. Ably Chat Implementation
+6. API Routes for Chat
+7. OpenAPI Schema Definitions
+
+================================================================================
+1. ARTIST TYPES
+================================================================================
+
+From: openapi/scenegen-api.openapi+json.json
+
+artistEntityDto:
+{
+  "administratorId": "string",
+  "users": ["string"],                    // Array of user IDs
+  "administrators": ["string"],           // Array of administrator IDs
+  "members": [                            // Array of band members
+    {
+      "name": "string",
+      "responsibility": "string",         // e.g., "Vocals", "Guitar", "Drums"
+      "id": "string"
+    }
+  ],
+  "assets": [                             // Array of media assets
+    {
+      "uri": "string",
+      "extension": "string",
+      "fileId": "string",
+      "mimeType": "string"
+    }
+  ],
+  "id": "string",                         // Artist entity ID (GUID)
+  "name": "string",                       // Artist/Band name
+  "alias": "string",                      // URL-friendly alias
+  "country": "string",
+  "city": "string",
+  "state": "string",
+  "bio": "string"
+}
+
+Example:
+{
+  "administratorId": "dbe2529b-7a04-4e2f-982a-3b2200030007",
+  "users": ["1a9927fe-f980-4e16-b70c-735a830988e2"],
+  "administrators": ["245d4d52-92c4-45c9-ba04-4d67fe292758"],
+  "members": [
+    {
+      "name": "Big Z",
+      "responsibility": "Vocals",
+      "id": "952880af-2f2d-4fb5-8106-072cc98d3bb4"
+    },
+    {
+      "name": "Bo",
+      "responsibility": "Keys & Guitars",
+      "id": "8d05197c-0239-44bc-b823-f6321f7bcc6f"
+    }
+  ],
+  "id": "abc123",
+  "name": "Thunder Hair",
+  "alias": "thunder.hair",
+  "country": "Denmark",
+  "city": "Copenhagen",
+  "bio": "Rocking mullets since 1979"
+}
+
+================================================================================
+2. PROMOTER TYPES
+================================================================================
+
+From: openapi/scenegen-api.openapi+json.json
+
+promoterEntityDto:
+{
+  "administratorId": "string",
+  "users": ["string"],                    // Array of user IDs
+  "administrators": ["string"],           // Array of administrator IDs
+  "id": "string",                         // Promoter entity ID (GUID)
+  "name": "string",                       // Business name
+  "alias": "string",                      // URL-friendly alias
+  "country": "string",
+  "city": "string",
+  "state": "string",
+  "bio": "string"
+}
+
+Example:
+{
+  "administratorId": "035b1955-91e3-422c-ba4e-a6b092a5bcc5",
+  "users": ["5be1d03a-2f21-416d-9ee9-05a1bb295ef5"],
+  "administrators": ["c2db58e4-3fc5-48ac-aa5b-ac2724631a78"],
+  "id": "5e05b152-38a6-407f-bac8-61c4d5df7cab",
+  "name": "Northern Lights Productions",
+  "alias": null,
+  "country": "Canada",
+  "city": "Vancouver",
+  "state": "BC",
+  "bio": "Northern Lights Productions, a boutique event production company based in Vancouver..."
+}
+
+================================================================================
+3. ENTITY STORE TYPES (Frontend)
+================================================================================
+
+From: src/store/useProfileStore.ts
+
+Entity Interface:
+export interface Entity {
+  id: string;
+  name: string;
+  entityType: string;              // "artist" or "promoter"
+  city?: string;
+  country?: string;
+}
+
+ProfileState Interface:
+interface ProfileState {
+  activeProfile: Entity | null;
+  setActiveProfile: (profile: Entity | null) => void;
+}
+
+Usage:
+- Zustand store with localStorage persistence
+- Tracks the currently active entity/profile
+- Used in sidebar entity switcher
+- Storage key: 'profile-storage'
+
+================================================================================
+4. CHAT/CONVERSATION TYPES
+================================================================================
+
+From: src/components/chat/conversation-list.tsx
+
+Conversation Interface:
+interface Conversation {
+  conversationId: string,
+  lastMessage: string,
+  updatedAt: string,               // ISO 8601 DateTimeOffset
+  participants: string[]           // Array of participant names/IDs
+}
+
+ConversationPayload Interface:
+interface ConversationPayload {
+  conversations: Conversation[];
+  continuationToken?: string;      // For pagination
+}
+
+---
+
+From: src/components/chat/chat-box.tsx
+
+ChatMessage Interface (Frontend):
+interface ChatMessage {
+  id?: string;
+  data?: any;                      // Message content/text
+  senderId: string;
+  timestamp: number;               // Unix timestamp
+  name?: string;
+}
+
+AblyMessage Interface (Real-time):
+interface AblyMessage {
+  id?: string;
+  name?: string;                   // Message type identifier
+  data?: any;                      // Message content
+  senderId?: string;
+  timestamp?: number;
+  clientId?: string;
+  connectionId?: string;
+}
+
+================================================================================
+5. ABLY CHAT IMPLEMENTATION
+================================================================================
+
+From: src/components/chat/chat.tsx
+
+Key Components:
+- AblyProvider: Wraps the chat UI with Ably client context
+- ChannelProvider: Provides access to specific conversation channel
+- ChatBox: Renders messages and handles sending
+
+Ably Client Setup:
+const client = new Ably.Realtime({ authUrl: '/api' });
+
+Authentication:
+- Uses '/api' endpoint to authenticate with Ably
+- Requires valid session with access_token
+
+Channel Naming:
+- Channel name = conversationId (from backend)
+- Each conversation has its own channel
+
+---
+
+From: src/components/chat/chat-box.tsx
+
+Message Flow:
+
+1. RECEIVING MESSAGES:
+   - Subscribe to channel via useChannel hook
+   - Ably messages arrive in real-time
+   - Messages formatted to ChatMessage interface
+   - Stored in component state (last 200 messages)
+   - Auto-scroll to bottom on new messages
+
+2. SENDING MESSAGES:
+   const messageData: AblyMessage = {
+     name: 'chat-message',
+     data: text,
+     senderId: userId,
+     timestamp: new Date().getTime()
+   };
+   channel.publish(messageData);
+
+3. MESSAGE HISTORY:
+   - Fetched on component mount
+   - Endpoint: /api/messages?conversationId={channelId}
+   - Sorted by timestamp (oldest first)
+   - Merged with real-time messages
+
+Features:
+- User avatars generated per sender
+- Auto-scroll to latest message
+- Enter to send, Shift+Enter for new line
+- Disabled send button when empty
+- Loading state while fetching history
+- Empty state message
+
+================================================================================
+6. API ROUTES FOR CHAT
+================================================================================
+
+A. GET /api/conversations
+From: src/app/api/conversations/route.ts
+
+Purpose: Fetch conversation history for current user
+
+Authentication: Bearer token required
+
+Backend Call:
+- Uses conversation-client SDK
+- Endpoint: postConversationhistory
+- Payload: { pageSize: 10, continuationToken: "" }
+
+Response:
+{
+  "conversations": [
+    {
+      "conversationId": "string",
+      "lastMessage": "string",
+      "updatedAt": "ISO 8601 date",
+      "participants": ["name1", "name2"]
+    }
+  ],
+  "continuationToken": "string"
+}
+
+---
+
+B. GET /api/messages?conversationId={id}
+From: src/app/api/messages/route.ts
+
+Purpose: Fetch message history for a specific conversation
+
+Parameters:
+- conversationId (required): The conversation ID
+
+Authentication: Bearer token required
+
+Backend Call:
+- Uses conversation-client SDK
+- Endpoint: postMessagehistory
+- Payload: { conversationId, pageSize: 50, continuationToken: "" }
+
+Response:
+{
+  "messages": [
+    {
+      "messageId": "string",
+      "conversationId": "string",
+      "senderId": "string",
+      "content": "string",
+      "sentAt": "ISO 8601 date"
+    }
+  ]
+}
+
+---
+
+C. POST /api (Ably Auth)
+From: src/app/api/route.ts (assumed)
+
+Purpose: Authenticate users with Ably for real-time chat
+
+Returns: Ably token request for client authentication
+
+================================================================================
+7. OPENAPI SCHEMA DEFINITIONS (CHAT)
+================================================================================
+
+From: openapi/scenegen-api-chat.openapi+json.json
+
+Base URL: https://scenegen-apim.azure-api.net/scenegen-api-chat
+
+---
+
+Endpoint: POST /chat/conversationhistory
+
+Request Body:
+{
+  "pageSize": 0,
+  "continuationToken": "string"
+}
+
+Purpose: Get list of conversations for the authenticated user
+
+---
+
+Endpoint: POST /chat/messagehistory
+
+Request Body:
+{
+  "conversationId": "string",
+  "pageSize": 0,
+  "continuationToken": "string"
+}
+
+Purpose: Get message history for a specific conversation
+
+---
+
+Endpoint: POST /chat/start
+
+Request Body:
+{
+  "recipientId": "b3b3b3b3-4b6d-4b3b-8b3b-3b4b6df5b3b3"
+}
+
+Purpose: Start a new conversation with a recipient
+
+================================================================================
+8. KEY DIFFERENCES BETWEEN TYPES
+================================================================================
+
+Artist vs Promoter:
+- Artists have "members" array (band members)
+- Artists have "assets" array (media files)
+- Promoters do NOT have members or assets
+- Both share: administrators, users, location, bio
+
+Frontend Entity vs Backend DTO:
+- Frontend Entity is minimal (id, name, entityType, city, country)
+- Backend DTO includes full details (administrators, members, assets, etc.)
+- Frontend uses simplified Entity for UI/store
+- Backend DTO used for API responses
+
+Chat Message Types:
+- ChatMessage: Frontend display format
+- AblyMessage: Real-time message format
+- Backend message format: Different structure with messageId, conversationId, sentAt
+
+================================================================================
+9. IMPORTANT NOTES
+================================================================================
+
+1. Entity IDs are GUIDs (UUID format)
+2. All timestamps should use ISO 8601 format from backend
+3. Frontend converts to Unix timestamps for display
+4. Ably handles real-time messaging (WebSocket)
+5. Backend uses Azure Functions + Cosmos DB
+6. All API calls require Bearer token authentication
+7. Subscription key required: Ocp-Apim-Subscription-Key
+8. Conversation channels are named by conversationId
+9. Messages limited to last 200 in memory (client-side)
+10. Pagination supported via continuationToken
+
+================================================================================
+10. CURRENT FRONTEND USAGE PATTERNS
+================================================================================
+
+Entity Management:
+- useProfileStore() to get/set active entity
+- SidebarEntities component for entity switcher
+- Entity dropdown shows all user's entities
+- "Add Profile" button redirects to /onboarding
+
+Chat Usage:
+- Chat component wraps ChatBox with Ably providers
+- ConversationList shows all conversations
+- Clicking conversation loads ChatBox for that channel
+- Messages fetch on mount, then real-time updates
+- User avatars generated client-side (random-avatar-generator)
+
+Onboarding Flow:
+- New users redirected to /onboarding if no entities
+- Choose Artist or Promoter
+- Fill form with name, bio, location
+- POST to /api/artist/add or /api/promoter/add
+- Redirect to /dashboard after success
+- Entities appear in sidebar immediately
+
+================================================================================
+END OF REFERENCE DOCUMENT
+================================================================================

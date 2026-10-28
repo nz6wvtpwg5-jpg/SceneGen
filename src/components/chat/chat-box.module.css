@@ -1,0 +1,81 @@
+.chatHolder {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  max-height: calc(100vh - 2rem); /* Account for any padding */
+  overflow: hidden;
+}
+
+.chatText {
+  flex: 1;
+  height: calc(100% - 70px); /* Account for the form height */
+  max-height: calc(100vh - 70px);
+  width: 100%;
+}
+
+.message {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  padding: 0.5em 1em;
+  border-radius: 0.5em;
+  max-width: 80%;
+  word-break: break-word;
+}
+
+.message[data-author='me'] {
+  align-self: flex-end;
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.message[data-author='other'] {
+  align-self: flex-start;
+  background-color: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+.form {
+  display: flex;
+  padding: 1em;
+  background-color: hsl(var(--card));
+  border-top: 1px solid hsl(var(--border));
+}
+
+.textarea {
+  flex: 1;
+  padding: 0.5em;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5em;
+  margin-right: 0.5em;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  resize: none;
+}
+
+.textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.5);
+}
+
+.button {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+  border-radius: 0.5em;
+  padding: 0.5em 1em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button:hover:not(:disabled) {
+  background-color: hsl(var(--primary) / 0.8);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

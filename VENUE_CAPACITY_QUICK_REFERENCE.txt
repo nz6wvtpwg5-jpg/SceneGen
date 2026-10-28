@@ -1,0 +1,132 @@
+# 🎪 Venue Capacity - Quick Reference
+
+## What Was Added
+
+### 📍 MAP TOOLTIP (Hover)
+```
+┌─────────────────────────────────┐
+│ 📍 The Crocodile                │
+│    2505 1st Ave, Seattle, WA... │
+├─────────────────────────────────┤
+│ 👥 Capacity: 1,150         ← NEW│
+│ 💵 $2,500                       │
+│ 🧭 Next show: 495 miles         │
+│ 🌤️ 52°F Partly Cloudy           │
+│                                 │
+│ Click marker to view day sheet  │
+└─────────────────────────────────┘
+```
+
+### 📋 DAY SHEET MODAL (Click)
+```
+┌─────────────────────────────────┐
+│  Day Sheet - Show Information   │
+├─────────────────────────────────┤
+│  Venue Name: The Crocodile      │
+│  Venue Capacity: 1,150     ← NEW│
+│  Address: 2505 1st Ave...       │
+│  City: Seattle                  │
+│  State: WA                      │
+│  ...                            │
+└─────────────────────────────────┘
+```
+
+---
+
+## Display Examples
+
+### ✅ When Capacity is Set:
+| Capacity | Display |
+|----------|---------|
+| 150 | `150` |
+| 500 | `500` |
+| 1150 | `1,150` |
+| 10000 | `10,000` |
+
+### 🔄 When Capacity is NOT Set:
+| Capacity | Display |
+|----------|---------|
+| null | `TBC` |
+| undefined | `TBC` |
+| 0 | `TBC` |
+
+**TBC** = To Be Confirmed
+
+---
+
+## How to Set Capacity
+
+### 1. When Creating Show:
+```
+Create Show Form
+  ↓
+Venue Info Section
+  ↓
+Capacity Field (optional)
+  ↓
+Enter number (e.g., 500)
+  ↓
+Save Show
+```
+
+### 2. When Editing Show:
+```
+Tour Page → Shows Tab
+  ↓
+Click Edit on any show
+  ↓
+Update Capacity field
+  ↓
+Save Changes
+```
+
+### 3. Via Day Sheet:
+```
+Tour Page → Routing Tab
+  ↓
+Click map marker
+  ↓
+Click Edit
+  ↓
+Update Capacity
+  ↓
+Save
+```
+
+---
+
+## Files Changed
+
+✅ **MarkerTooltip.tsx** - Added capacity display on hover
+✅ **DaySheetModal.tsx** - Shows "TBC" instead of "N/A"
+✅ **routeUtils.ts** - Added venue_capacity to Show type
+✅ **TourMap.tsx** - Passes capacity to tooltip
+✅ **backend/server.js** - Maps capacity from database
+
+---
+
+## Testing
+
+### Quick Test:
+1. **Open tour page**: http://localhost:3000/tours/[id]
+2. **Click "Routing" tab**
+3. **Hover over a marker** → See capacity
+4. **Click marker** → See capacity in day sheet
+
+### What to Check:
+- ✅ Tooltip shows "Capacity: XXX" or "Capacity: TBC"
+- ✅ Day Sheet shows "Venue Capacity: XXX" or "TBC"
+- ✅ Numbers formatted with commas (1,150)
+- ✅ Missing capacity shows "TBC" not "N/A"
+
+---
+
+## Status
+
+✅ **COMPLETE**
+✅ Shows on map tooltip
+✅ Shows in day sheet
+✅ Persists across app
+✅ "TBC" for missing values
+
+**Refresh browser to see changes!** 🎉

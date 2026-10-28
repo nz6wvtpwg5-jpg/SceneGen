@@ -1,0 +1,679 @@
+================================================================================
+SCENEGEN – CONSOLIDATED FUNCTIONAL BUILD SPEC (MVP LOCKED)
+Artist / Promoter / Shows / Chat / Touring
+================================================================================
+Last Updated: January 27, 2026
+Version: MVP LOCKED (Scope-Controlled)
+================================================================================
+
+⚠️  IMPORTANT: This document intentionally REMOVES scope creep introduced by
+prior AI responses. Anything not explicitly defined here is out of scope for MVP.
+
+================================================================================
+CORE PRINCIPLES
+================================================================================
+- Exactly TWO entity types exist: Artist and Promoter.
+- A signed-in user may administrate ONE entity only (Artist OR Promoter).
+- Entities (not users) are the professional identities throughout the app.
+- Chat, contacts, shows, tours all operate at the ENTITY level.
+- Touring is an ARTIST-ONLY feature.
+- No billing, no Stripe, no paid tiers in MVP.
+- No additional chat types in MVP (single entity-to-entity chat only).
+
+================================================================================
+IDENTITY & OWNERSHIP (IMPORTANT CORRECTION)
+================================================================================
+❌ DO NOT add new user fields such as `user.administratorOf`.
+✅ Ownership is derived solely by querying: entity.administratorId === userId
+
+This avoids multiple sources of truth.
+
+Rules:
+- A user may only be administratorId of ONE entity.
+- Backend blocks creation if user already owns an entity.
+- Frontend hides onboarding once an entity exists.
+
+Implementation:
+// Check if user owns an entity (backend)
+const existingEntity = await db.query(
+  "SELECT id FROM entities WHERE administratorId = ?",
+  [userId]
+);
+if (existingEntity) {
+  return { error: "User already owns an entity", status: 409 };
+}
+
+// Check if user owns an entity (frontend)
+const userEntities = await fetch('/api/user/entities');
+const ownedEntity = userEntities.find(e => e.administratorId === userId);
+if (ownedEntity) {
+  // Hide onboarding, disable creation
+}
+
+================================================================================
+ONBOARDING / ENTITY CREATION
+================================================================================
+- If signed in and user does NOT administrate an entity → redirect to onboarding.
+- Onboarding allows creation of:
+  - Artist OR Promoter (never both).
+- After creation:
+  - Entity becomes activeProfile.
+  - Onboarding is permanently disabled.
+
+Invite-driven onboarding:
+- Visiting /invite/{token} with no entity:
+  - User must create an entity.
+  - Entity type is enforced by invite.
+- On completion:
+  - Invite marked accepted.
+  - Contact relationship created.
+  - Trial access granted.
+  - If show invite → entity linked to show.
+
+================================================================================
+CONTACTS (ENTITY ↔ ENTITY)
+================================================================================
+Contact Model:
+{
+  "id": "uuid",
+  "entityId1": "uuid",
+  "entityId2": "uuid",
+  "status": "pending | accepted",
+  "initiatedBy": "entityId",
+  "createdAt": "ISO 8601",
+  "acceptedAt": "ISO 8601 | null"
+}
+
+Rules:
+- Contacts exist ONLY between entities.
+- Status: pending / accepted.
+- Contacts are REQUIRED for general chat.
+- Contacts are NOT required to create shows or send show invites.
+
+Contacts can be created via:
+1) Manual selection of existing entity.
+2) Invite URL.
+3) Automatically when a show invite is accepted.
+
+================================================================================
+INVITES (DYNAMIC URLS)
+================================================================================
+Invite types:
+- contact_invite
+- show_invite
+
+Invite Model:
+{
+  "token": "uuid",
+  "invitingEntityId": "uuid",
+  "requiredEntityType": "artist | promoter | any",
+  "inviteType": "contact_invite | show_invite",
+  "showId": "uuid | null",
+  "expiresAt": "ISO 8601",
+  "acceptedAt": "ISO 8601 | null",
+  "status": "pending | accepted | expired"
+}
+
+Invite flow:
+1. Visit /invite/{token}
+2. Authenticate if required
+3. If no entity → onboarding (type enforced)
+4. Accept invite:
+   - Contact created
+   - Trial access granted
+   - If show invite → link entity to show
+
+Validation:
+- Expired or reused invites are rejected.
+
+================================================================================
+TRIAL ACCESS (MINIMAL)
+================================================================================
+- Entities created via invite receive time-limited trial access.
+- Trial gating is simple:
+  - If trial expired → restrict creation of new shows or tours.
+
+Implementation:
+- Entity has trialExpiresAt field
+- Middleware checks: if (now > entity.trialExpiresAt) { restrict }
+- NO billing logic in MVP
+- NO Stripe integration in MVP
+- NO 402 errors
+- Use standard 403 with clear UI messaging:
+  "Your trial has expired. Upgrade to continue creating shows."
+
+================================================================================
+SHOWS (DAY SHEET BASED)
+================================================================================
+Show Model:
+{
+  "id": "uuid",
+  "artistEntityId": "uuid",
+  "promoterEntityId": "uuid",
+  "tourId": "uuid | null",
+  "createdBy": "entityId",
+  "status": "draft | pending_invite | pending_acceptance | confirmed | cancelled",
+  "createdAt": "ISO 8601",
+  "updatedAt": "ISO 8601",
+
+  // Day Sheet Fields
+  "showDate": "ISO 8601",
+  "venueName": "string",
+  "venueAddress": "string",
+  "venueCity": "string",
+  "venueState": "string",
+  "venueCountry": "string",
+  "venueCapacity": "number | null",
+  "doorsTime": "string",
+  "showTime": "string",
+  "setLength": "string",
+  "guarantee": "number | null",
+  "dealType": "guarantee | door_split | guarantee_vs_split",
+  "doorSplitPercentage": "number | null",
+  "advanceTicketPrice": "number | null",
+  "doorTicketPrice": "number | null",
+  "notes": "string | null",
+  "technicalRequirements": "string | null",
+  "contactName": "string",
+  "contactPhone": "string",
+  "contactEmail": "string"
+}
+
+Rules:
+- Every show involves exactly ONE Artist and ONE Promoter.
+- Shows may be:
+  - Standalone (tourId = null)
+  - Part of a tour (tourId = uuid)
+
+Show lifecycle:
+- draft → pending_invite → pending_acceptance → confirmed
+- Any status → cancelled
+
+Show creation flow:
+1. Creator (Artist or Promoter) starts Create Show
+2. Select counterparty:
+   - Existing entity (from contacts or search)
+   - OR invite via URL (generates show_invite)
+3. Artist is ALWAYS asked:
+   - Standalone show
+   - Part of a tour
+     - Select existing tour (dropdown)
+     - OR create new tour inline (modal)
+4. Fill Day Sheet fields (venue, date, deal, etc.)
+5. Submit:
+   - Existing counterparty → status = pending_acceptance
+   - Invited counterparty → status = pending_invite
+
+MVP SIMPLIFICATION (Editing):
+- Creator can edit show freely while status = draft
+- After confirmed:
+  - Edits are allowed
+  - Edits are logged (audit trail)
+  - ❌ NO reconfirmation workflow in MVP
+  - ❌ NO version history in MVP
+
+Cancellation:
+- Either party can cancel at any time
+- Status → cancelled
+- Show remains in database (for history)
+
+================================================================================
+CHAT (ENTITY-SCOPED – SINGLE TYPE ONLY)
+================================================================================
+⚠️  MVP USES ONE CHAT TYPE ONLY
+
+Rules:
+- ONE chat type: entity-to-entity general chat
+- ❌ NO show-specific chat threads in MVP
+- Chat exists only between entities with accepted contacts
+
+Conversation Model:
+{
+  "conversationId": "uuid",
+  "entityId1": "uuid",
+  "entityId2": "uuid",
+  "lastMessage": "string",
+  "updatedAt": "ISO 8601",
+  "participants": ["Entity Name 1", "Entity Name 2"]
+}
+
+Message Model:
+{
+  "messageId": "uuid",
+  "conversationId": "uuid",
+  "senderId": "userId",           // For display attribution only
+  "senderEntityId": "entityId",   // Which entity context
+  "content": "string",
+  "sentAt": "ISO 8601"
+}
+
+Ably Integration:
+- ConversationId maps to ONE Ably channel
+- Channel naming: `entity-chat:{conversationId}`
+- Ably auth restricts channel access to participating entities
+- Messages include sender userId for attribution only
+
+Flow:
+1. Entities must have accepted contact
+2. Either entity can start conversation
+3. ConversationId created
+4. Both entities subscribe to Ably channel
+5. Real-time messages flow through channel
+6. Message history fetched from backend
+
+================================================================================
+SIDEBAR RULES
+================================================================================
+Sidebar reflects activeProfile (current entity).
+
+Navigation items:
+- Dashboard
+- Shows
+- Contacts
+- Conversations
+- Touring (ARTIST ONLY - conditional)
+- Settings
+
+Touring link visibility:
+✅ Visible ONLY when: activeProfile.entityType === "artist"
+❌ Promoters never see Touring
+
+Implementation:
+{activeProfile?.entityType === 'artist' && (
+  <SidebarLink href="/touring">Touring</SidebarLink>
+)}
+
+================================================================================
+TOURING (ARTIST ONLY – CORE FEATURE)
+================================================================================
+Purpose:
+- Group shows into tours
+- Visualize promoter contacts on a map
+- Identify where shows exist or are missing
+- Create shows directly from touring context
+
+Route: /touring
+
+Access Control:
+- Frontend: Touring link only visible for artists
+- Backend: Artist-only guard middleware
+- Promoters receive 403 if they attempt access
+
+================================================================================
+TOURS (DATA MODEL)
+================================================================================
+Tour Model:
+{
+  "id": "uuid",
+  "artistEntityId": "uuid",       // Owning artist
+  "name": "string",               // e.g., "West Coast Tour 2026"
+  "notes": "string | null",
+  "startDate": "ISO 8601",        // Derived from shows
+  "endDate": "ISO 8601",          // Derived from shows
+  "createdAt": "ISO 8601",
+  "updatedAt": "ISO 8601"
+}
+
+Rules:
+- A tour belongs to ONE Artist entity
+- A show may belong to ONE tour or none (show.tourId)
+- Tour dates are DERIVED from associated shows:
+  - startDate = MIN(show.showDate) for shows in tour
+  - endDate = MAX(show.showDate) for shows in tour
+- Dates auto-update when shows added/removed
+
+❌ NO manual date overrides in MVP
+
+================================================================================
+CREATE TOUR – ENTRY POINTS
+================================================================================
+Tours can be created from:
+1. Touring page
+   - "Create Tour" button in top toolbar
+
+2. Create Show flow
+   - When Artist selects "part of a tour"
+   - Option: "Create new tour" (opens inline modal)
+
+3. Shows page
+   - Multi-select shows (checkbox mode)
+   - Bulk actions: "Add to a tour"
+   - Option: "Create new tour"
+
+Create Tour modal:
+- Fields:
+  - Tour name (required)
+  - Notes (optional)
+- If created from selected shows:
+  - Auto-compute and display date range from show dates
+- Submit:
+  - POST /api/tours
+  - Returns tour object
+  - If created from shows: associate shows with tour
+
+================================================================================
+SHOWS ↔ TOURS INTERACTION
+================================================================================
+During Create Show (Artists only):
+- Step: "Is this show part of a tour?"
+  - Radio options:
+    ○ Standalone show (tourId = null)
+    ○ Part of existing tour (dropdown list)
+    ○ Create new tour (opens inline modal)
+- If "Part of existing tour":
+  - Tour selected, show.tourId set
+- If "Create new tour":
+  - Modal opens
+  - Tour created
+  - show.tourId = new tour ID
+
+From Shows page:
+- Checkbox selection mode:
+  - Select multiple shows
+  - "N shows selected" indicator
+  - Bulk actions toolbar appears
+- Action: "Add to Tour"
+  - Opens modal
+  - Options:
+    - Select existing tour (dropdown)
+    - Create new tour (inline)
+- If show already belongs to a tour:
+  - Warning: "This show is already part of [Tour Name]. Move it?"
+  - Options: Cancel / Move
+
+UI Options:
+- Right-click context menu (power users)
+- Bulk actions toolbar (primary UX)
+- Mobile: Long-press for context menu
+
+================================================================================
+TOURING PAGE LAYOUT
+================================================================================
+┌─────────────────────────────────────────────────────────────────────────┐
+│ TOURING                                              [Create Tour]      │
+│ ─────────────────────────────────────────────────────────────────────── │
+│ Filters: [All Shows ▼]  [Create Show]                                  │
+│                                                                         │
+│ ┌─────────────────────────────┐  ┌───────────────────────────────────┐ │
+│ │                             │  │ PROMOTER CONTACTS                 │ │
+│ │      MAP VIEW               │  │ ───────────────────────────────── │ │
+│ │                             │  │ Northern Lights (Vancouver)       │ │
+│ │  📍 Promoter A (Seattle)    │  │ • 2 shows                         │ │
+│ │  📍 Promoter B (Portland)   │  │                                   │ │
+│ │  📍 Promoter C (SF)         │  │ Rock City (Seattle)               │ │
+│ │                             │  │ • 1 show                          │ │
+│ │  🏠 Artist Home (LA)        │  │                                   │ │
+│ │                             │  │ The Venue Group (Portland)        │ │
+│ │                             │  │ • No shows yet                    │ │
+│ │                             │  │   [Create Show]                   │ │
+│ └─────────────────────────────┘  └───────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Top controls:
+- Tour filter dropdown:
+  - All Shows
+  - Standalone Shows
+  - [Tour Name 1]
+  - [Tour Name 2]
+  - ...
+- Create Tour button
+- Create Show button
+
+Main view (split layout):
+- Left: Map (60% width)
+- Right: Promoter contacts list (40% width)
+
+Map centered on:
+- Artist entity hometown (city/country from profile)
+- Falls back to map center if no hometown set
+
+================================================================================
+TOURING MAP BEHAVIOUR
+================================================================================
+Map Markers:
+- 📍 Promoter contacts (colored by show status)
+- 🏠 Artist home location (special icon)
+
+Marker Colors:
+- 🟢 Green: Promoters with confirmed shows
+- 🟡 Yellow: Promoters with pending shows
+- ⚪ Gray: Promoters with no shows
+
+Hover/Click Marker:
+- Popup displays:
+  - Promoter name
+  - City, State, Country
+  - List of shows:
+    ┌─────────────────────────────────────────┐
+    │ March 15 • The Roxy • Seattle           │
+    │ Status: Confirmed • Tour: West Coast    │
+    │                                         │
+    │ April 2 • Neumos • Seattle              │
+    │ Status: Pending • Standalone            │
+    └─────────────────────────────────────────┘
+  - If no shows:
+    ┌─────────────────────────────────────────┐
+    │ No shows with this promoter yet         │
+    │ [Create Show]                           │
+    └─────────────────────────────────────────┘
+
+Create Show from Map:
+- Click [Create Show] in marker popup
+- Opens Create Show flow
+- Promoter entity pre-selected
+- Venue city pre-filled with promoter city
+- If tour context active (tour filter selected):
+  - Tour pre-selected in flow
+
+================================================================================
+TOUR CONTEXT FILTERING
+================================================================================
+When a tour is selected in filter dropdown:
+- Map updates:
+  - Highlight promoters with shows in this tour (green/yellow)
+  - Dim promoters without shows in this tour (gray)
+  - ❌ NO route lines in MVP
+- Marker popups:
+  - Show only this tour's shows with this promoter
+  - If promoter has no shows in this tour:
+    ┌─────────────────────────────────────────┐
+    │ No shows in [Tour Name] yet             │
+    │ [Create show as part of this tour]     │
+    └─────────────────────────────────────────┘
+- Contacts list:
+  - Promoters with shows in tour at top
+  - Others below (grayed out)
+
+================================================================================
+PERMISSIONS
+================================================================================
+Touring Routes:
+- GET /api/tours (artist-only)
+- POST /api/tours (artist-only)
+- PATCH /api/tours/:id (artist-only)
+- DELETE /api/tours/:id (artist-only)
+- GET /api/tours/:id/shows (artist-only)
+
+Middleware: requireArtistEntity()
+function requireArtistEntity(req, res, next) {
+  const entity = req.activeEntity;
+  if (!entity || entity.entityType !== 'artist') {
+    return res.status(403).json({ error: 'Artist entities only' });
+  }
+  next();
+}
+
+Tour Editing:
+- Only owning artist can edit/delete tour
+- Backend checks: tour.artistEntityId === req.activeEntityId
+
+Adding Shows to Tours:
+- Show must belong to current artist entity
+- Backend checks: show.artistEntityId === req.activeEntityId
+
+================================================================================
+WHAT IS EXPLICITLY OUT OF SCOPE FOR MVP
+================================================================================
+❌ Additional user fields (user.administratorOf)
+❌ Member / role systems (admin vs. member permissions)
+❌ Show-specific chat threads
+❌ Billing tiers or Stripe integration
+❌ 402 Payment Required responses
+❌ Reconfirmation workflow for show edits
+❌ Version history for shows
+❌ Manual tour date overrides
+❌ Automatic route drawing on map
+❌ Financial settlement logic
+❌ Multi-artist bills / lineups
+❌ Venue as separate entity type
+❌ Calendar integrations
+❌ Email/SMS notifications system
+❌ Analytics dashboard
+❌ PDF Day Sheet export
+
+These may exist as FUTURE PHASE IDEAS ONLY.
+
+================================================================================
+IMPLEMENTATION ORDER
+================================================================================
+Phase 1: Core Identity (Week 1)
+- [ ] Enforce one-entity-per-user (backend check)
+- [ ] Update onboarding to block duplicate creation (409 Conflict)
+- [ ] Frontend: hide onboarding if user owns entity
+- [ ] Query pattern: entity.administratorId === userId
+
+Phase 2: Contacts (Week 1-2)
+- [ ] Create Contact model (entityId1, entityId2, status, initiatedBy)
+- [ ] Build contact request flow (send/accept/reject)
+- [ ] Add entity search/discovery
+- [ ] Update chat to require accepted contact
+
+Phase 3: Shows Foundation (Week 2-3)
+- [ ] Create Show model with Day Sheet fields
+- [ ] Build Create Show flow (counterparty selection)
+- [ ] Implement show status lifecycle
+- [ ] Add show creation from multiple entry points
+- [ ] Build Edit Show flow (simple, no reconfirmation)
+
+Phase 4: Invites System (Week 3-4)
+- [ ] Create Invite model and API
+- [ ] Build invite generation flow
+- [ ] Build /invite/{token} handler
+- [ ] Implement invite-driven onboarding
+- [ ] Add trial access field to entity
+- [ ] Add basic trial expiry check (403 when expired)
+
+Phase 5: Tours Infrastructure (Week 4-5)
+- [ ] Create Tours model
+- [ ] Add tourId to Show model
+- [ ] Build Tours API endpoints (CRUD)
+- [ ] Add artist-only middleware
+- [ ] Implement tour date computation (MIN/MAX from shows)
+
+Phase 6: Touring UI (Week 5-6)
+- [ ] Add Touring sidebar entry (artist-only conditional)
+- [ ] Build Touring page layout (map + contacts split)
+- [ ] Implement map with promoter markers
+- [ ] Add marker popups with show details
+- [ ] Build "Create Show from map" flow
+
+Phase 7: Tour Management (Week 6-7)
+- [ ] Update Create Show flow (tour selection step for artists)
+- [ ] Add Shows page checkbox selection mode
+- [ ] Implement bulk actions toolbar
+- [ ] Add "Add to Tour" action (existing or new tour)
+- [ ] Add tour filter to Touring page
+- [ ] Build tour-specific map context
+
+Phase 8: Polish & Launch (Week 7-8)
+- [ ] Add loading states
+- [ ] Add error handling
+- [ ] Add empty states (no shows, no contacts, etc.)
+- [ ] Add confirmation dialogs (delete, cancel, etc.)
+- [ ] User testing
+- [ ] Bug fixes
+- [ ] Documentation
+
+================================================================================
+DONE CRITERIA
+================================================================================
+✅ User can only administrate one entity (enforced via query)
+✅ Artist sees Touring link, Promoter does not
+✅ Tours can be created and managed (artists only)
+✅ Shows can be standalone or part of tours
+✅ Shows can be added to tours after creation (bulk actions)
+✅ Shows can be moved between tours (with warning)
+✅ Touring map shows all promoter contacts with markers
+✅ Marker hover/click reveals shows or "Create Show" button
+✅ Tour filter updates map to show tour-specific context
+✅ Create Show flow works from multiple entry points
+✅ Chat works between entities (requires accepted contact)
+✅ Invites generate dynamic URLs with type enforcement
+✅ Onboarding enforces entity type from invites
+✅ Trial access granted and checked (simple 403 when expired)
+✅ No duplicate entity ownership possible (409 on attempt)
+✅ Show status lifecycle works correctly
+✅ Both parties can edit shows (logged, no reconfirmation)
+✅ Either party can cancel shows
+✅ Promoters cannot access Touring features (403)
+
+================================================================================
+EDGE CASES & VALIDATIONS
+================================================================================
+1. User tries to create second entity:
+   → Backend returns 409 Conflict
+   → Message: "You already own an entity"
+
+2. Promoter tries to access /touring:
+   → Frontend hides link
+   → Backend returns 403 Forbidden
+
+3. Expired trial tries to create show:
+   → Backend returns 403 Forbidden
+   → Message: "Your trial has expired. Contact support to continue."
+
+4. Invite accepted by wrong entity type:
+   → Validation fails during onboarding
+   → Message: "This invite requires a [type] account"
+
+5. Show added to tour while already in tour:
+   → Warning modal: "This show is part of [Tour A]. Move to [Tour B]?"
+   → Options: Cancel / Move
+
+6. Show cancelled:
+   → Status → cancelled
+   → Show remains in database
+   → No notifications in MVP
+
+7. Tour deleted:
+   → All shows.tourId set to null (become standalone)
+   → Confirmation warning: "N shows will become standalone"
+
+8. User with no entity visits /invite/{token}:
+   → Redirected to sign in (if not authenticated)
+   → Then redirected to onboarding (type enforced)
+   → On completion: invite accepted, contact created
+
+9. Expired invite visited:
+   → Error: "This invite has expired"
+   → No recovery in MVP
+
+10. Contact already exists when accepting invite:
+    → Skip contact creation
+    → Still mark invite as accepted
+    → Still grant trial access (if applicable)
+
+================================================================================
+SUCCESS METRICS (MVP)
+================================================================================
+- ✅ Artists can create and manage tours
+- ✅ Artists can visualize promoter contacts on touring map
+- ✅ Shows can be created from map context
+- ✅ Chat works cleanly between connected entities
+- ✅ Invites successfully onboard new entities
+- ✅ No entity ownership duplication bugs
+- ✅ Promoters never see touring features
+
+================================================================================
+END OF MVP SPEC
+================================================================================

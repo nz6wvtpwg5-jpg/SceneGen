@@ -1,0 +1,1087 @@
+================================================================================
+SCENEGEN UI REFACTOR - STRICT EXECUTION PLAN
+================================================================================
+
+PROJECT: SceneGen V2
+OBJECTIVE: Full visual refactor to premium dark SaaS design system
+APPROACH: Systematic, token-driven, component-first, zero style drift
+
+================================================================================
+STRICT MODE RULES (ENFORCED AT ALL TIMES)
+================================================================================
+
+✓ ONLY use design tokens - NO invented colors/spacing
+✓ REMOVE all legacy styles (bg-gray*, bg-slate*, shadow-md, rounded-lg, etc)
+✓ REUSE shared components - NO inline styling
+✓ NO business logic changes - styling ONLY
+✓ CONSISTENT everywhere - same product feel
+✓ INCREMENTAL work - one step at a time
+✓ COMPILE after each step - NO breaking changes
+
+COLOR OPACITY RULES:
+✓ All Tailwind color utilities with opacity (e.g., bg-white/5, text-white/70)
+  MUST be mapped to approved design tokens or utility classes
+✓ NO mixing or inventing new opacity values outside the approved palette
+✓ Use ONLY: /5, /10, /20, /30, /40, /50, /60, /70, /80, /90 (approved values)
+✓ Map to semantic classes: .panel-dark, .text-primary, .text-secondary, etc.
+
+PANEL SYSTEM RULES:
+✓ Use ONLY: .panel-dark (base) or .panel-dark + .panel-glow (elevated)
+✓ NO inline gradients on panels (e.g., bg-gradient-to-br on divs/sections)
+✓ NO alternative panel styles—standardize on the approved panel classes
+✓ Panels are containers/cards/sections—they provide structure, not decoration
+
+GRADIENT USAGE RULES:
+✓ Gradients ALWAYS on buttons (via .btn-primary, .btn-secondary, etc.)
+✓ Gradients on text for emphasis (via .bg-gradient-to-r .text-transparent .bg-clip-text)
+✓ Gradients NEVER on panels, cards, or layout containers
+✓ Gradients create action/focus—they highlight, they don't decorate structure
+
+GRADIENT BACKGROUND RESTRICTION:
+✗ Do NOT use Tailwind gradient utilities (bg-gradient-*) for:
+  - panels
+  - cards
+  - page backgrounds
+  - layout containers
+
+✓ Allowed:
+  - .panel-dark (predefined gradient only)
+  - button gradients
+  - text gradients
+
+✓ If a gradient background is needed:
+  → it MUST be defined in design tokens or utility classes
+  → NEVER inline via Tailwind utilities (bg-gradient-to-br, etc.)
+
+================================================================================
+PHASE 0: DISCOVERY & AUDIT (READ ONLY - NO EDITS)
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [✓] Complete
+
+Discovered:
+✓ Framework: Next.js 14 (App Router)
+✓ Styling: Tailwind CSS
+✓ Component Location: /src/components/ui (Shadcn/ui based)
+✓ Global Styles: /src/app/globals.css + tailwind.config.ts
+✓ Pages: /src/app/** (App Router structure)
+
+Key Shared Components Found:
+- /src/components/ui/button.tsx
+- /src/components/ui/input.tsx
+- /src/components/ui/card.tsx
+- /src/components/ui/dialog.tsx
+- /src/components/ui/badge.tsx
+- /src/components/ui/tabs.tsx
+- /src/components/ui/select.tsx
+- /src/components/ui/textarea.tsx
+- /src/components/ui/label.tsx
+- /src/components/ui/skeleton.tsx
+
+Layout Components:
+- /src/components/Navbar.tsx
+- /src/components/Sidebar.tsx
+- /src/app/layout.tsx
+
+Core Pages to Refactor:
+- /src/app/page.tsx (Dashboard/Home)
+- /src/app/tours/** (Tours list & details)
+- /src/app/shows/** (Shows management)
+- /src/app/calendar/page.tsx
+- /src/app/budgets/page.tsx
+- /src/app/bookkeeping/page.tsx
+- /src/app/import/** (Import wizard)
+- /src/app/settings/**
+- Auth pages if any
+
+================================================================================
+PHASE 1: DESIGN TOKENS & FOUNDATION
+================================================================================
+
+Status: [ ] Not Started  [✓] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 1.1: Update tailwind.config.ts
+────────────────────────────────────────────────────────────────────────────────
+
+File: /tailwind.config.ts
+
+Actions:
+[✓] 1. Extend color palette with design tokens:
+     - background colors (bg-app, bg-surface, bg-elevated)
+     - text colors (text-primary, text-secondary, text-muted)
+     - border colors (border-soft, border-glow)
+     - accent colors (cyan, blue, indigo, purple)
+
+[✓] 2. Add gradient utilities:
+     - primary-gradient
+     - accent-gradient
+
+[✓] 3. Add custom box shadows:
+     - panel shadow
+     - glow shadow
+
+[✓] 4. Update border radius scale:
+     - xl: 16px
+     - 2xl: 20px
+     - 3xl: 28px
+
+[✓] 5. Add animations:
+     - gradient animation
+     - glow pulse
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 1.2: Update globals.css
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/globals.css
+
+Actions:
+[✓] 1. Update CSS variables for dark theme:
+     - Replace HSL variables with our hex/rgba tokens
+     - Set body background to #05070B
+     - Set default text to #F3F7FF
+
+[✓] 2. Create utility classes:
+     - .panel-dark
+     - .panel-glow
+     - .input-dark
+     - .btn-gradient
+     - .text-gradient-accent
+
+[✓] 3. Add custom scrollbar styles
+
+[✓] 4. Remove any conflicting legacy styles
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 1.3: Create TypeScript design tokens
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/styles/design-tokens.ts (NEW)
+
+Actions:
+[✓] 1. Export color constants
+[✓] 2. Export spacing scale
+[✓] 3. Export typography scale
+[✓] 4. Export shadow/glow definitions
+[✓] 5. Export gradient definitions
+[✓] 6. Add TypeScript types
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 1.4: Verify Foundation
+────────────────────────────────────────────────────────────────────────────────
+
+[✓] 1. Ensure app compiles
+[✓] 2. Check browser console for errors
+[✓] 3. Verify Tailwind is generating new utilities
+[ ] 4. Test one simple page with new tokens
+
+================================================================================
+PHASE 2: CORE UI COMPONENTS (SHARED/PRIMITIVES)
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.1: Button Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/ui/button.tsx
+
+Actions:
+[ ] 1. Refactor "default" variant:
+     - Use bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500
+     - White text (text-white)
+     - rounded-xl
+     - Add shadow-glow on hover
+     - font-semibold
+
+[ ] 2. Refactor "secondary" variant:
+     - bg-white/5
+     - border border-white/10
+     - text-white
+     - hover:bg-white/10
+     - rounded-xl
+
+[ ] 3. Refactor "ghost" variant:
+     - transparent
+     - text-white/70
+     - hover:text-white hover:bg-white/5
+     - rounded-xl
+
+[ ] 4. Refactor "destructive" variant:
+     - bg-red-500/10
+     - border border-red-500/20
+     - text-red-400
+     - hover:bg-red-500/20
+     - rounded-xl
+
+[ ] 5. Remove ALL legacy Shadcn styles
+[ ] 6. Test all button variants in isolation
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.2: Input Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/ui/input.tsx
+
+Actions:
+[ ] 1. Replace background with bg-white/5
+[ ] 2. Replace border with border-white/10
+[ ] 3. Add text-white for input text
+[ ] 4. Add placeholder:text-white/40
+[ ] 5. Add focus ring: focus:ring-2 focus:ring-cyan-500/50
+[ ] 6. Update radius to rounded-xl
+[ ] 7. Increase height to py-3
+[ ] 8. Remove legacy styles
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.3: Textarea Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/ui/textarea.tsx
+
+Actions:
+[ ] 1. Apply same styling as Input component
+[ ] 2. bg-white/5, border-white/10
+[ ] 3. text-white, placeholder:text-white/40
+[ ] 4. focus:ring-2 focus:ring-cyan-500/50
+[ ] 5. rounded-xl
+[ ] 6. min-h-[120px]
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.4: Card Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/ui/card.tsx
+
+Actions:
+[ ] 1. Card root:
+     - backdrop-blur-xl
+     - bg-gradient-to-br from-white/10 to-white/5
+     - border border-white/10
+     - rounded-2xl
+     - shadow-panel
+
+[ ] 2. CardHeader:
+     - p-6
+     - border-b border-white/10
+
+[ ] 3. CardTitle:
+     - text-xl font-bold text-white
+
+[ ] 4. CardDescription:
+     - text-sm text-white/70
+
+[ ] 5. CardContent:
+     - p-6
+
+[ ] 6. CardFooter:
+     - p-6 border-t border-white/10
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.5: Dialog/Modal Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/ui/dialog.tsx
+
+Actions:
+[ ] 1. DialogOverlay:
+     - bg-black/80
+     - backdrop-blur-sm
+
+[ ] 2. DialogContent:
+     - bg-[#151C2B]
+     - border border-white/10
+     - rounded-2xl
+     - shadow-glow
+     - text-white
+
+[ ] 3. DialogHeader:
+     - text-2xl font-bold
+
+[ ] 4. DialogDescription:
+     - text-white/70
+
+[ ] 5. DialogFooter buttons:
+     - use Button component variants
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.6: Badge Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/ui/badge.tsx
+
+Actions:
+[ ] 1. Create if doesn't exist
+[ ] 2. Variants:
+     - default: bg-white/10 border-white/20 text-white
+     - success: bg-green-500/10 border-green-500/20 text-green-300
+     - warning: bg-yellow-500/10 border-yellow-500/20 text-yellow-300
+     - error: bg-red-500/10 border-red-500/20 text-red-300
+     - info: bg-blue-500/10 border-blue-500/20 text-blue-300
+
+[ ] 3. All rounded-full
+[ ] 4. All font-semibold text-xs
+[ ] 5. px-3 py-1
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.7: Select Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/ui/select.tsx
+
+Actions:
+[ ] 1. SelectTrigger:
+     - bg-white/5
+     - border-white/10
+     - text-white
+     - rounded-xl
+     - focus:ring-2 focus:ring-cyan-500/50
+
+[ ] 2. SelectContent:
+     - bg-[#151C2B]
+     - border border-white/10
+     - rounded-xl
+     - shadow-glow
+
+[ ] 3. SelectItem:
+     - text-white/70
+     - hover:bg-white/10 hover:text-white
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.8: Label Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/ui/label.tsx
+
+Actions:
+[ ] 1. text-sm font-semibold text-white/90
+[ ] 2. mb-2
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.9: Tabs Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/ui/tabs.tsx
+
+Actions:
+[ ] 1. TabsList:
+     - bg-white/5
+     - border border-white/10
+     - rounded-xl
+     - p-1
+
+[ ] 2. TabsTrigger:
+     - text-white/70
+     - rounded-lg
+     - data-[state=active]:bg-white/10
+     - data-[state=active]:text-white
+     - hover:text-white
+
+[ ] 3. TabsContent:
+     - mt-6
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.10: Skeleton Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/ui/skeleton.tsx
+
+Actions:
+[ ] 1. bg-white/5
+[ ] 2. animate-pulse
+[ ] 3. rounded-xl
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 2.11: Component Verification
+────────────────────────────────────────────────────────────────────────────────
+
+[ ] 1. Test all components in isolation
+[ ] 2. Verify consistency across all variants
+[ ] 3. Check hover/focus states
+[ ] 4. Ensure app still compiles
+
+================================================================================
+PHASE 3: LAYOUT COMPONENTS (NAVBAR, SIDEBAR, MAIN LAYOUT)
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 3.1: Navbar Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/Navbar.tsx
+
+Actions:
+[ ] 1. Background:
+     - bg-[#05070B]/95 or bg-[#0B1018]
+     - backdrop-blur-xl
+     - border-b border-white/10
+
+[ ] 2. Logo section:
+     - text-white font-bold text-xl
+
+[ ] 3. Nav links:
+     - text-white/70
+     - hover:text-white
+     - transition-colors
+
+[ ] 4. Right section buttons:
+     - Sign Out: Button variant="ghost"
+     - Profile/Settings: Button variant="secondary"
+
+[ ] 5. Height: h-16 or h-20 (roomy)
+[ ] 6. Padding: px-6
+[ ] 7. Remove ALL old styling
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 3.2: Sidebar Component
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/components/Sidebar.tsx
+
+Actions:
+[ ] 1. Background:
+     - bg-[#0B1018]
+     - border-r border-white/10
+
+[ ] 2. Nav items:
+     - inactive: text-white/70 hover:text-white hover:bg-white/5
+     - active: text-white bg-white/10 border-l-2 border-cyan-400
+     - rounded-lg
+     - px-4 py-3
+     - transition-all
+
+[ ] 3. Icons:
+     - match text color
+     - mr-3
+
+[ ] 4. Section headers:
+     - text-white/50 text-xs uppercase font-semibold
+     - px-4 py-2
+
+[ ] 5. Profile section (if exists):
+     - border-t border-white/10
+     - p-4
+
+[ ] 6. Remove all old sidebar styling
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 3.3: Main Layout
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/layout.tsx
+
+Actions:
+[ ] 1. Root html/body:
+     - bg-[#05070B]
+     - text-white
+     - antialiased
+
+[ ] 2. Main content wrapper:
+     - min-h-screen
+     - bg-gradient-to-br from-[#05070B] via-[#070B12] to-[#05070B]
+
+[ ] 3. Ensure layout doesn't have conflicting backgrounds
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 3.4: Layout Verification
+────────────────────────────────────────────────────────────────────────────────
+
+[ ] 1. Test navigation works
+[ ] 2. Check sidebar active states
+[ ] 3. Verify no layout shifts
+[ ] 4. Ensure responsive behavior intact
+
+================================================================================
+PHASE 4: DASHBOARD / HOME PAGE
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 4.1: Dashboard Page
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/page.tsx
+
+Actions:
+[ ] 1. Page container:
+     - Remove any light backgrounds
+     - Use consistent padding (px-6 py-8)
+     - max-w-7xl mx-auto
+
+[ ] 2. Stats cards/metrics:
+     - Replace with panel-dark
+     - Use gradient text for numbers
+     - Add hover effects (scale-105, border-white/20)
+     - Add colored accents per metric type:
+       * Shows: blue
+       * Revenue: green
+       * Expenses: red
+       * Profit: blue/cyan
+       * Miles: purple
+
+[ ] 3. Charts/graphs (if any):
+     - Wrap in panel-dark
+     - Dark chart backgrounds
+     - Colored data lines
+
+[ ] 4. Recent activity/lists:
+     - Use panel-dark
+     - Row hover: bg-white/5
+     - Subtle dividers: border-white/5
+
+[ ] 5. CTAs:
+     - Use Button component (variant="default" for primary)
+
+[ ] 6. Replace ALL:
+     - bg-gray* → design tokens
+     - text-gray* → text-white/70 or text-white/50
+     - shadow-* → shadow-panel or shadow-glow
+     - rounded-lg → rounded-xl or rounded-2xl
+
+[ ] 7. Test page loads and functions correctly
+
+================================================================================
+PHASE 5: TOURS PAGES
+================================================================================
+
+Status: [ ] Not Started  [✓] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 5.1: Tours List Page
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/tours/page.tsx
+
+Actions:
+[ ] 1. Page background:
+     - bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950
+     - OR use consistent page wrapper
+
+[ ] 2. Page header:
+     - text-5xl font-bold
+     - gradient text for "Tours"
+     - text-white/70 for subtitle
+
+[ ] 3. Tour cards:
+     - Use panel-dark + panel-glow
+     - rounded-2xl
+     - border border-white/10
+     - hover:border-white/20 hover:scale-105
+     - p-6
+
+[ ] 4. Tour card content:
+     - Title: text-2xl font-bold text-white
+     - Dates: text-white/70
+     - Stats: gradient colored numbers
+
+[ ] 5. Create Tour button:
+     - Button component (default variant)
+
+[ ] 6. Empty state:
+     - panel-dark with centered content
+     - icon + text + CTA
+
+[ ] 7. Remove all legacy styling
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 5.2: Tour Details Page
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/tours/[id]/page.tsx
+
+Status: [✓] PARTIALLY COMPLETE (already refactored with modern design)
+
+Actions:
+[✓] 1. Page background - dark gradient ✓
+[✓] 2. Header section - gradient text ✓
+[✓] 3. Stats cards - gradient accents with hover ✓
+[✓] 4. Show cards - glass morphism with icons ✓
+[ ] 5. VERIFY consistency with other refactored pages
+[ ] 6. Final polish pass after other pages done
+
+================================================================================
+PHASE 6: SHOWS PAGES
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 6.1: Shows List Page
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/shows/page.tsx
+
+Actions:
+[ ] 1. Apply same treatment as tours list
+[ ] 2. Show cards: panel-dark with hover effects
+[ ] 3. Filters/search: input-dark styling
+[ ] 4. Status badges: Badge component
+[ ] 5. Action buttons: Button component
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 6.2: Show Details/Day Sheet
+────────────────────────────────────────────────────────────────────────────────
+
+Files: /src/app/shows/[id]/**
+
+Actions:
+[ ] 1. Day sheet layout: panel-dark sections
+[ ] 2. Forms: use Input/Textarea/Select components
+[ ] 3. Info cards: consistent panel styling
+[ ] 4. Action buttons: Button component
+[ ] 5. Status indicators: Badge component
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 6.3: Show Budget Page
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/shows/[id]/budget/page.tsx
+
+Actions:
+[ ] 1. Budget cards: panel-dark
+[ ] 2. Line items table: dark table styling
+[ ] 3. Forms: Input/Button components
+[ ] 4. Totals section: gradient colored numbers
+[ ] 5. Add/Edit modals: Dialog component
+
+================================================================================
+PHASE 7: CALENDAR PAGE
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 7.1: Calendar Page
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/calendar/page.tsx
+
+Actions:
+[ ] 1. Calendar container: panel-dark
+[ ] 2. Month navigation: Button components
+[ ] 3. Day cells:
+     - bg-white/5
+     - hover:bg-white/10
+     - rounded-lg
+     - border border-white/5
+
+[ ] 4. Event items:
+     - colored left border accent
+     - bg-white/5
+     - text-white text-xs
+     - rounded
+
+[ ] 5. Today indicator: border-cyan-400
+
+[ ] 6. Event modal: Dialog component
+[ ] 7. Forms: Input components
+
+================================================================================
+PHASE 8: BUDGETS & BOOKKEEPING PAGES
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 8.1: Budgets List Page
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/budgets/page.tsx
+
+Actions:
+[ ] 1. Budget cards: panel-dark + panel-glow
+[ ] 2. Tables: dark table with hover rows
+[ ] 3. Forms: Input/Select components
+[ ] 4. Financial numbers: gradient colored
+[ ] 5. Create budget button: Button default
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 8.2: Bookkeeping Page
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/bookkeeping/page.tsx
+
+Actions:
+[ ] 1. Transaction table: dark styling
+[ ] 2. Filter controls: Input/Select components
+[ ] 3. Summary cards: panel-dark
+[ ] 4. Action buttons: Button components
+
+================================================================================
+PHASE 9: IMPORT WIZARD
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 9.1: Import Steps Components
+────────────────────────────────────────────────────────────────────────────────
+
+Files: /src/app/import/components/**
+
+Actions:
+[ ] 1. Step indicators/progress:
+     - panel-dark
+     - active step: border-cyan-400 glow
+
+[ ] 2. File upload areas:
+     - dashed border-white/20
+     - bg-white/5
+     - hover:bg-white/10
+     - rounded-2xl
+
+[ ] 3. Data preview tables:
+     - dark table styling
+     - panel-dark wrapper
+
+[ ] 4. Validation messages:
+     - success: green accent
+     - error: red accent
+     - warning: yellow accent
+
+[ ] 5. Navigation buttons: Button components
+
+[ ] 6. Forms: Input components
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 9.2: Tour Origin/Destination Modal
+────────────────────────────────────────────────────────────────────────────────
+
+File: /src/app/import/components/TourOriginDestinationModal.tsx
+
+Actions:
+[ ] 1. Use Dialog component
+[ ] 2. Radio buttons: custom dark styling
+[ ] 3. City inputs: Input component
+[ ] 4. Buttons: Button component
+
+================================================================================
+PHASE 10: SETTINGS & PROFILE PAGES
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 10.1: Settings Pages
+────────────────────────────────────────────────────────────────────────────────
+
+Files: /src/app/settings/**
+
+Actions:
+[ ] 1. Settings container: panel-dark
+[ ] 2. Tabs: Tabs component
+[ ] 3. Forms: Input/Textarea/Select components
+[ ] 4. Save buttons: Button default
+[ ] 5. Danger zones: Button destructive
+
+================================================================================
+PHASE 11: AUTH PAGES (IF ANY)
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 11.1: Login/Signup Pages
+────────────────────────────────────────────────────────────────────────────────
+
+Files: /src/app/(auth)/** or /src/app/login/** etc.
+
+Actions:
+[ ] 1. Center card: panel-dark with max-w-md
+[ ] 2. Form title: text-3xl font-bold text-white
+[ ] 3. Inputs: Input component
+[ ] 4. Submit button: Button default (gradient)
+[ ] 5. Links: text-cyan-400 hover:text-cyan-300
+
+================================================================================
+PHASE 12: MODALS & OVERLAYS (SCAN ALL)
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 12.1: Find All Modal Usage
+────────────────────────────────────────────────────────────────────────────────
+
+[ ] 1. Search codebase for:
+     - "Dialog"
+     - "Modal"
+     - Custom modal components
+
+[ ] 2. List all modal locations:
+     - ___________________________
+     - ___________________________
+     - ___________________________
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 12.2: Refactor Each Modal
+────────────────────────────────────────────────────────────────────────────────
+
+For EACH modal found:
+[ ] 1. Use Dialog component from ui/dialog.tsx
+[ ] 2. DialogHeader: white bold title
+[ ] 3. DialogDescription: text-white/70
+[ ] 4. Form inputs: Input/Textarea components
+[ ] 5. Buttons: Button component
+[ ] 6. Remove legacy styling
+
+================================================================================
+PHASE 13: EMPTY STATES & ERROR STATES
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 13.1: Empty States
+────────────────────────────────────────────────────────────────────────────────
+
+Actions:
+[ ] 1. Find all empty state messages
+[ ] 2. Standardize structure:
+     - panel-dark container
+     - centered content
+     - icon (text-white/30, large)
+     - text-xl font-semibold text-white
+     - text-white/70 description
+     - Button default for CTA
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 13.2: Error States
+────────────────────────────────────────────────────────────────────────────────
+
+Actions:
+[ ] 1. Find all error messages
+[ ] 2. Standardize:
+     - bg-red-500/10
+     - border border-red-500/20
+     - text-red-400
+     - rounded-xl
+     - p-4
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 13.3: Loading States
+────────────────────────────────────────────────────────────────────────────────
+
+Actions:
+[ ] 1. Find all loading states
+[ ] 2. Use Skeleton component consistently
+[ ] 3. OR custom spinner:
+     - border-4 border-white/10 border-t-cyan-400
+     - rounded-full
+     - animate-spin
+
+================================================================================
+PHASE 14: CLEANUP & ENFORCEMENT PASS
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 14.1: Search & Destroy Legacy Styles
+────────────────────────────────────────────────────────────────────────────────
+
+Search entire codebase for:
+
+[ ] 1. bg-gray-* → replace with design tokens
+[ ] 2. bg-slate-* → replace with design tokens
+[ ] 3. bg-zinc-* → replace with design tokens
+[ ] 4. text-gray-* → replace with text-white variants
+[ ] 5. text-slate-* → replace with text-white variants
+[ ] 6. border-gray-* → replace with border-white/* or design tokens
+[ ] 7. shadow-sm, shadow-md, shadow-lg → replace with shadow-panel or shadow-glow
+[ ] 8. rounded-sm, rounded-md, rounded-lg → replace with rounded-xl, rounded-2xl
+[ ] 9. bg-white → verify if should be dark
+[ ] 10. text-black → replace with text-white
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 14.2: Component Duplication Check
+────────────────────────────────────────────────────────────────────────────────
+
+[ ] 1. Search for repeated button styling → use Button component
+[ ] 2. Search for repeated input styling → use Input component
+[ ] 3. Search for repeated card styling → use Card or panel-dark
+[ ] 4. Search for repeated modal styling → use Dialog component
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 14.3: Consistency Audit
+────────────────────────────────────────────────────────────────────────────────
+
+Walk through ENTIRE app in browser:
+
+[ ] 1. Every page uses consistent background
+[ ] 2. All buttons look the same per variant
+[ ] 3. All inputs look the same
+[ ] 4. All cards look the same
+[ ] 5. All modals look the same
+[ ] 6. Spacing feels consistent
+[ ] 7. Border radius consistent
+[ ] 8. Text hierarchy consistent
+[ ] 9. Hover effects consistent
+[ ] 10. No visual jarring between pages
+
+================================================================================
+PHASE 15: MOBILE RESPONSIVE CHECK
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 15.1: Mobile Breakpoints
+────────────────────────────────────────────────────────────────────────────────
+
+Test each page at mobile widths:
+
+[ ] 1. Text scales appropriately (text-4xl → text-3xl on mobile)
+[ ] 2. Grids collapse (grid-cols-5 → grid-cols-2 or grid-cols-1)
+[ ] 3. Padding reduces but stays premium
+[ ] 4. Buttons remain touchable (min h-12)
+[ ] 5. Modals work on small screens
+[ ] 6. Navigation adapts (hamburger menu)
+[ ] 7. Tables scroll or stack appropriately
+
+================================================================================
+PHASE 16: ACCESSIBILITY VERIFICATION
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 16.1: Contrast & Focus States
+────────────────────────────────────────────────────────────────────────────────
+
+[ ] 1. Text contrast meets WCAG AA (white on dark backgrounds ✓)
+[ ] 2. All interactive elements have visible focus rings
+[ ] 3. Focus rings are cyan/blue glow (consistent)
+[ ] 4. Links are distinguishable
+[ ] 5. Disabled states are clear
+
+================================================================================
+PHASE 17: PERFORMANCE CHECK
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 17.1: Build & Performance
+────────────────────────────────────────────────────────────────────────────────
+
+[ ] 1. Run production build
+[ ] 2. Check bundle size
+[ ] 3. Verify no build errors
+[ ] 4. Test page load times
+[ ] 5. Check for layout shifts
+[ ] 6. Verify animations are smooth (60fps)
+
+================================================================================
+PHASE 18: FINAL POLISH & QA
+================================================================================
+
+Status: [ ] Not Started  [ ] In Progress  [ ] Complete
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 18.1: Visual QA Checklist
+────────────────────────────────────────────────────────────────────────────────
+
+[ ] 1. Open every page in the app
+[ ] 2. Verify each matches the design system
+[ ] 3. Check all interactions
+[ ] 4. Test all forms
+[ ] 5. Test all modals
+[ ] 6. Verify no leftover legacy styling
+[ ] 7. Screenshot before/after for documentation
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 18.2: User Testing
+────────────────────────────────────────────────────────────────────────────────
+
+[ ] 1. Walk through main user flows
+[ ] 2. Verify nothing is broken
+[ ] 3. Check for visual regressions
+[ ] 4. Verify all features still work
+
+────────────────────────────────────────────────────────────────────────────────
+TASK 18.3: Documentation
+────────────────────────────────────────────────────────────────────────────────
+
+[ ] 1. Document design token usage
+[ ] 2. Create component usage guide
+[ ] 3. Add examples to shared components
+[ ] 4. Note any known issues or future enhancements
+
+================================================================================
+COMPLETION CRITERIA
+================================================================================
+
+The refactor is COMPLETE when:
+
+✓ ALL pages use design tokens exclusively
+✓ ALL shared components are refactored
+✓ ZERO legacy styles remain (no bg-gray*, text-gray*, etc.)
+✓ ENTIRE app feels like one cohesive premium product
+✓ Visual consistency is perfect across all pages
+✓ All functionality still works
+✓ Mobile responsive
+✓ Accessible
+✓ Build succeeds
+
+================================================================================
+RISK MITIGATION
+================================================================================
+
+To avoid breaking the app:
+
+1. Work on ONE component/page at a time
+2. Test after EACH change
+3. Use version control (commit frequently)
+4. Keep business logic untouched
+5. If something breaks → revert that specific change
+6. Don't refactor too many files in one go
+
+================================================================================
+ESTIMATED TIMELINE
+================================================================================
+
+Phase 1: Design Tokens                    [✓] DONE
+Phase 2: Core UI Components               [ ] 2-3 hours
+Phase 3: Layout Components                [ ] 1 hour
+Phase 4: Dashboard                        [ ] 1 hour
+Phase 5: Tours Pages                      [ ] 1.5 hours
+Phase 6: Shows Pages                      [ ] 2 hours
+Phase 7: Calendar                         [ ] 1 hour
+Phase 8: Budgets/Bookkeeping             [ ] 1.5 hours
+Phase 9: Import Wizard                    [ ] 1.5 hours
+Phase 10: Settings                        [ ] 1 hour
+Phase 11: Auth Pages                      [ ] 0.5 hours
+Phase 12: Modals                          [ ] 1 hour
+Phase 13: States (empty/error/loading)    [ ] 1 hour
+Phase 14: Cleanup Pass                    [ ] 2 hours
+Phase 15: Mobile Responsive               [ ] 2 hours
+Phase 16: Accessibility                   [ ] 1 hour
+Phase 17: Performance                     [ ] 0.5 hours
+Phase 18: Final QA                        [ ] 2 hours
+
+TOTAL ESTIMATED: 20-24 hours of focused work
+
+================================================================================
+NEXT IMMEDIATE ACTIONS
+================================================================================
+
+Current Status: Phase 1 Complete ✓
+
+Next Steps:
+1. [ ] Start Phase 2: Update Button component
+2. [ ] Update Input component
+3. [ ] Update Card component
+4. [ ] Update Dialog component
+5. [ ] Update remaining UI primitives
+
+Ready to proceed with Phase 2.
+
+================================================================================
+END OF EXECUTION PLAN
+================================================================================

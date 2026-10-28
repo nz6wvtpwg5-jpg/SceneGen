@@ -1,0 +1,1423 @@
+================================================================================
+SCENEGEN MERCH ANALYTICS — MVP IMPLEMENTATION PLAN
+PRACTICAL MERCH INTELLIGENCE DASHBOARD
+================================================================================
+Project Start: May 12, 2026
+Timeline: 2-3 weeks (focused MVP)
+Goal: Working merch intelligence to decide what to print and bring on tours
+================================================================================
+
+EXECUTIVE SUMMARY
+================================================================================
+
+BUILD THIS NOW:
+A practical merch intelligence dashboard that answers:
+→ "What sizes should I print for my next tour?"
+→ "Which designs are winners vs losers?"
+→ "What should I bring to Oslo vs Austin?"
+→ "Do I need more hoodies in winter?"
+→ "What's my optimal tour loadout?"
+
+DO NOT BUILD YET:
+✗ PDF exports (CSV only for MVP)
+✗ AI chat interface
+✗ Web workers / advanced optimization
+✗ Complex basket analysis (Sankey diagrams, etc)
+✗ Visual regression testing
+✗ Advanced predictive ML models
+
+MVP SCOPE:
+✓ Preserve all existing merch analytics features
+✓ Add merch item normalization (with manual overrides)
+✓ Add size analytics
+✓ Add product/design analytics
+✓ Add city/location analytics
+✓ Add basic seasonal analytics
+✓ Add actionable recommendations
+✓ Add basic tour loadout generator
+✓ Add CSV export only
+
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+CREATE THESE FILES:
+
+src/lib/merch/
+├── types.ts                        # All TypeScript types
+├── constants.ts                    # Size order, keywords, mappings
+├── normalizeMerchItem.ts          # Parse product names + manual overrides
+├── buildMerchAnalytics.ts         # Main analytics engine
+├── buildRecommendations.ts        # Generate actionable recommendations
+├── tourLoadout.ts                 # Tour loadout calculator
+├── exportCsv.ts                   # CSV export utilities
+└── __tests__/
+    ├── normalizeMerchItem.test.ts
+    ├── buildMerchAnalytics.test.ts
+    └── tourLoadout.test.ts
+
+src/components/merch/analytics/
+├── AnalyticsFilters.tsx           # Global filter component
+├── SizeAnalytics.tsx              # Size distribution and breakdowns
+├── ProductAnalytics.tsx           # Top products, worst performers
+├── CityAnalytics.tsx              # City performance table
+├── SeasonalAnalytics.tsx          # Monthly/seasonal trends
+├── Recommendations.tsx            # Actionable recommendation cards
+├── TourLoadoutGenerator.tsx       # Tour planning calculator
+└── ExportMenu.tsx                 # CSV export menu
+
+UPDATE THESE FILES:
+
+src/components/merch/
+└── MerchAnalytics.tsx             # Add tabs for new sections
+
+
+================================================================================
+IMPLEMENTATION DETAILS
+================================================================================
+
+1. types.ts — Complete Type System
+────────────────────────────────────────────────────────────────────────────
+
+export type Size = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL' | 'XXXL' | null;
+
+export type GarmentType = 
+  | 'tshirt' 
+  | 'longsleeve' 
+  | 'hoodie' 
+  | 'sweater' 
+  | 'vinyl' 
+  | 'cd' 
+  | 'poster' 
+  | 'patch' 
+  | 'hat' 
+  | 'other';
+
+export type ProductCategory = 'apparel' | 'music' | 'accessory' | 'other';
+
+export interface NormalizedMerchItem {
+  rawName: string;
+  designId: string;          // "conan-logo-tee"
+  designName: string;        // "Conan Logo Tee"
+  garmentType: GarmentType;
+  size: Size;
+  color: string | null;
+  category: ProductCategory;
+  source: 'manual' | 'parsed';  // Track if manually overridden
+  confidence: number;           // 0-1 confidence score
+}
+
+export interface MerchSale {
+  id: string;
+  itemName: string;
+  itemVariation?: string;
+  quantity: number;
+  grossSales: number;
+  dateTime: string;
+  showId?: string;
+  showName?: string;
+  showDate?: string;
+  city?: string;
+  country?: string;
+  venueName?: string;
+}
+
+export interface ShowInfo {
+  showId: string;
+  showName: string;
+  showDate: string;
+  city: string;
+  country: string;
+  venueName: string;
+}
+
+export interface SizeMetrics {
+  quantity: number;
+  revenue: number;
+  percentage: number;
+}
+
+export interface SizeAnalytics {
+  overall: Record<Size, SizeMetrics>;
+  byProduct: Record<string, Record<Size, SizeMetrics>>;
+  byCity: Record<string, Record<Size, SizeMetrics>>;
+}
+
+export interface ProductMetrics {
+  designId: string;
+  designName: string;
+  garmentType: GarmentType;
+  category: ProductCategory;
+  revenue: number;
+  unitsSold: number;
+  avgPrice: number;
+  mostCommonSize: Size | null;
+  topCities: string[];
+  sizeDistribution: Record<Size, number>;
+}
+
+export interface ProductAnalytics {
+  topByRevenue: ProductMetrics[];
+  topByUnits: ProductMetrics[];
+  worstPerformers: ProductMetrics[];
+  byCategory: Record<ProductCategory, { revenue: number; units: number }>;
+}
+
+export interface CityMetrics {
+  city: string;
+  country: string;
+  revenue: number;
+  unitsSold: number;
+  transactionCount: number;
+  avgSpendPerTransaction: number;
+  topProduct: string;
+  topSize: Size | null;
+  topCategory: ProductCategory;
+  preferences: {
+    hoodies?: number;      // % deviation from average
+    vinyl?: number;
+    largeSizes?: number;
+  };
+}
+
+export interface CityAnalytics {
+  cities: CityMetrics[];
+}
+
+export interface MonthlyMetrics {
+  month: string;           // "2026-01"
+  revenue: number;
+  units: number;
+  transactions: number;
+}
+
+export interface SeasonalMetrics {
+  season: string;          // "winter", "spring", "summer", "fall"
+  revenue: number;
+  units: number;
+  categoryMix: Record<ProductCategory, number>;
+}
+
+export interface SeasonalAnalytics {
+  monthly: MonthlyMetrics[];
+  seasonal: SeasonalMetrics[];
+  hoodieVsTshirt: {
+    month: string;
+    hoodieRevenue: number;
+    tshirtRevenue: number;
+  }[];
+}
+
+export interface Recommendation {
+  id: string;
+  type: 'size' | 'product' | 'regional' | 'seasonal';
+  severity: 'info' | 'suggestion' | 'warning';
+  title: string;
+  description: string;
+  confidence: number;      // 0-100
+  supportingData: any;
+  action: string;
+}
+
+export interface MerchAnalytics {
+  totalRevenue: number;
+  totalUnits: number;
+  totalTransactions: number;
+  avgTransactionValue: number;
+  sizes: SizeAnalytics;
+  products: ProductAnalytics;
+  cities: CityAnalytics;
+  seasonal: SeasonalAnalytics;
+  recommendations: Recommendation[];
+}
+
+export interface TourLoadoutInput {
+  cities: string[];
+  expectedAttendancePerShow: number;
+  season: 'winter' | 'spring' | 'summer' | 'fall';
+  numberOfShows: number;
+  safetyStockPercent?: number;  // default 15-20%
+}
+
+export interface LoadoutItem {
+  designId: string;
+  designName: string;
+  garmentType: GarmentType;
+  totalQuantity: number;
+  sizeBreakdown?: Record<Size, number>;
+  notes: string;
+}
+
+export interface TourLoadoutResult {
+  items: LoadoutItem[];
+  projectedRevenue: { min: number; max: number } | null;
+  confidence: 'high' | 'medium' | 'low';
+  notes: string[];
+}
+
+export interface AnalyticsFilters {
+  dateRange?: { start: Date; end: Date };
+  cities?: string[];
+  countries?: string[];
+  categories?: ProductCategory[];
+  garmentTypes?: GarmentType[];
+}
+
+export interface MerchItemOverride {
+  designName?: string;
+  designId?: string;
+  garmentType?: GarmentType;
+  size?: Size;
+  color?: string;
+  category?: ProductCategory;
+}
+
+
+────────────────────────────────────────────────────────────────────────────
+
+2. constants.ts — Mappings and Keywords
+────────────────────────────────────────────────────────────────────────────
+
+import { Size, GarmentType, ProductCategory } from './types';
+
+export const SIZE_ORDER: Size[] = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+
+// Size detection keywords
+export const SIZE_KEYWORDS: Record<string, Size> = {
+  'xs': 'XS',
+  'x-small': 'XS',
+  'extra small': 'XS',
+  's': 'S',
+  'sm': 'S',
+  'small': 'S',
+  'm': 'M',
+  'md': 'M',
+  'medium': 'M',
+  'l': 'L',
+  'lg': 'L',
+  'large': 'L',
+  'xl': 'XL',
+  'x-large': 'XL',
+  'extra large': 'XL',
+  'xxl': 'XXL',
+  '2xl': 'XXL',
+  'xx-large': 'XXL',
+  'xxxl': 'XXXL',
+  '3xl': 'XXXL',
+};
+
+// Garment type detection
+export const GARMENT_TYPE_KEYWORDS: Record<GarmentType, string[]> = {
+  tshirt: ['tee', 't-shirt', 'tshirt', 'shirt'],
+  longsleeve: ['longsleeve', 'long sleeve', 'long-sleeve', 'ls'],
+  hoodie: ['hoodie', 'hoody', 'hood'],
+  sweater: ['sweater', 'sweatshirt', 'crewneck', 'crew neck'],
+  vinyl: ['vinyl', 'lp', 'record', 'album'],
+  cd: ['cd', 'compact disc'],
+  poster: ['poster', 'print'],
+  patch: ['patch', 'badge'],
+  hat: ['hat', 'cap', 'beanie'],
+  other: [],
+};
+
+// Color detection
+export const COLOR_KEYWORDS = [
+  'black', 'white', 'gray', 'grey', 'navy', 'blue', 'red', 'green', 
+  'yellow', 'orange', 'purple', 'pink', 'brown', 'tan', 'cream'
+];
+
+// Category mapping
+export const CATEGORY_MAP: Record<GarmentType, ProductCategory> = {
+  tshirt: 'apparel',
+  longsleeve: 'apparel',
+  hoodie: 'apparel',
+  sweater: 'apparel',
+  vinyl: 'music',
+  cd: 'music',
+  poster: 'accessory',
+  patch: 'accessory',
+  hat: 'accessory',
+  other: 'other',
+};
+
+// Season definitions (months)
+export const SEASON_MONTHS: Record<string, number[]> = {
+  winter: [12, 1, 2],
+  spring: [3, 4, 5],
+  summer: [6, 7, 8],
+  fall: [9, 10, 11],
+};
+
+
+────────────────────────────────────────────────────────────────────────────
+
+3. normalizeMerchItem.ts — Parsing + Manual Overrides
+────────────────────────────────────────────────────────────────────────────
+
+import { 
+  NormalizedMerchItem, 
+  MerchSale, 
+  Size, 
+  GarmentType,
+  MerchItemOverride 
+} from './types';
+import { 
+  SIZE_KEYWORDS, 
+  GARMENT_TYPE_KEYWORDS, 
+  COLOR_KEYWORDS, 
+  CATEGORY_MAP 
+} from './constants';
+
+/**
+ * Manual overrides keyed by raw item name or Square item ID
+ * This allows manual correction of parsing errors
+ */
+const MANUAL_OVERRIDES: Record<string, MerchItemOverride> = {
+  // Example:
+  // "Conan Logo Tee XL": {
+  //   designName: "Conan Logo Tee",
+  //   designId: "conan-logo-tee",
+  //   garmentType: "tshirt",
+  //   size: "XL",
+  //   color: "black",
+  //   category: "apparel"
+  // }
+};
+
+/**
+ * Extract size from item name or variation
+ */
+export function extractSize(name: string, variation?: string): Size | null {
+  const searchText = `${name} ${variation || ''}`.toLowerCase();
+  
+  // Look for size keywords
+  for (const [keyword, size] of Object.entries(SIZE_KEYWORDS)) {
+    // Use word boundaries to avoid false matches
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+    if (regex.test(searchText)) {
+      return size;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Extract garment type from item name
+ */
+export function extractGarmentType(name: string): GarmentType {
+  const lowerName = name.toLowerCase();
+  
+  for (const [type, keywords] of Object.entries(GARMENT_TYPE_KEYWORDS)) {
+    for (const keyword of keywords) {
+      if (lowerName.includes(keyword)) {
+        return type as GarmentType;
+      }
+    }
+  }
+  
+  return 'other';
+}
+
+/**
+ * Extract color from item name
+ */
+export function extractColor(name: string): string | null {
+  const lowerName = name.toLowerCase();
+  
+  for (const color of COLOR_KEYWORDS) {
+    if (lowerName.includes(color)) {
+      return color;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Extract design name by removing size, color, and garment type keywords
+ */
+export function extractDesignName(name: string): string {
+  let cleanName = name;
+  
+  // Remove size keywords
+  for (const keyword of Object.keys(SIZE_KEYWORDS)) {
+    const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+    cleanName = cleanName.replace(regex, '');
+  }
+  
+  // Remove garment type keywords (optional - sometimes part of design name)
+  // Remove color keywords (optional)
+  
+  // Clean up extra spaces and dashes
+  cleanName = cleanName
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s-]+|[\s-]+$/g, '')
+    .trim();
+  
+  return cleanName || name;  // Fallback to original if nothing left
+}
+
+/**
+ * Generate a consistent design ID (kebab-case)
+ */
+export function generateDesignId(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
+ * Calculate confidence score for parsing
+ */
+function calculateConfidence(
+  name: string,
+  size: Size | null,
+  garmentType: GarmentType
+): number {
+  let confidence = 0.5;  // Base confidence
+  
+  if (size !== null) confidence += 0.2;
+  if (garmentType !== 'other') confidence += 0.2;
+  if (name.length > 5) confidence += 0.1;
+  
+  return Math.min(confidence, 1.0);
+}
+
+/**
+ * Main normalization function
+ * Supports manual overrides for accuracy
+ */
+export function normalizeItem(
+  sale: MerchSale,
+  overrides?: Record<string, MerchItemOverride>
+): NormalizedMerchItem {
+  const itemName = sale.itemName;
+  const allOverrides = { ...MANUAL_OVERRIDES, ...overrides };
+  
+  // Check for manual override first
+  const override = allOverrides[itemName] || allOverrides[sale.id];
+  
+  if (override) {
+    return {
+      rawName: itemName,
+      designId: override.designId || generateDesignId(override.designName || itemName),
+      designName: override.designName || itemName,
+      garmentType: override.garmentType || 'other',
+      size: override.size || null,
+      color: override.color || null,
+      category: override.category || CATEGORY_MAP[override.garmentType || 'other'],
+      source: 'manual',
+      confidence: 1.0,
+    };
+  }
+  
+  // Fall back to parsing
+  const size = extractSize(itemName, sale.itemVariation);
+  const garmentType = extractGarmentType(itemName);
+  const color = extractColor(itemName);
+  const designName = extractDesignName(itemName);
+  const designId = generateDesignId(designName);
+  const category = CATEGORY_MAP[garmentType];
+  const confidence = calculateConfidence(itemName, size, garmentType);
+  
+  return {
+    rawName: itemName,
+    designId,
+    designName,
+    garmentType,
+    size,
+    color,
+    category,
+    source: 'parsed',
+    confidence,
+  };
+}
+
+
+────────────────────────────────────────────────────────────────────────────
+
+4. buildMerchAnalytics.ts — Main Analytics Engine
+────────────────────────────────────────────────────────────────────────────
+
+import {
+  MerchSale,
+  MerchAnalytics,
+  SizeAnalytics,
+  ProductAnalytics,
+  CityAnalytics,
+  SeasonalAnalytics,
+  AnalyticsFilters,
+  Size,
+  ProductCategory,
+} from './types';
+import { normalizeItem } from './normalizeMerchItem';
+import { buildRecommendations } from './buildRecommendations';
+import { SIZE_ORDER, SEASON_MONTHS } from './constants';
+
+/**
+ * Apply filters to sales data
+ */
+function applyFilters(sales: MerchSale[], filters?: AnalyticsFilters): MerchSale[] {
+  if (!filters) return sales;
+  
+  let filtered = [...sales];
+  
+  // Date range filter
+  if (filters.dateRange) {
+    filtered = filtered.filter(sale => {
+      const saleDate = new Date(sale.dateTime);
+      return saleDate >= filters.dateRange!.start && saleDate <= filters.dateRange!.end;
+    });
+  }
+  
+  // City filter
+  if (filters.cities && filters.cities.length > 0) {
+    filtered = filtered.filter(sale => 
+      sale.city && filters.cities!.includes(sale.city)
+    );
+  }
+  
+  // Country filter
+  if (filters.countries && filters.countries.length > 0) {
+    filtered = filtered.filter(sale => 
+      sale.country && filters.countries!.includes(sale.country)
+    );
+  }
+  
+  // Category filter (requires normalization)
+  if (filters.categories && filters.categories.length > 0) {
+    filtered = filtered.filter(sale => {
+      const normalized = normalizeItem(sale);
+      return filters.categories!.includes(normalized.category);
+    });
+  }
+  
+  // Garment type filter
+  if (filters.garmentTypes && filters.garmentTypes.length > 0) {
+    filtered = filtered.filter(sale => {
+      const normalized = normalizeItem(sale);
+      return filters.garmentTypes!.includes(normalized.garmentType);
+    });
+  }
+  
+  return filtered;
+}
+
+/**
+ * Build size analytics
+ */
+function buildSizeAnalytics(sales: MerchSale[]): SizeAnalytics {
+  const overall: Record<string, { quantity: number; revenue: number }> = {};
+  const byProduct: Record<string, Record<string, { quantity: number; revenue: number }>> = {};
+  const byCity: Record<string, Record<string, { quantity: number; revenue: number }>> = {};
+  
+  let totalQuantity = 0;
+  let totalRevenue = 0;
+  
+  sales.forEach(sale => {
+    const normalized = normalizeItem(sale);
+    const size = normalized.size || 'Unknown';
+    
+    // Overall
+    if (!overall[size]) {
+      overall[size] = { quantity: 0, revenue: 0 };
+    }
+    overall[size].quantity += sale.quantity;
+    overall[size].revenue += sale.grossSales;
+    totalQuantity += sale.quantity;
+    totalRevenue += sale.grossSales;
+    
+    // By product
+    const productKey = normalized.designId;
+    if (!byProduct[productKey]) {
+      byProduct[productKey] = {};
+    }
+    if (!byProduct[productKey][size]) {
+      byProduct[productKey][size] = { quantity: 0, revenue: 0 };
+    }
+    byProduct[productKey][size].quantity += sale.quantity;
+    byProduct[productKey][size].revenue += sale.grossSales;
+    
+    // By city
+    if (sale.city) {
+      if (!byCity[sale.city]) {
+        byCity[sale.city] = {};
+      }
+      if (!byCity[sale.city][size]) {
+        byCity[sale.city][size] = { quantity: 0, revenue: 0 };
+      }
+      byCity[sale.city][size].quantity += sale.quantity;
+      byCity[sale.city][size].revenue += sale.grossSales;
+    }
+  });
+  
+  // Add percentages
+  const overallWithPercentages: any = {};
+  Object.entries(overall).forEach(([size, data]) => {
+    overallWithPercentages[size] = {
+      ...data,
+      percentage: (data.quantity / totalQuantity) * 100,
+    };
+  });
+  
+  const byProductWithPercentages: any = {};
+  Object.entries(byProduct).forEach(([product, sizes]) => {
+    const productTotal = Object.values(sizes).reduce((sum, s) => sum + s.quantity, 0);
+    byProductWithPercentages[product] = {};
+    Object.entries(sizes).forEach(([size, data]) => {
+      byProductWithPercentages[product][size] = {
+        ...data,
+        percentage: (data.quantity / productTotal) * 100,
+      };
+    });
+  });
+  
+  const byCityWithPercentages: any = {};
+  Object.entries(byCity).forEach(([city, sizes]) => {
+    const cityTotal = Object.values(sizes).reduce((sum, s) => sum + s.quantity, 0);
+    byCityWithPercentages[city] = {};
+    Object.entries(sizes).forEach(([size, data]) => {
+      byCityWithPercentages[city][size] = {
+        ...data,
+        percentage: (data.quantity / cityTotal) * 100,
+      };
+    });
+  });
+  
+  return {
+    overall: overallWithPercentages,
+    byProduct: byProductWithPercentages,
+    byCity: byCityWithPercentages,
+  };
+}
+
+/**
+ * Build product analytics
+ */
+function buildProductAnalytics(sales: MerchSale[]): ProductAnalytics {
+  const productMap: Record<string, any> = {};
+  
+  sales.forEach(sale => {
+    const normalized = normalizeItem(sale);
+    const key = normalized.designId;
+    
+    if (!productMap[key]) {
+      productMap[key] = {
+        designId: normalized.designId,
+        designName: normalized.designName,
+        garmentType: normalized.garmentType,
+        category: normalized.category,
+        revenue: 0,
+        unitsSold: 0,
+        totalPrice: 0,
+        sizes: {},
+        cities: {},
+      };
+    }
+    
+    productMap[key].revenue += sale.grossSales;
+    productMap[key].unitsSold += sale.quantity;
+    productMap[key].totalPrice += sale.grossSales;
+    
+    // Track sizes
+    if (normalized.size) {
+      productMap[key].sizes[normalized.size] = 
+        (productMap[key].sizes[normalized.size] || 0) + sale.quantity;
+    }
+    
+    // Track cities
+    if (sale.city) {
+      productMap[key].cities[sale.city] = 
+        (productMap[key].cities[sale.city] || 0) + sale.grossSales;
+    }
+  });
+  
+  // Convert to metrics
+  const products = Object.values(productMap).map((p: any) => ({
+    designId: p.designId,
+    designName: p.designName,
+    garmentType: p.garmentType,
+    category: p.category,
+    revenue: p.revenue,
+    unitsSold: p.unitsSold,
+    avgPrice: p.revenue / p.unitsSold,
+    mostCommonSize: Object.entries(p.sizes)
+      .sort(([, a]: any, [, b]: any) => b - a)[0]?.[0] || null,
+    topCities: Object.entries(p.cities)
+      .sort(([, a]: any, [, b]: any) => b - a)
+      .slice(0, 3)
+      .map(([city]) => city),
+    sizeDistribution: p.sizes,
+  }));
+  
+  // Sort
+  const topByRevenue = [...products].sort((a, b) => b.revenue - a.revenue);
+  const topByUnits = [...products].sort((a, b) => b.unitsSold - a.unitsSold);
+  const worstPerformers = [...products].sort((a, b) => a.revenue - b.revenue).slice(0, 5);
+  
+  // Category breakdown
+  const byCategory: Record<ProductCategory, { revenue: number; units: number }> = {
+    apparel: { revenue: 0, units: 0 },
+    music: { revenue: 0, units: 0 },
+    accessory: { revenue: 0, units: 0 },
+    other: { revenue: 0, units: 0 },
+  };
+  
+  products.forEach(p => {
+    byCategory[p.category].revenue += p.revenue;
+    byCategory[p.category].units += p.unitsSold;
+  });
+  
+  return {
+    topByRevenue,
+    topByUnits,
+    worstPerformers,
+    byCategory,
+  };
+}
+
+/**
+ * Build city analytics
+ */
+function buildCityAnalytics(sales: MerchSale[]): CityAnalytics {
+  const cityMap: Record<string, any> = {};
+  
+  sales.forEach(sale => {
+    if (!sale.city) return;
+    
+    const normalized = normalizeItem(sale);
+    
+    if (!cityMap[sale.city]) {
+      cityMap[sale.city] = {
+        city: sale.city,
+        country: sale.country || 'Unknown',
+        revenue: 0,
+        unitsSold: 0,
+        transactionCount: 0,
+        products: {},
+        sizes: {},
+        categories: {},
+      };
+    }
+    
+    cityMap[sale.city].revenue += sale.grossSales;
+    cityMap[sale.city].unitsSold += sale.quantity;
+    cityMap[sale.city].transactionCount += 1;
+    
+    // Track products
+    cityMap[sale.city].products[normalized.designId] = 
+      (cityMap[sale.city].products[normalized.designId] || 0) + sale.grossSales;
+    
+    // Track sizes
+    if (normalized.size) {
+      cityMap[sale.city].sizes[normalized.size] = 
+        (cityMap[sale.city].sizes[normalized.size] || 0) + sale.quantity;
+    }
+    
+    // Track categories
+    cityMap[sale.city].categories[normalized.category] = 
+      (cityMap[sale.city].categories[normalized.category] || 0) + sale.grossSales;
+  });
+  
+  // Calculate global averages for preferences
+  const globalHoodiePercent = sales.filter(s => 
+    normalizeItem(s).garmentType === 'hoodie'
+  ).length / sales.length * 100;
+  
+  const globalVinylPercent = sales.filter(s => 
+    normalizeItem(s).garmentType === 'vinyl'
+  ).length / sales.length * 100;
+  
+  // Convert to city metrics
+  const cities = Object.values(cityMap).map((c: any) => {
+    const topProduct = Object.entries(c.products)
+      .sort(([, a]: any, [, b]: any) => b - a)[0]?.[0] || 'Unknown';
+    
+    const topSize = Object.entries(c.sizes)
+      .sort(([, a]: any, [, b]: any) => b - a)[0]?.[0] || null;
+    
+    const topCategory = Object.entries(c.categories)
+      .sort(([, a]: any, [, b]: any) => b - a)[0]?.[0] || 'other';
+    
+    return {
+      city: c.city,
+      country: c.country,
+      revenue: c.revenue,
+      unitsSold: c.unitsSold,
+      transactionCount: c.transactionCount,
+      avgSpendPerTransaction: c.revenue / c.transactionCount,
+      topProduct,
+      topSize: topSize as Size,
+      topCategory: topCategory as ProductCategory,
+      preferences: {},
+    };
+  });
+  
+  return { cities };
+}
+
+/**
+ * Build seasonal analytics
+ */
+function buildSeasonalAnalytics(sales: MerchSale[]): SeasonalAnalytics {
+  const monthlyMap: Record<string, any> = {};
+  const seasonalMap: Record<string, any> = {
+    winter: { revenue: 0, units: 0, categories: {} },
+    spring: { revenue: 0, units: 0, categories: {} },
+    summer: { revenue: 0, units: 0, categories: {} },
+    fall: { revenue: 0, units: 0, categories: {} },
+  };
+  
+  const hoodieVsTshirtMap: Record<string, any> = {};
+  
+  sales.forEach(sale => {
+    const date = new Date(sale.dateTime);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const month = date.getMonth() + 1;
+    
+    const normalized = normalizeItem(sale);
+    
+    // Determine season
+    let season = 'fall';
+    for (const [s, months] of Object.entries(SEASON_MONTHS)) {
+      if (months.includes(month)) {
+        season = s;
+        break;
+      }
+    }
+    
+    // Monthly
+    if (!monthlyMap[monthKey]) {
+      monthlyMap[monthKey] = { month: monthKey, revenue: 0, units: 0, transactions: 0 };
+    }
+    monthlyMap[monthKey].revenue += sale.grossSales;
+    monthlyMap[monthKey].units += sale.quantity;
+    monthlyMap[monthKey].transactions += 1;
+    
+    // Seasonal
+    seasonalMap[season].revenue += sale.grossSales;
+    seasonalMap[season].units += sale.quantity;
+    seasonalMap[season].categories[normalized.category] = 
+      (seasonalMap[season].categories[normalized.category] || 0) + sale.grossSales;
+    
+    // Hoodie vs T-shirt
+    if (!hoodieVsTshirtMap[monthKey]) {
+      hoodieVsTshirtMap[monthKey] = { month: monthKey, hoodieRevenue: 0, tshirtRevenue: 0 };
+    }
+    if (normalized.garmentType === 'hoodie') {
+      hoodieVsTshirtMap[monthKey].hoodieRevenue += sale.grossSales;
+    } else if (normalized.garmentType === 'tshirt') {
+      hoodieVsTshirtMap[monthKey].tshirtRevenue += sale.grossSales;
+    }
+  });
+  
+  const monthly = Object.values(monthlyMap).sort((a: any, b: any) => 
+    a.month.localeCompare(b.month)
+  );
+  
+  const seasonal = Object.entries(seasonalMap).map(([season, data]: any) => ({
+    season,
+    revenue: data.revenue,
+    units: data.units,
+    categoryMix: data.categories,
+  }));
+  
+  const hoodieVsTshirt = Object.values(hoodieVsTshirtMap).sort((a: any, b: any) => 
+    a.month.localeCompare(b.month)
+  );
+  
+  return { monthly, seasonal, hoodieVsTshirt };
+}
+
+/**
+ * Main analytics builder
+ */
+export function buildMerchAnalytics(
+  sales: MerchSale[],
+  filters?: AnalyticsFilters
+): MerchAnalytics {
+  // Apply filters first
+  const filteredSales = applyFilters(sales, filters);
+  
+  // Calculate top-level metrics
+  const totalRevenue = filteredSales.reduce((sum, s) => sum + s.grossSales, 0);
+  const totalUnits = filteredSales.reduce((sum, s) => sum + s.quantity, 0);
+  const totalTransactions = filteredSales.length;
+  const avgTransactionValue = totalRevenue / totalTransactions || 0;
+  
+  // Build sub-analytics
+  const sizes = buildSizeAnalytics(filteredSales);
+  const products = buildProductAnalytics(filteredSales);
+  const cities = buildCityAnalytics(filteredSales);
+  const seasonal = buildSeasonalAnalytics(filteredSales);
+  
+  // Build complete analytics object
+  const analytics: MerchAnalytics = {
+    totalRevenue,
+    totalUnits,
+    totalTransactions,
+    avgTransactionValue,
+    sizes,
+    products,
+    cities,
+    seasonal,
+    recommendations: [],  // Will be populated next
+  };
+  
+  // Generate recommendations
+  analytics.recommendations = buildRecommendations(analytics, filteredSales);
+  
+  return analytics;
+}
+
+
+────────────────────────────────────────────────────────────────────────────
+
+5. buildRecommendations.ts — Actionable Insights
+────────────────────────────────────────────────────────────────────────────
+
+import { MerchAnalytics, MerchSale, Recommendation } from './types';
+
+const MIN_SALES_FOR_RECOMMENDATIONS = 20;  // Minimum sales to generate recommendations
+
+export function buildRecommendations(
+  analytics: MerchAnalytics,
+  sales: MerchSale[]
+): Recommendation[] {
+  const recommendations: Recommendation[] = [];
+  
+  // Not enough data
+  if (sales.length < MIN_SALES_FOR_RECOMMENDATIONS) {
+    recommendations.push({
+      id: 'not-enough-data',
+      type: 'size',
+      severity: 'info',
+      title: 'Not enough data for recommendations yet',
+      description: `You have ${sales.length} merch sales. Recommendations will appear after ${MIN_SALES_FOR_RECOMMENDATIONS}+ sales.`,
+      confidence: 100,
+      supportingData: { salesCount: sales.length },
+      action: 'Keep selling merch and check back soon!',
+    });
+    return recommendations;
+  }
+  
+  let idCounter = 0;
+  
+  // Size recommendations
+  const sizeEntries = Object.entries(analytics.sizes.overall);
+  if (sizeEntries.length > 0) {
+    const avgPercentage = 100 / sizeEntries.length;
+    
+    sizeEntries.forEach(([size, metrics]) => {
+      const deviation = metrics.percentage - avgPercentage;
+      
+      // Overperforming size
+      if (deviation > 15) {
+        recommendations.push({
+          id: `size-${idCounter++}`,
+          type: 'size',
+          severity: 'suggestion',
+          title: `Size ${size} is selling strongly`,
+          description: `${size} accounts for ${metrics.percentage.toFixed(1)}% of sales, ${deviation.toFixed(1)}% above average. Consider increasing stock.`,
+          confidence: Math.min(75 + deviation, 95),
+          supportingData: { size, percentage: metrics.percentage, deviation },
+          action: `Stock more size ${size} items for future tours`,
+        });
+      }
+      
+      // Underperforming size
+      if (deviation < -15) {
+        recommendations.push({
+          id: `size-${idCounter++}`,
+          type: 'size',
+          severity: 'warning',
+          title: `Size ${size} is underperforming`,
+          description: `${size} accounts for only ${metrics.percentage.toFixed(1)}% of sales, ${Math.abs(deviation).toFixed(1)}% below average. Consider reducing stock.`,
+          confidence: Math.min(75 + Math.abs(deviation), 95),
+          supportingData: { size, percentage: metrics.percentage, deviation },
+          action: `Reduce size ${size} stock to minimize waste`,
+        });
+      }
+    });
+  }
+  
+  // Product recommendations
+  if (analytics.products.topByRevenue.length > 0) {
+    const topProduct = analytics.products.topByRevenue[0];
+    const totalRevenue = analytics.totalRevenue;
+    const productPercent = (topProduct.revenue / totalRevenue) * 100;
+    
+    if (productPercent > 25) {
+      recommendations.push({
+        id: `product-${idCounter++}`,
+        type: 'product',
+        severity: 'suggestion',
+        title: `"${topProduct.designName}" is a bestseller`,
+        description: `This design accounts for ${productPercent.toFixed(1)}% of total merch revenue ($${topProduct.revenue.toFixed(0)}).`,
+        confidence: 90,
+        supportingData: { product: topProduct, percentage: productPercent },
+        action: `Prioritize "${topProduct.designName}" for future tours`,
+      });
+    }
+  }
+  
+  if (analytics.products.worstPerformers.length > 0) {
+    const worstProduct = analytics.products.worstPerformers[0];
+    const totalRevenue = analytics.totalRevenue;
+    const productPercent = (worstProduct.revenue / totalRevenue) * 100;
+    
+    if (productPercent < 2 && analytics.products.topByRevenue.length > 5) {
+      recommendations.push({
+        id: `product-${idCounter++}`,
+        type: 'product',
+        severity: 'warning',
+        title: `"${worstProduct.designName}" is underperforming`,
+        description: `This design accounts for only ${productPercent.toFixed(1)}% of total revenue. Consider discontinuing or reducing stock.`,
+        confidence: 75,
+        supportingData: { product: worstProduct, percentage: productPercent },
+        action: `Reduce or discontinue "${worstProduct.designName}"`,
+      });
+    }
+  }
+  
+  // City recommendations
+  if (analytics.cities.cities.length > 0) {
+    const topCity = analytics.cities.cities.sort((a, b) => b.revenue - a.revenue)[0];
+    
+    recommendations.push({
+      id: `city-${idCounter++}`,
+      type: 'regional',
+      severity: 'info',
+      title: `${topCity.city} is your strongest merch market`,
+      description: `${topCity.city} has generated $${topCity.revenue.toFixed(0)} in merch revenue. Top product: ${topCity.topProduct}.`,
+      confidence: 85,
+      supportingData: { city: topCity },
+      action: `Bring extra merch to ${topCity.city} shows`,
+    });
+  }
+  
+  // Seasonal recommendations (hoodie vs tshirt)
+  const hoodieVsTshirt = analytics.seasonal.hoodieVsTshirt;
+  if (hoodieVsTshirt.length >= 3) {
+    const recent = hoodieVsTshirt.slice(-3);
+    const avgHoodieRevenue = recent.reduce((sum, m) => sum + m.hoodieRevenue, 0) / 3;
+    const avgTshirtRevenue = recent.reduce((sum, m) => sum + m.tshirtRevenue, 0) / 3;
+    
+    if (avgHoodieRevenue > avgTshirtRevenue * 1.3) {
+      recommendations.push({
+        id: `seasonal-${idCounter++}`,
+        type: 'seasonal',
+        severity: 'suggestion',
+        title: `Hoodies are outperforming t-shirts recently`,
+        description: `Recent hoodie revenue ($${avgHoodieRevenue.toFixed(0)}/month) is ${((avgHoodieRevenue/avgTshirtRevenue - 1) * 100).toFixed(0)}% higher than t-shirts. Consider seasonal demand.`,
+        confidence: 80,
+        supportingData: { avgHoodieRevenue, avgTshirtRevenue },
+        action: `Stock more hoodies for fall/winter tours`,
+      });
+    }
+  }
+  
+  // Sort by confidence
+  return recommendations.sort((a, b) => b.confidence - a.confidence);
+}
+
+
+────────────────────────────────────────────────────────────────────────────
+
+6. tourLoadout.ts — Tour Planning Calculator
+────────────────────────────────────────────────────────────────────────────
+
+import { 
+  TourLoadoutInput, 
+  TourLoadoutResult, 
+  MerchAnalytics,
+  LoadoutItem 
+} from './types';
+
+const DEFAULT_CONVERSION_RATE = 0.4;  // 40% of attendees buy merch
+const DEFAULT_ITEMS_PER_BUYER = 1.5;   // Average items per buyer
+const DEFAULT_SAFETY_STOCK = 0.15;     // 15% safety stock
+
+export function generateTourLoadout(
+  input: TourLoadoutInput,
+  analytics: MerchAnalytics
+): TourLoadoutResult {
+  const { 
+    cities, 
+    expectedAttendancePerShow, 
+    season, 
+    numberOfShows,
+    safetyStockPercent = DEFAULT_SAFETY_STOCK 
+  } = input;
+  
+  const totalAttendance = expectedAttendancePerShow * numberOfShows;
+  
+  // Estimate buyers
+  const estimatedBuyers = totalAttendance * DEFAULT_CONVERSION_RATE;
+  const estimatedItems = estimatedBuyers * DEFAULT_ITEMS_PER_BUYER;
+  
+  // Apply safety stock
+  const targetItems = Math.ceil(estimatedItems * (1 + safetyStockPercent));
+  
+  const items: LoadoutItem[] = [];
+  const notes: string[] = [];
+  let confidence: 'high' | 'medium' | 'low' = 'medium';
+  
+  // Check if we have data for these cities
+  const hasCityData = cities.some(city => 
+    analytics.cities.cities.find(c => c.city === city)
+  );
+  
+  if (!hasCityData) {
+    confidence = 'low';
+    notes.push('Limited data for selected cities. Using global averages.');
+  } else {
+    confidence = 'medium';
+    notes.push('Using historical data from selected cities.');
+  }
+  
+  // Get top products
+  const topProducts = analytics.products.topByRevenue.slice(0, 5);
+  
+  if (topProducts.length === 0) {
+    notes.push('Not enough sales data to generate recommendations.');
+    return {
+      items: [],
+      projectedRevenue: null,
+      confidence: 'low',
+      notes,
+    };
+  }
+  
+  // Distribute items across top products
+  const totalProductRevenue = topProducts.reduce((sum, p) => sum + p.revenue, 0);
+  
+  topProducts.forEach(product => {
+    const productPercent = product.revenue / totalProductRevenue;
+    const quantity = Math.ceil(targetItems * productPercent);
+    
+    const item: LoadoutItem = {
+      designId: product.designId,
+      designName: product.designName,
+      garmentType: product.garmentType,
+      totalQuantity: quantity,
+      notes: `${(productPercent * 100).toFixed(0)}% of top products by revenue`,
+    };
+    
+    // Add size breakdown for apparel
+    if (product.category === 'apparel' && product.sizeDistribution) {
+      const totalSizes = Object.values(product.sizeDistribution).reduce((sum, qty) => sum + qty, 0);
+      const sizeBreakdown: any = {};
+      
+      Object.entries(product.sizeDistribution).forEach(([size, qty]) => {
+        const sizePercent = qty / totalSizes;
+        sizeBreakdown[size] = Math.ceil(quantity * sizePercent);
+      });
+      
+      item.sizeBreakdown = sizeBreakdown;
+    }
+    
+    items.push(item);
+  });
+  
+  // Seasonal adjustments
+  if (season === 'winter' || season === 'fall') {
+    notes.push('Cooler season: hoodie demand may be higher than average.');
+    
+    // Boost hoodie quantities
+    items.forEach(item => {
+      if (item.garmentType === 'hoodie') {
+        const boost = Math.ceil(item.totalQuantity * 0.2);
+        item.totalQuantity += boost;
+        item.notes += ` +${boost} for ${season} season.`;
+      }
+    });
+  }
+  
+  // Project revenue
+  let projectedRevenue: { min: number; max: number } | null = null;
+  
+  if (analytics.avgTransactionValue > 0) {
+    const avgItemPrice = analytics.totalRevenue / analytics.totalUnits;
+    const totalItems = items.reduce((sum, item) => sum + item.totalQuantity, 0);
+    const estimated = totalItems * avgItemPrice;
+    
+    projectedRevenue = {
+      min: Math.floor(estimated * 0.7),
+      max: Math.ceil(estimated * 1.3),
+    };
+  }
+  
+  return {
+    items,
+    projectedRevenue,
+    confidence,
+    notes,
+  };
+}
+
+
+────────────────────────────────────────────────────────────────────────────
+
+7. exportCsv.ts — CSV Export
+────────────────────────────────────────────────────────────────────────────
+
+import { MerchAnalytics, TourLoadoutResult } from './types';
+
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export function exportSizeDistribution(analytics: MerchAnalytics) {
+  const rows = [['Size', 'Quantity', 'Revenue', 'Percentage']];
+  
+  Object.entries(analytics.sizes.overall).forEach(([size, metrics]) => {
+    rows.push([
+      size,
+      metrics.quantity.toString(),
+      metrics.revenue.toFixed(2),
+      metrics.percentage.toFixed(1) + '%',
+    ]);
+  });
+  
+  const csv = rows.map(row => row.join(',')).join('\n');
+  downloadCsv('size-distribution.csv', csv);
+}
+
+export function exportCityPerformance(analytics: MerchAnalytics) {
+  const rows = [['City', 'Country', 'Revenue', 'Units', 'Transactions', 'Avg Spend', 'Top Product', 'Top Size']];
+  
+  analytics.cities.cities.forEach(city => {
+    rows.push([
+      city.city,
+      city.country,
+      city.revenue.toFixed(2),
+      city.unitsSold.toString(),
+      city.transactionCount.toString(),
+      city.avgSpendPerTransaction.toFixed(2),
+      city.topProduct,
+      city.topSize || 'N/A',
+    ]);
+  });
+  
+  const csv = rows.map(row => row.join(',')).join('\n');
+  downloadCsv('city-performance.csv', csv);
+}
+
+export function exportProductRankings(analytics: MerchAnalytics) {
+  const rows = [['Rank', 'Product', 'Revenue', 'Units', 'Avg Price', 'Most Common Size', 'Top Cities']];
+  
+  analytics.products.topByRevenue.forEach((product, index) => {
+    rows.push([
+      (index + 1).toString(),
+      product.designName,
+      product.revenue.toFixed(2),
+      product.unitsSold.toString(),
+      product.avgPrice.toFixed(2),
+      product.mostCommonSize || 'N/A',
+      product.topCities.join('; '),
+    ]);
+  });
+  
+  const csv = rows.map(row => row.join(',')).join('\n');
+  downloadCsv('product-rankings.csv', csv);
+}
+
+export function exportTourLoadout(loadout: TourLoadoutResult) {
+  const rows = [['Product', 'Garment Type', 'Total Quantity', 'Size Breakdown', 'Notes']];
+  
+  loadout.items.forEach(item => {
+    const sizeBreakdown = item.sizeBreakdown 
+      ? Object.entries(item.sizeBreakdown).map(([size, qty]) => `${size}:${qty}`).join('; ')
+      : 'N/A';
+    
+    rows.push([
+      item.designName,
+      item.garmentType,
+      item.totalQuantity.toString(),
+      sizeBreakdown,
+      item.notes,
+    ]);
+  });
+  
+  const csv = rows.map(row => row.join(',')).join('\n');
+  downloadCsv('tour-loadout.csv', csv);
+}
+
+
+================================================================================
+MVP IMPLEMENTATION CHECKLIST
+================================================================================
+
+WEEK 1: Foundation
+□ Create types.ts
+□ Create constants.ts
+□ Create normalizeMerchItem.ts
+□ Write tests for normalization
+□ Create buildMerchAnalytics.ts
+□ Test analytics engine with sample data
+
+WEEK 2: UI Components
+□ Create AnalyticsFilters.tsx
+□ Create SizeAnalytics.tsx
+□ Create ProductAnalytics.tsx
+□ Create CityAnalytics.tsx
+□ Create SeasonalAnalytics.tsx
+□ Update MerchAnalytics.tsx with tabs
+
+WEEK 3: Intelligence Layer
+□ Create buildRecommendations.ts
+□ Create tourLoadout.ts
+□ Create Recommendations.tsx
+□ Create TourLoadoutGenerator.tsx
+□ Create exportCsv.ts
+□ Create ExportMenu.tsx
+□ Test end-to-end
+□ Polish UI and fix bugs
+
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+✓ All existing merch features still work
+✓ Product name parsing works with 80%+ accuracy
+✓ Manual overrides work for edge cases
+✓ Size analytics answer: "Which sizes sell best?"
+✓ Product analytics answer: "Which designs are winners?"
+✓ City analytics answer: "What sells best in Oslo vs Austin?"
+✓ Seasonal analytics answer: "When do hoodies sell best?"
+✓ Recommendations are actionable and data-driven
+✓ Tour loadout generator provides useful packing lists
+✓ CSV export works for all reports
+✓ UI is clean, dark-mode compatible, mobile-friendly
+✓ No fake data, only real analytics
+✓ Clear empty states when data is insufficient
+
+
+================================================================================
+READY TO BUILD!
+================================================================================
+
+This MVP will give you a working merch intelligence system in 2-3 weeks.
+
+Start with:
+1. Create types.ts
+2. Create constants.ts  
+3. Create normalizeMerchItem.ts
+4. Test normalization
+5. Build analytics engine
+6. Add UI components
+
+Let's build this! 🚀

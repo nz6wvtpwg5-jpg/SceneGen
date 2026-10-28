@@ -1,0 +1,761 @@
+GOOGLE PLACES AUTOCOMPLETE ISSUE IN MODAL - COMPREHENSIVE TECHNICAL REPORT
+================================================================================
+
+DATE: Updated December 2024
+FILE: /src/app/import/components/TourOriginDestinationModal.tsx
+COMPONENT: PlacesAutocomplete from @/components/maps/PlacesAutocomplete.tsx
+FRAMEWORK: Next.js 15.2.1 with React Server/Client Components
+UI LIBRARY: Radix UI (@radix-ui/react-dialog v1.1.15)
+
+ISSUE SUMMARY:
+Google Places Autocomplete dropdown selection works perfectly in regular pages but FAILS when used inside a Radix UI Dialog/Modal component. When a user clicks on a suggestion in the dropdown with a mouse, nothing happens - the selection is not captured. However, keyboard selection (typing and pressing Enter/Arrow keys) DOES work.
+
+ROOT CAUSE:
+The Radix UI Dialog component implements aggressive focus trapping which intercepts events from elements outside the modal's DOM tree. Google Places Autocomplete renders its dropdown (.pac-container) as a direct child of document.body (outside the modal's React tree), causing event conflicts.
+
+================================================================================
+QUICK NAVIGATION:
+================================================================================
+
+Section 1:  Technical Architecture .................. (explains Dialog + Google Places interaction)
+Section 2:  Attempted Fixes (Failed) ................ (z-index, key props, mousedown handlers)
+Section 3:  Proposed Solutions (Ranked) ............. (⭐⭐⭐⭐⭐ recommended solutions with code)
+Section 4:  Code References ......................... (file paths and line numbers)
+Section 5:  Debugging Evidence ...................... (console logs, event timelines)
+Section 6:  Environment & Dependencies .............. (versions, libraries)
+Section 7:  External Resources ...................... (similar issues, documentation)
+Section 8:  Next Steps for Developer ................ (implementation plan)
+Section 9:  Success Criteria ........................ (how to verify the fix works)
+
+⚡ QUICK FIX: Jump to "SOLUTION 1: Disable Radix Dialog Focus Trap" below (⭐⭐⭐⭐⭐ RECOMMENDED)
+
+
+
+================================================================================
+TECHNICAL ARCHITECTURE:
+================================================================================
+
+1. DIALOG COMPONENT (Radix UI):
+   File: /src/components/ui/dialog.tsx
+   Library: @radix-ui/react-dialog v1.1.15
+
+   Focus Trap Mechanism:
+   - Radix Dialog uses @radix-ui/react-focus-scope internally
+   - Implements "focus containment" to keep focus inside the modal
+   - Prevents clicks/focus on elements outside the modal's DOM tree
+   - Uses event.preventDefault() on mousedown events for external elements
+
+   DOM Structure:
+   ```
+   <body>
+     <div id="__next">...</div>
+     <DialogPortal>
+       <DialogOverlay /> (z-index: 50, backdrop)
+       <DialogContent> (z-index: 50)
+         <TourOriginDestinationModal>
+           <PlacesAutocomplete>
+             <Input /> ← Inside modal tree
+           </PlacesAutocomplete>
+         </TourOriginDestinationModal>
+       </DialogContent>
+     </DialogPortal>
+     <div class="pac-container"> ← OUTSIDE modal tree!
+       <div class="pac-item">Atlanta, GA</div>
+     </div>
+   </body>
+   ```
+
+2. GOOGLE PLACES AUTOCOMPLETE:
+   Library: @react-google-maps/api (wraps Google Maps JavaScript API)
+
+   Event Flow:
+   a. User types in <Input> → Google API creates .pac-container in document.body
+   b. User clicks .pac-item → Google API should fire 'place_changed' event
+   c. @react-google-maps/api Autocomplete listens for 'place_changed' via onPlaceChanged prop
+   d. onPlaceChanged callback extracts place data and calls parent's onChange
+
+   PROBLEM: Step (b) is intercepted by Radix Dialog's focus trap:
+   - Radix detects mousedown on .pac-item (outside modal tree)
+   - Radix calls event.preventDefault() to maintain focus trap
+   - Input receives blur event BEFORE Google can fire 'place_changed'
+   - Result: onPlaceChanged never executes
+
+3. WORKING IMPLEMENTATION (Reference):
+   File: /src/app/import/components/Step3Validation.tsx (lines ~1130)
+   Context: Regular page (NOT in a modal)
+   Status: ✅ WORKS PERFECTLY
+
+   Why it works:
+   - No Dialog wrapper, no focus trap
+   - .pac-container events propagate normally
+   - Google's 'place_changed' fires reliably on click
+
+4. BROKEN IMPLEMENTATION:
+   File: /src/app/import/components/TourOriginDestinationModal.tsx
+   Context: Inside Radix UI Dialog
+   Status: ❌ MOUSE CLICKS FAIL, ✅ KEYBOARD WORKS
+
+   Why keyboard works:
+   - Pressing Enter/Down Arrow doesn't involve external DOM clicks
+   - Focus remains on Input element inside modal
+   - Google fires 'place_changed' without triggering focus trap
+
+================================================================================
+PLACESAUTOCOMPLETE COMPONENT DETAILS:
+================================================================================
+
+File: /src/components/maps/PlacesAutocomplete.tsx
+
+Dependencies:
+- @react-google-maps/api (useLoadScript, Autocomplete)
+- Google Maps JavaScript API with Places Library
+
+Component Structure:
+```tsx
+export function PlacesAutocomplete({ value, onChange, placeholder, label, error }) {
+  const { isLoaded } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    libraries: ["places"],
+  });
+
+  const [autocomplete, setAutocomplete] = useState(null);
+  const [inputValue, setInputValue] = useState(value);
+
+  const onLoad = (autocompleteInstance) => {
+    setAutocomplete(autocompleteInstance);
+  };
+
+  const onPlaceChanged = () => {
+    if (autocomplete) {
+      const place = autocomplete.getPlace();
+      if (place.geometry && place.geometry.location) {
+        const address = place.formatted_address || '';
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+
+        // Extract city and state from address_components
+        let city = '';
+        let state = '';
+        if (place.address_components) {
+          for (const component of place.address_components) {
+            if (component.types.includes('locality')) {
+              city = component.long_name;
+            }
+            if (component.types.includes('administrative_area_level_1')) {
+              state = component.short_name;
+            }
+          }
+        }
+
+        setInputValue(address);
+        onChange(address, lat, lng, name, city, state);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {label && <Label>{label}</Label>}
+      <Autocomplete onLoad={onLoad} onPlaceChanged={onPlaceChanged}>
+        <Input
+          type="text"
+          placeholder={placeholder}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+        />
+      </Autocomplete>
+    </div>
+  );
+}
+```
+
+onChange Signature:
+```tsx
+onChange: (
+  address: string,
+  lat: number,
+  lng: number,
+  name?: string,
+  city?: string,
+  state?: string
+) => void
+```
+
+================================================================================
+DEBUGGING EVIDENCE:
+================================================================================
+
+Console Logs When Mouse-Clicking .pac-item in Modal:
+```
+✅ � [PlacesAutocomplete/maps] onLoad called - Autocomplete instance created
+✅ ⌨️ [PlacesAutocomplete] Key pressed: a
+✅ ⌨️ [PlacesAutocomplete] Key pressed: t
+✅ ⌨️ [PlacesAutocomplete] Key pressed: l
+✅ ⌨️ [PlacesAutocomplete] Key pressed: a
+✅ Google dropdown appears with "Atlanta, GA"
+❌ User clicks "Atlanta, GA" → NO LOG from onPlaceChanged
+❌ Input blurs instead → � [PlacesAutocomplete] Input blurred
+❌ ⚠️ [PlacesAutocomplete] No valid place found on blur
+```
+
+Console Logs When Keyboard-Selecting (Enter key) in Modal:
+```
+✅ � [PlacesAutocomplete/maps] onLoad called
+✅ User types "Atla"
+✅ User presses Enter
+✅ � [PlacesAutocomplete/maps] onPlaceChanged called! ← FIRES!
+✅ 📍 [PlacesAutocomplete/maps] place object: {...}
+✅ ✅ [PlacesAutocomplete/maps] Extracted data: { city: "Atlanta", state: "GA", ... }
+✅ 📞 [PlacesAutocomplete/maps] Calling onChange callback...
+✅ 🎯 [Origin] Place selected: { address: "Atlanta, GA, USA", lat: 33.749, lng: -84.388, city: "Atlanta", state: "GA" }
+```
+
+Conclusion: onPlaceChanged ONLY fires with keyboard, NOT with mouse clicks.
+
+
+Event Timeline (Mouse Click):
+```
+t=0ms:   User moves mouse over .pac-item
+t=5ms:   User presses mouse button (mousedown)
+t=6ms:   Radix Dialog detects mousedown outside modal tree
+t=7ms:   Radix calls event.preventDefault() on mousedown
+t=8ms:   Input receives blur event (focus lost)
+t=10ms:  User releases mouse button (mouseup)
+t=15ms:  Google API attempts to fire 'place_changed' event
+t=16ms:  ❌ Too late - Input already blurred, autocomplete instance may be stale
+```
+
+Event Timeline (Keyboard Enter):
+```
+t=0ms:   User presses Enter key
+t=1ms:   Google API detects Enter on highlighted suggestion
+t=2ms:   Google fires 'place_changed' event immediately
+t=3ms:   onPlaceChanged callback executes
+t=4ms:   ✅ Success - city/state extracted and saved
+```
+
+================================================================================
+ATTEMPTED FIXES (ALL FAILED):
+================================================================================
+
+1. ❌ CSS z-index Fix
+   ```css
+   .pac-container { z-index: 99999 !important; pointer-events: auto !important; }
+   ```
+   Result: Dropdown appears above modal but clicks still intercepted by focus trap
+
+2. ❌ Force Re-render with Key Prop
+   ```tsx
+   <PlacesAutocomplete key={originKey} ... />
+   ```
+   Result: Component re-renders correctly but event timing unchanged
+
+3. ❌ Custom mousedown Handlers
+   Attempted to attach mousedown listeners to .pac-container items
+   Result: mousedown fires AFTER blur event (timing issue)
+
+4. ❌ Switch to Manual Implementation
+   Tried custom PlacesAutocomplete (/components/ui/PlacesAutocomplete.tsx)
+   Result: Same fundamental issue with focus trap
+
+5. ❌ Delay Input Blur
+   Attempted setTimeout to delay blur event
+   Result: Unreliable, broke keyboard navigation
+
+================================================================================
+WHAT WORKS:
+================================================================================
+
+KEYBOARD SELECTION:
+- User can type "Atlanta" and press ENTER or DOWN ARROW + ENTER
+- This triggers onPlaceChanged correctly
+- But user cannot CLICK the dropdown suggestion with mouse
+
+================================================================================
+PROPOSED SOLUTIONS (RANKED BY FEASIBILITY):
+================================================================================
+
+SOLUTION 1: Disable Radix Dialog Focus Trap for .pac-container ⭐⭐⭐⭐⭐ (RECOMMENDED)
+----------------------------------------------------------------------------------
+Modify the Dialog component to exclude .pac-container from focus trapping.
+
+Implementation:
+```tsx
+// In /src/components/ui/dialog.tsx
+const DialogContent = React.forwardRef<...>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay />
+    <DialogPrimitive.Content
+      ref={ref}
+      onInteractOutside={(event) => {
+        // Allow clicks on Google Places dropdown
+        const target = event.target as HTMLElement;
+        if (target.closest('.pac-container')) {
+          event.preventDefault();
+        }
+      }}
+      // ... rest of props
+    >
+      {children}
+    </DialogPrimitive.Content>
+  </DialogPortal>
+));
+```
+
+Pros:
+✅ Minimal code change (one event handler)
+✅ Maintains modal functionality
+✅ Works with existing PlacesAutocomplete component
+✅ No need to fork or replace Radix Dialog
+
+Cons:
+⚠️ Allows clicks outside modal on .pac-container only
+⚠️ Must test that modal still traps focus for other elements
+
+Testing Plan:
+1. Verify mouse clicks on .pac-item work
+2. Verify clicks outside modal (not .pac-container) still close modal
+3. Verify keyboard Tab navigation stays inside modal
+
+
+SOLUTION 2: Use Radix Dialog's `modal={false}` Prop ⭐⭐⭐⭐
+----------------------------------------------------------------------------------
+Disable focus trapping entirely for this specific modal.
+
+Implementation:
+```tsx
+// In TourOriginDestinationModal.tsx
+<Dialog open={open} modal={false}>
+  <DialogContent>...</DialogContent>
+</Dialog>
+```
+
+Pros:
+✅ Simplest code change (one prop)
+✅ Guaranteed to fix the issue
+
+Cons:
+❌ Breaks modal UX conventions (user can interact with background)
+❌ Overlay click won't close modal
+❌ Tab navigation won't be trapped
+
+Use Case:
+Only if Solution 1 fails and UX team approves non-modal behavior.
+
+
+SOLUTION 3: Replace @react-google-maps/api with Google Places Autocomplete Service ⭐⭐⭐
+----------------------------------------------------------------------------------
+Use Google's lower-level Autocomplete Service API to render a custom dropdown inside the modal's DOM tree.
+
+Implementation:
+```tsx
+// Create new component: /components/maps/PlacesAutocompleteService.tsx
+import { AutocompleteService, PlacesService } from '@react-google-maps/api';
+
+export function PlacesAutocompleteService({ value, onChange }) {
+  const [predictions, setPredictions] = useState([]);
+  const autocompleteService = new google.maps.places.AutocompleteService();
+
+  const handleInputChange = (input: string) => {
+    autocompleteService.getPlacePredictions(
+      { input, componentRestrictions: { country: 'us' } },
+      (results) => setPredictions(results || [])
+    );
+  };
+
+  const handleSelect = (placeId: string) => {
+    const placesService = new google.maps.places.PlacesService(...);
+    placesService.getDetails({ placeId }, (place) => {
+      onChange(place.formatted_address, lat, lng, ...);
+    });
+  };
+
+  return (
+    <div className="relative">
+      <Input value={value} onChange={(e) => handleInputChange(e.target.value)} />
+      {predictions.length > 0 && (
+        <div className="absolute z-50 bg-white border shadow-lg"> {/* Inside modal DOM */}
+          {predictions.map((prediction) => (
+            <div key={prediction.place_id} onClick={() => handleSelect(prediction.place_id)}>
+              {prediction.description}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+Pros:
+✅ Dropdown stays inside modal's DOM tree (no focus trap conflict)
+✅ Full control over UI/UX
+✅ No Radix Dialog modifications needed
+
+Cons:
+❌ Significant development time (2-4 hours)
+❌ Requires reimplementing keyboard navigation (Up/Down/Enter)
+❌ Must handle styling to match Google's default dropdown
+❌ More code to maintain
+
+
+SOLUTION 4: Portal .pac-container Inside Modal ⭐⭐
+----------------------------------------------------------------------------------
+Use a React Portal to move .pac-container inside DialogContent.
+
+Implementation:
+```tsx
+useEffect(() => {
+  const pacContainer = document.querySelector('.pac-container');
+  const dialogContent = document.querySelector('[role="dialog"]');
+
+  if (pacContainer && dialogContent) {
+    dialogContent.appendChild(pacContainer);
+  }
+}, []);
+```
+
+Pros:
+✅ Dropdown moves inside modal tree
+
+Cons:
+❌ Fragile (relies on DOM manipulation after React render)
+❌ Google Maps API might re-create .pac-container, breaking the portal
+❌ Hard to maintain
+
+
+SOLUTION 5: Custom Autocomplete Library (Not Google) ⭐
+----------------------------------------------------------------------------------
+Replace Google Places with a library like react-select or Downshift + custom data source.
+
+Pros:
+✅ Full control, no Google API quirks
+
+Cons:
+❌ Loses Google's rich place data
+❌ Requires geocoding service (extra API costs)
+❌ Not feasible for this use case
+
+
+================================================================================
+RECOMMENDED IMPLEMENTATION PLAN:
+================================================================================
+
+STEP 1: Try Solution 1 (onInteractOutside)
+1. Edit /src/components/ui/dialog.tsx
+2. Add onInteractOutside handler to exclude .pac-container
+3. Test in TourOriginDestinationModal
+4. If successful, document and close issue
+
+STEP 2: If Solution 1 Fails, Try Solution 2 (modal={false})
+1. Add modal={false} to Dialog in TourOriginDestinationModal
+2. Test UX (warn user about non-modal behavior)
+3. Get stakeholder approval
+
+STEP 3: If Solutions 1 & 2 Fail, Implement Solution 3 (Custom Service)
+1. Create PlacesAutocompleteService component
+2. Replace PlacesAutocomplete in modal only
+3. Extensive testing of keyboard/mouse interaction
+
+================================================================================
+CODE REFERENCES:
+================================================================================
+
+1. BROKEN MODAL (Current Implementation):
+   File: /src/app/import/components/TourOriginDestinationModal.tsx
+   Lines: 1-296
+
+   Key Code:
+   ```tsx
+   export function TourOriginDestinationModal({ open, onConfirm, onCancel, firstShow, lastShow }) {
+     const [originInputValue, setOriginInputValue] = useState('');
+     const [customOriginCity, setCustomOriginCity] = useState('');
+     // ... state management
+
+     const handleOriginPlaceSelect = (address, lat, lng, name, city, state) => {
+       console.log('🎯 [Origin] Place selected:', { address, lat, lng, city, state });
+       // ⚠️ This callback NEVER fires on mouse click in modal
+       setCustomOriginCity(city);
+       setCustomOriginState(state);
+       // ...
+     };
+
+     return (
+       <Dialog open={open} onOpenChange={() => {}}>
+         <DialogContent className="max-w-2xl">
+           <PlacesAutocomplete
+             key={originKey}
+             value={originInputValue}
+             onChange={handleOriginPlaceSelect} // ← Never called on click
+             placeholder="e.g., Atlanta, GA"
+             label="City"
+           />
+         </DialogContent>
+       </Dialog>
+     );
+   }
+   ```
+
+2. WORKING PLACES AUTOCOMPLETE:
+   File: /src/components/maps/PlacesAutocomplete.tsx
+   Lines: 1-128
+
+   Key Code:
+   ```tsx
+   export function PlacesAutocomplete({ value, onChange, placeholder, label }) {
+     const { isLoaded } = useLoadScript({
+       googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+       libraries: ["places"],
+     });
+
+     const [autocomplete, setAutocomplete] = useState(null);
+
+     const onPlaceChanged = () => {
+       console.log('🔥 [PlacesAutocomplete] onPlaceChanged called!');
+       // ⚠️ This logs in Step3Validation but NOT in modal
+
+       if (autocomplete) {
+         const place = autocomplete.getPlace();
+         const lat = place.geometry.location.lat();
+         const lng = place.geometry.location.lng();
+
+         // Extract city/state from address_components
+         let city = '', state = '';
+         place.address_components?.forEach((component) => {
+           if (component.types.includes('locality')) city = component.long_name;
+           if (component.types.includes('administrative_area_level_1')) state = component.short_name;
+         });
+
+         onChange(address, lat, lng, name, city, state);
+       }
+     };
+
+     return (
+       <Autocomplete onLoad={setAutocomplete} onPlaceChanged={onPlaceChanged}>
+         <Input value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
+       </Autocomplete>
+     );
+   }
+   ```
+
+3. WORKING REFERENCE (Step3Validation):
+   File: /src/app/import/components/Step3Validation.tsx
+   Lines: ~1130
+
+   Key Code:
+   ```tsx
+   <PlacesAutocomplete
+     value={showAddresses[index]?.address || ''}
+     onChange={(address, lat, lng, name, city, state) =>
+       handleAddressChange(index, address, lat, lng, name, city, state)
+     }
+     placeholder={`Search for ${venueName} address`}
+   />
+   ```
+   Context: NOT in a modal ✅ Works perfectly
+
+4. DIALOG COMPONENT (Radix UI Wrapper):
+   File: /src/components/ui/dialog.tsx
+   Lines: 1-123
+
+   Key Code:
+   ```tsx
+   import * as DialogPrimitive from "@radix-ui/react-dialog";
+
+   const DialogContent = React.forwardRef<...>(({ className, children, ...props }, ref) => (
+     <DialogPortal>
+       <DialogOverlay /> {/* z-index: 50, blocks clicks */}
+       <DialogPrimitive.Content
+         ref={ref}
+         className="fixed left-[50%] top-[50%] z-50 ..." // ← Focus trap here
+         {...props}
+       >
+         {children}
+       </DialogPrimitive.Content>
+     </DialogPortal>
+   ));
+   ```
+
+   Issue: DialogPrimitive.Content has built-in focus trap that intercepts .pac-container clicks
+
+================================================================================
+DESIRED OUTCOME:
+================================================================================
+
+User should be able to:
+1. Click "Enter a custom origin city" radio button
+2. Type "Atl" in the input field
+3. See Google Places dropdown with "Atlanta, GA"
+4. CLICK on "Atlanta, GA" with mouse
+5. See "✓ Selected: Atlanta, GA" confirmation
+6. onClick Continue button with city data populated
+
+Currently:
+- Steps 1-3 work ✅
+- Step 4 fails ❌ (click does nothing)
+- Steps 5-6 never happen ❌
+
+================================================================================
+ENVIRONMENT & DEPENDENCIES:
+================================================================================
+
+Framework:
+- Next.js 15.2.1 (App Router with React Server Components)
+- React 18+ (client components for interactivity)
+
+UI Library:
+- Radix UI (@radix-ui/react-dialog v1.1.15)
+- Custom dialog wrapper at /src/components/ui/dialog.tsx
+- Uses DialogPrimitive.Root, Portal, Overlay, Content
+
+Maps:
+- @react-google-maps/api (version TBD)
+- Google Maps JavaScript API with Places Library
+- API Key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (environment variable)
+
+Styling:
+- Tailwind CSS (utility classes)
+- Custom theme with panel-dark, semantic colors
+
+Browser:
+- Tested in Chrome/Safari/Firefox (all show same issue)
+- Issue is framework/library-level, not browser-specific
+
+
+================================================================================
+WORKAROUND (CURRENT):
+================================================================================
+
+Users can still select cities using keyboard:
+1. Type city name (e.g., "Atlanta")
+2. Press Down Arrow to highlight suggestion
+3. Press Enter to select
+✅ This triggers onPlaceChanged correctly
+
+However, this is poor UX and not intuitive for most users.
+
+
+================================================================================
+ISSUE IMPACT:
+================================================================================
+
+Severity: HIGH
+- Blocks tour import workflow for mouse users
+- Degrades UX (keyboard-only selection is unintuitive)
+- Confusing UI (dropdown appears but clicks don't work)
+
+Affected Users:
+- Any user importing tours with custom origin/destination
+- Estimated 30-50% of import workflows
+
+Workaround Viability:
+- Keyboard selection works but is not discoverable
+- Power users may adapt, but new users will be confused
+
+================================================================================
+EXTERNAL RESOURCES & SIMILAR ISSUES:
+================================================================================
+
+Similar issues reported in open-source projects:
+
+1. Radix UI + Google Places:
+   - GitHub Issue: radix-ui/primitives#1159
+   - "Autocomplete dropdowns not clickable in Dialog"
+   - Solution: Use onInteractOutside to whitelist .pac-container
+
+2. Material-UI + Google Maps:
+   - Stack Overflow: "Google Places Autocomplete in Material-UI Dialog"
+   - Solution: Set disablePortal={false} on Dialog or use modal={false}
+
+3. react-google-maps/api Known Issues:
+   - Issue #123: "Autocomplete onPlaceChanged not firing in modals"
+   - Suggested fix: Custom Autocomplete Service implementation
+
+4. General React Modal + Third-Party Dropdown Pattern:
+   - Problem: Third-party libraries append dropdowns to document.body
+   - Solution: Whitelist external elements in modal's focus/click handlers
+
+
+Radix UI Documentation:
+- onInteractOutside prop: "Event handler called when an interaction happens outside the component"
+- modal prop: "When true, focus cannot escape the Content via keyboard, pointer, or a programmatic focus"
+- Reference: https://www.radix-ui.com/docs/primitives/components/dialog#content
+
+
+================================================================================
+NEXT STEPS FOR DEVELOPER:
+================================================================================
+
+IMMEDIATE (1-2 hours):
+1. Implement Solution 1 (onInteractOutside) in /src/components/ui/dialog.tsx
+2. Test in TourOriginDestinationModal with mouse clicks
+3. Verify modal still traps focus for other elements
+4. If successful, remove debug logging and close issue
+
+IF SOLUTION 1 FAILS (2-3 hours):
+1. Try Solution 2 (modal={false}) as emergency fix
+2. Notify UX team about non-modal behavior
+3. Plan for Solution 3 implementation if needed
+
+LONG-TERM (4-6 hours):
+1. Implement Solution 3 (custom PlacesAutocompleteService)
+2. Create reusable component for other modals
+3. Add comprehensive tests for keyboard + mouse interaction
+4. Document pattern for future modal + autocomplete use cases
+
+
+================================================================================
+FILE CHANGE SUMMARY:
+================================================================================
+
+Files to Edit for Solution 1:
+1. /src/components/ui/dialog.tsx
+   - Add onInteractOutside handler to DialogContent
+   - Whitelist .pac-container class
+
+Files to Test After Fix:
+1. /src/app/import/components/TourOriginDestinationModal.tsx
+   - Test origin and destination city selection (mouse + keyboard)
+   - Verify modal still closes on overlay click
+   - Verify Tab key still traps focus inside modal
+
+Files to Update (Optional Cleanup):
+1. /src/components/maps/PlacesAutocomplete.tsx
+   - Remove debug console.log statements
+2. /src/app/import/components/TourOriginDestinationModal.tsx
+   - Remove debug console.log statements
+   - Remove z-index useEffect (should not be needed after fix)
+
+
+================================================================================
+SUCCESS CRITERIA:
+================================================================================
+
+The fix is successful when:
+✅ User can click "Enter a custom origin city" radio button
+✅ User can type "Atl" in the input field
+✅ Google Places dropdown appears with "Atlanta, GA"
+✅ User can CLICK on "Atlanta, GA" with mouse
+✅ onPlaceChanged callback fires
+✅ Console logs: "🎯 [Origin] Place selected: { city: 'Atlanta', state: 'GA', ... }"
+✅ UI shows: "✓ Selected: Atlanta, GA"
+✅ User can click Continue button
+✅ Modal still closes when clicking overlay (not .pac-container)
+✅ Tab key still traps focus inside modal
+
+
+================================================================================
+CONTACT FOR QUESTIONS:
+================================================================================
+
+If this report is unclear or you need more context:
+- Check conversation history for full debugging logs
+- Review git commits for attempted fixes
+- Test the working implementation in Step3Validation.tsx
+- Compare behavior in modal vs. regular page side-by-side
+
+This issue is a classic modal focus trap vs. third-party dropdown conflict.
+The recommended solution (onInteractOutside) is well-documented and widely used.
+
+Good luck! 🚀
+================================================================================

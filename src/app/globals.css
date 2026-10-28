@@ -1,0 +1,285 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 39 31% 93%;
+    --foreground: 75 8% 8%;
+    --card: 40 38% 97%;
+    --card-foreground: 75 8% 8%;
+    --popover: 40 38% 97%;
+    --popover-foreground: 75 8% 8%;
+    --muted: 38 20% 87%;
+    --muted-foreground: 60 4% 39%;
+    --border: 38 15% 80%;
+    --input: 38 15% 80%;
+    --primary: 11 100% 61%;
+    --primary-foreground: 40 38% 98%;
+    --ring: 11 100% 61%;
+    --radius: 1rem;
+
+    --bg-primary: #f2ede3;
+    --bg-secondary: #e9e2d6;
+    --bg-surface: #fbf8f1;
+    --bg-elevated: #ffffff;
+    --text-primary: #151713;
+    --text-secondary: #565a52;
+    --text-muted: #85887f;
+    --border-soft: rgba(28, 31, 26, 0.14);
+    --border-glow: rgba(255, 90, 54, 0.32);
+    --scene-orange: #ff5a36;
+    --scene-orange-dark: #e54525;
+    --scene-ink: #11140f;
+    --scene-lime: #c8f135;
+    --scene-paper: #f2ede3;
+  }
+
+  .dark {
+    --background: 39 31% 93%;
+    --foreground: 75 8% 8%;
+    --card: 40 38% 97%;
+    --card-foreground: 75 8% 8%;
+    --popover: 40 38% 97%;
+    --popover-foreground: 75 8% 8%;
+    --muted: 38 20% 87%;
+    --muted-foreground: 60 4% 39%;
+    --border: 38 15% 80%;
+    --input: 38 15% 80%;
+    --primary: 11 100% 61%;
+    --primary-foreground: 40 38% 98%;
+    --ring: 11 100% 61%;
+  }
+
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image: radial-gradient(circle at 72% -20%, rgba(255, 90, 54, 0.08), transparent 28%);
+  }
+  ::selection { background: rgba(255, 90, 54, 0.24); }
+  :focus-visible { outline-color: #ff5a36; outline-offset: 3px; }
+  html { overflow-wrap: break-word; }
+
+  /* Shared defaults for raw controls as well as the Input component. */
+  input, select, textarea { box-sizing: border-box; min-width: 0; max-width: 100%; }
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea) { background-color: #fff; color: #151713; }
+  input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacity: .6; }
+}
+
+/* Premium panel styling */
+@layer utilities {
+  .panel-dark {
+    background: #fbf8f1;
+    border: 1px solid rgba(28, 31, 26, 0.14);
+    border-radius: 20px;
+    box-shadow: 0 14px 36px rgba(25, 22, 17, 0.08);
+  }
+
+  .panel-glow {
+    border-color: rgba(255, 90, 54, 0.42);
+    box-shadow: 0 0 0 1px rgba(255, 90, 54, 0.08), 0 18px 44px rgba(25, 22, 17, 0.12);
+  }
+
+  .input-dark {
+    background: #fff;
+    border: 1px solid rgba(28, 31, 26, 0.16);
+    color: #151713;
+    border-radius: 14px;
+    padding: 12px 16px;
+  }
+
+  .input-dark::placeholder {
+    color: #92958c;
+  }
+
+  .input-dark:focus {
+    outline: none;
+    border-color: rgba(255, 90, 54, 0.72);
+    box-shadow: 0 0 0 3px rgba(255, 90, 54, 0.14);
+  }
+
+  .text-gradient-accent {
+    background: linear-gradient(90deg, #ff5a36 0%, #e54525 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+@layer components {
+  .scene-page { @apply min-h-full bg-[#f2ede3] px-5 py-7 text-[#151713] sm:px-8 lg:px-12 lg:py-10; }
+  .scene-kicker { @apply text-[10px] font-black uppercase tracking-[0.28em] text-[#ff5a36]; }
+  .scene-title { @apply mt-3 text-4xl font-black tracking-[-0.045em] text-[#151713] sm:text-5xl; }
+  .scene-copy { @apply mt-3 max-w-2xl text-sm leading-6 text-[#62665d]; }
+  .scene-panel { @apply border border-black/10 bg-[#fbf8f1] shadow-[0_12px_30px_rgba(31,27,20,0.06)]; }
+  .scene-panel-dark { @apply border border-white/10 bg-[#11140f] text-[#f7f2e8] shadow-[0_18px_48px_rgba(20,18,14,0.16)]; }
+  .scene-label { @apply text-[10px] font-black uppercase tracking-[0.22em] text-[#767a70]; }
+}
+
+@media (max-width: 639px) {
+  .mobile-safe-top { padding-top: env(safe-area-inset-top); }
+  .mobile-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .mobile-content-safe { padding-bottom: calc(62px + env(safe-area-inset-bottom)); }
+  .scene-page { padding-left: 1rem; padding-right: 1rem; }
+  button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+  .mobile-create-form input:not([type="radio"]):not([type="checkbox"]),
+  .mobile-create-form select { min-height: 3rem; font-size: 1rem; }
+  .mobile-create-form textarea { font-size: 1rem; }
+  .mobile-create-form .grid-cols-2:not(.mobile-create-actions),
+  .mobile-create-form .grid-cols-3 { grid-template-columns: minmax(0, 1fr); }
+  .mobile-create-section { border: 1px solid #ddd4c7; border-radius: 1.375rem; background: #fffaf2; padding: 1rem; }
+  .mobile-create-actions { position: sticky; bottom: 0; z-index: 20; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom)); border-top: 1px solid #d8d0c3; background: rgba(247,240,229,.96); backdrop-filter: blur(16px); }
+  .pac-container { z-index: 200 !important; max-width: calc(100vw - 2rem); font-size: 1rem; }
+  .pac-item { min-height: 3rem; padding: .65rem .75rem; white-space: normal; }
+}
+
+/* Native temporal controls have an intrinsic minimum width in WebKit. Keep
+   their picker behaviour, but constrain the host and its internal value. This
+   applies to shows, tours, proposals, travel, hotels, itineraries and filters. */
+input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"], [type="week"]) {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-inline-size: 0;
+  min-height: 2.75rem;
+}
+input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"], [type="week"])::-webkit-date-and-time-value {
+  min-width: 0;
+  min-height: 1.5em;
+  text-align: left;
+}
+input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"], [type="week"])::-webkit-datetime-edit {
+  min-width: 0;
+  padding: 0;
+}
+:is(div, label):has(> input:is([type="date"], [type="time"], [type="datetime-local"])) { min-width: 0; }
+.mobile-create-form { min-width: 0; max-width: 100%; }
+.mobile-create-form :is(.grid, .flex) > * { min-width: 0; }
+.mobile-create-form :is(input, select, textarea):not(:disabled):not([readonly]) { background-color: #fff; color: #151713; }
+.mobile-create-form :is(input, select, textarea):focus-visible { outline: 2px solid #ff5a36; outline-offset: 2px; }
+
+@media (max-width: 639px) {
+  input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"], [type="week"]) { font-size: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Animated gradient background */
+@keyframes gradient {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-gradient {
+  animation: gradient 15s ease infinite;
+}
+
+/* Custom scrollbar for dark theme */
+.scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollable::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.scrollable::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Google Places Autocomplete dropdown z-index fix */
+/* The .pac-container is added directly to body by Google, so we need to ensure it appears above modals */
+.pac-container {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+  background-color: #fbf8f1 !important;
+  border: 1px solid rgba(28, 31, 26, 0.18) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(90, 160, 255, 0.22) !important;
+  margin-top: 4px !important;
+}
+
+.pac-container .pac-item {
+  padding: 10px 14px !important;
+  color: #151713 !important;
+  cursor: pointer !important;
+  border-top: 1px solid rgba(28, 31, 26, 0.08) !important;
+  height: auto !important;
+  min-height: 44px !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+.pac-container .pac-item:first-child {
+  border-top: none !important;
+  border-radius: 12px 12px 0 0 !important;
+}
+
+.pac-container .pac-item:last-child {
+  border-radius: 0 0 12px 12px !important;
+}
+
+.pac-container .pac-item:hover,
+.pac-container .pac-item.pac-item-selected {
+  background-color: rgba(255, 90, 54, 0.1) !important;
+  color: #151713 !important;
+}
+
+.pac-container .pac-item-query {
+  color: #151713 !important;
+  font-weight: 500 !important;
+  white-space: normal !important;
+}
+
+.pac-container .pac-matched {
+  color: #e54525 !important;
+  font-weight: 600 !important;
+}
+
+.pac-icon {
+  background-image: none !important;
+}
+
+.pac-icon::before {
+  content: "";
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 3px 0 0 3px;
+  border: 2px solid #e54525;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+}
+
+/* Force rebuild - Thu Jan  8 14:59:58 GMT 2026 */
+
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body * { visibility: hidden !important; }
+  .day-sheet-print-root, .day-sheet-print-root * { visibility: visible !important; }
+  .day-sheet-print-root { position: absolute !important; inset: 0 !important; width: 100% !important; min-height: 0 !important; padding: 0 !important; background: white !important; color: #171713 !important; }
+  .day-sheet-no-print { display: none !important; }
+  .day-sheet-print-root section, .day-sheet-print-root header { break-inside: avoid; box-shadow: none !important; }
+}

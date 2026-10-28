@@ -1,0 +1,2135 @@
+================================================================================
+SCENEGEN MERCH ANALYTICS — IMPLEMENTATION PLAN
+WORLD-CLASS MERCH INTELLIGENCE SYSTEM
+================================================================================
+Project Start: May 12, 2026
+Estimated Timeline: 6-8 weeks (phased rollout)
+Developer: Jon + AI Assistant
+Total Effort: 470 hours (~12 weeks solo, 6-8 weeks with team)
+================================================================================
+
+EXECUTIVE SUMMARY
+================================================================================
+
+GOAL: Transform SceneGen's merch analytics from basic revenue tracking into a 
+world-class, professional-grade merch intelligence and tour planning system.
+
+CURRENT STATE:
+✓ Basic revenue dashboard
+✓ Top shows by revenue
+✓ Sales transactions table
+✓ Auto-matching sales to shows (12-30hr window)
+✓ Show date grouping for matched sales
+
+TARGET STATE:
+✓ Advanced data normalization (parse sizes, colors, designs from names)
+✓ Size analytics (distribution, heatmaps, city preferences)
+✓ Product intelligence (top performers, worst performers, trends)
+✓ Geographic insights (city performance, regional buying profiles)
+✓ Seasonal analytics (demand trends, hoodie seasonality)
+✓ Basket analysis ("frequently bought together")
+✓ Recommendation engine (actionable insights with confidence scores)
+✓ Tour planning calculator (generate optimal loadouts)
+✓ Export system (CSV/PDF reports)
+✓ AI-ready architecture (structured for future natural language queries)
+
+BUSINESS VALUE:
+→ Answers: "What sizes should I print for my next tour?"
+→ Answers: "Which cities buy the most hoodies?"
+→ Answers: "Which designs are underperforming?"
+→ Answers: "What should I bring to Oslo vs. Austin?"
+→ Provides: Actionable recommendations to reduce waste and maximize revenue
+
+
+================================================================================
+PHASE 1: FOUNDATION & DATA LAYER (Week 1-2)
+================================================================================
+
+WEEK 1: Data Normalization
+────────────────────────────────────────────────────────────────────────────
+
+□ Create normalization utilities
+  Files to create:
+  - src/lib/merch/normalizeMerchItem.ts
+  - src/lib/merch/types.ts
+  - src/lib/merch/constants.ts
+
+□ Task 1.1: Define core types
+  File: src/lib/merch/types.ts
+  
+  Create interfaces:
+  - NormalizedMerchItem
+  - MerchDesign
+  - ProductCategory
+  - SizeMap
+  - ColorMap
+  - GarmentType
+  - AnalyticsOptions
+  - MerchAnalytics
+  
+  Example types:
+  
+  export type Size = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL' | 'XXXL' | null;
+  export type GarmentType = 'tshirt' | 'longsleeve' | 'hoodie' | 'sweater' | 
+                             'vinyl' | 'cd' | 'poster' | 'patch' | 'hat' | 
+                             'other';
+  
+  export interface NormalizedMerchItem {
+    rawName: string;
+    designId: string;          // "conan-logo-tee"
+    designName: string;        // "Conan Logo Tee"
+    garmentType: GarmentType;  // "tshirt"
+    size: Size;                // "XL"
+    color: string | null;      // "black"
+    category: string;          // "apparel"
+  }
+  
+  Deliverable: Complete TypeScript type definitions
+
+□ Task 1.2: Build item name parser
+  File: src/lib/merch/normalizeMerchItem.ts
+  
+  Functions to implement:
+  
+  extractSize(name: string, variation?: string): Size | null
+    - Parse "XL", "X-Large", "Extra Large", etc.
+    - Handle variations field
+    - Return standardized size or null
+  
+  extractGarmentType(name: string): GarmentType
+    - Detect keywords: "tee", "shirt", "hoodie", "vinyl", "lp", "cd", etc.
+    - Return garment type classification
+  
+  extractColor(name: string): string | null
+    - Detect color keywords: "black", "white", "navy", "gray", etc.
+    - Return standardized color or null
+  
+  extractDesignName(name: string): string
+    - Remove size, color, garment type keywords
+    - Clean and format remaining text
+    - Return design name
+  
+  generateDesignId(name: string): string
+    - Convert design name to kebab-case ID
+    - Handle special characters
+    - Return consistent ID
+  
+  normalizeItem(item: MerchItem): NormalizedMerchItem
+    - Main function that orchestrates all extraction
+    - Returns fully normalized item
+  
+  Test cases:
+  Input: "Conan Logo Tee XL"
+  Output: {
+    rawName: "Conan Logo Tee XL",
+    designId: "conan-logo-tee",
+    designName: "Conan Logo Tee",
+    garmentType: "tshirt",
+    size: "XL",
+    color: null,
+    category: "apparel"
+  }
+  
+  Input: "HOODIE - Black - Medium"
+  Output: {
+    rawName: "HOODIE - Black - Medium",
+    designId: "hoodie-black",
+    designName: "Hoodie",
+    garmentType: "hoodie",
+    size: "M",
+    color: "black",
+    category: "apparel"
+  }
+  
+  Input: "Vinyl LP"
+  Output: {
+    rawName: "Vinyl LP",
+    designId: "vinyl-lp",
+    designName: "Vinyl LP",
+    garmentType: "vinyl",
+    size: null,
+    color: null,
+    category: "music"
+  }
+  
+  Deliverable: Tested normalization function with 95%+ accuracy
+
+□ Task 1.3: Create constants and mappings
+  File: src/lib/merch/constants.ts
+  
+  Define:
+  
+  SIZE_ORDER: Size[]
+    - Ordered array for charts: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
+  
+  GARMENT_TYPE_KEYWORDS: Record<GarmentType, string[]>
+    - Detection rules for each type
+    - Example: { tshirt: ['tee', 't-shirt', 'shirt'], ... }
+  
+  COLOR_KEYWORDS: string[]
+    - All color names to detect
+    - ['black', 'white', 'navy', 'gray', 'red', 'blue', ...]
+  
+  SEASON_MONTHS: Record<string, number[]>
+    - Season mapping
+    - { winter: [12, 1, 2], spring: [3, 4, 5], ... }
+  
+  CATEGORY_MAP: Record<GarmentType, string>
+    - Map garment types to categories
+    - { tshirt: 'apparel', vinyl: 'music', ... }
+  
+  Deliverable: Complete constant definitions
+
+WEEK 2: Analytics Engine Foundation
+────────────────────────────────────────────────────────────────────────────
+
+□ Create analytics engine
+  File: src/lib/merch/buildMerchAnalytics.ts
+
+□ Task 2.1: Core aggregation functions
+  
+  Functions to implement:
+  
+  groupByShow(sales: MerchSale[]): ShowAnalytics[]
+    - Group sales by show
+    - Calculate revenue, units, avg per transaction
+    - Include show details (city, venue, date)
+  
+  groupBySize(sales: MerchSale[]): SizeAnalytics
+    - Aggregate by size
+    - Calculate quantity, revenue, percentage
+    - Include by-product and by-city breakdowns
+  
+  groupByCity(sales: MerchSale[]): CityAnalytics[]
+    - Group by city
+    - Calculate performance metrics
+    - Identify buying preferences
+  
+  groupByProduct(sales: MerchSale[]): ProductAnalytics[]
+    - Group by normalized design
+    - Calculate revenue, units, trends
+    - Include size distribution
+  
+  groupByMonth(sales: MerchSale[]): MonthlyAnalytics[]
+    - Aggregate by month
+    - Track revenue trends
+    - Calculate growth rates
+  
+  Deliverable: Core aggregation functions
+
+□ Task 2.2: Build main analytics interface
+  
+  Main function signature:
+  
+  export function buildMerchAnalytics(
+    sales: MerchSale[], 
+    options?: AnalyticsOptions
+  ): MerchAnalytics
+  
+  Returns comprehensive analytics object:
+  {
+    shows: ShowAnalytics[],
+    sizes: SizeAnalytics,
+    cities: CityAnalytics[],
+    products: ProductAnalytics[],
+    temporal: {
+      monthly: MonthlyAnalytics[],
+      seasonal: SeasonalAnalytics
+    },
+    baskets: BasketAnalytics,
+    recommendations: Recommendation[]
+  }
+  
+  Process:
+  1. Normalize all items
+  2. Run all aggregation functions
+  3. Build recommendation list
+  4. Return complete analytics object
+  
+  Deliverable: Complete analytics builder with tests
+
+□ Task 2.3: Performance optimization
+  
+  Implement:
+  - Memoization layer for expensive calculations
+  - Efficient array operations (reduce over filter/map chains)
+  - Lazy computation for expensive analytics (recommendations)
+  - Benchmark with realistic datasets
+  
+  Performance goals:
+  - < 100ms for 1,000 transactions
+  - < 500ms for 10,000 transactions
+  - < 2s for 50,000 transactions
+  
+  Test data sizes:
+  - Small: 500 transactions
+  - Medium: 5,000 transactions
+  - Large: 50,000 transactions
+  
+  Deliverable: Performance-optimized analytics engine with benchmarks
+
+
+================================================================================
+PHASE 2: SIZE & PRODUCT ANALYTICS (Week 3)
+================================================================================
+
+□ Task 3.1: Size analytics implementation
+  
+  Add to buildMerchAnalytics.ts:
+  
+  calculateSizeDistribution(sales: MerchSale[]): SizeDistribution
+    - Overall size breakdown
+    - Quantity and revenue per size
+    - Percentage of total
+  
+  calculateSizesByProduct(sales: MerchSale[]): Record<string, SizeDistribution>
+    - Size breakdown per product/design
+    - Identify product-specific preferences
+  
+  calculateSizesByCity(sales: MerchSale[]): Record<string, SizeDistribution>
+    - Size breakdown per city
+    - Identify regional size preferences
+  
+  calculateSizeTrends(sales: MerchSale[]): SizeTrends
+    - Size popularity over time
+    - Detect shifts in demand
+  
+  Expected output format:
+  {
+    overall: {
+      XS: { quantity: 45, revenue: 900, percentage: 5 },
+      S: { quantity: 120, revenue: 2400, percentage: 13 },
+      M: { quantity: 250, revenue: 5000, percentage: 27 },
+      L: { quantity: 280, revenue: 5600, percentage: 30 },
+      XL: { quantity: 180, revenue: 3600, percentage: 19 },
+      XXL: { quantity: 55, revenue: 1100, percentage: 6 }
+    },
+    byProduct: {
+      "conan-logo-tee": { M: {...}, L: {...}, XL: {...} },
+      "tour-hoodie": { S: {...}, M: {...}, L: {...}, XL: {...} }
+    },
+    byCity: {
+      "Oslo": { M: 45%, L: 35%, XL: 20% },
+      "Austin": { S: 15%, M: 30%, L: 35%, XL: 20% }
+    }
+  }
+  
+  Deliverable: Complete size analytics module
+
+□ Task 3.2: Product analytics implementation
+  
+  Add functions:
+  
+  getTopProducts(sales: MerchSale[], limit: number = 10): ProductRanking[]
+    - Rank products by revenue
+    - Include units sold, avg price
+  
+  getWorstPerformers(sales: MerchSale[], limit: number = 5): ProductRanking[]
+    - Identify underperforming products
+    - Flag for inventory reduction
+  
+  getProductCategoryBreakdown(sales: MerchSale[]): CategoryBreakdown
+    - Revenue by category (apparel, music, accessories)
+    - Percentage of total
+  
+  calculateProductMetrics(sales: MerchSale[]): ProductMetrics[]
+    - Comprehensive metrics per product
+  
+  Metrics per product:
+  - Total revenue
+  - Units sold
+  - Average price
+  - Most common size (for apparel)
+  - Strongest cities (top 3)
+  - Sales trend (growing/stable/declining)
+  - Sell-through rate (if inventory data available)
+  
+  Example output:
+  {
+    designId: "conan-logo-tee",
+    designName: "Conan Logo Tee",
+    revenue: 5600,
+    unitsSold: 280,
+    avgPrice: 20,
+    mostCommonSize: "L",
+    topCities: ["Oslo", "Stockholm", "Copenhagen"],
+    trend: "stable",
+    category: "apparel"
+  }
+  
+  Deliverable: Product analytics module
+
+□ Task 3.3: Create size heatmap component
+  File: src/components/merch/analytics/SizeHeatmap.tsx
+  
+  Features:
+  - Grid layout with size on X-axis
+  - Products or cities on Y-axis (toggle)
+  - Color intensity by volume (quantity or revenue)
+  - Hover tooltips with exact numbers
+  - Responsive grid layout
+  - Color scale legend
+  
+  Visual design:
+  - Use cyan gradient for intensity (light to dark)
+  - Dark mode compatible
+  - Clean grid borders
+  - Compact layout for mobile
+  
+  Deliverable: Working size heatmap visualization
+
+□ Task 3.4: Create top products section
+  File: src/components/merch/analytics/TopProducts.tsx
+  
+  Display format:
+  
+  Top Products by Revenue
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ 1. Conan Logo Tee              $5,600  │████████████████░░░░│  │
+  │    280 units • Most common: L  • Oslo, Stockholm, Copenhagen    │
+  │    Sizes: S(15%) M(27%) L(30%) XL(20%) XXL(8%)                  │
+  ├──────────────────────────────────────────────────────────────────┤
+  │ 2. Tour Hoodie                 $4,200  │█████████████░░░░░░░│  │
+  │    140 units • Most common: M  • Berlin, Amsterdam, Paris       │
+  │    Sizes: S(10%) M(35%) L(35%) XL(15%) XXL(5%)                  │
+  └──────────────────────────────────────────────────────────────────┘
+  
+  Components:
+  - Ranked list (1-10)
+  - Revenue bar chart inline
+  - Units sold count
+  - Most common size indicator
+  - Top 3 cities badges
+  - Mini size distribution chart
+  - Expand/collapse for details
+  
+  Deliverable: Top products UI component
+
+
+================================================================================
+PHASE 3: GEOGRAPHIC & TEMPORAL ANALYTICS (Week 4)
+================================================================================
+
+□ Task 4.1: City analytics implementation
+  
+  Add functions:
+  
+  calculateCityPerformance(sales: MerchSale[]): CityPerformance[]
+    - Revenue per city
+    - Units sold per city
+    - Average spend per transaction
+    - Number of shows in city
+  
+  getCityBuyingProfile(city: string, sales: MerchSale[]): CityProfile
+    - Most popular product
+    - Most popular size
+    - Most popular category
+    - Average basket size
+    - Peak buying times
+  
+  calculateCityPreferences(sales: MerchSale[]): CityPreferences[]
+    - Relative preferences vs. average
+    - Over-indexing and under-indexing
+  
+  Per city metrics:
+  {
+    city: "Oslo",
+    country: "Norway",
+    totalRevenue: 8400,
+    unitsSold: 420,
+    showCount: 3,
+    avgSpendPerTransaction: 45,
+    avgUnitsPerTransaction: 2.1,
+    topProduct: "Tour Hoodie",
+    topSize: "M",
+    topCategory: "apparel",
+    preferences: {
+      hoodies: +42%,    // 42% above average
+      vinyl: +28%,      // 28% above average
+      smallSizes: -18%  // 18% below average
+    }
+  }
+  
+  Deliverable: City analytics module
+
+□ Task 4.2: Seasonal analytics implementation
+  
+  Add functions:
+  
+  groupBySeason(sales: MerchSale[]): SeasonalAnalytics
+    - Revenue by season
+    - Category mix by season
+  
+  getSeasonalTrends(sales: MerchSale[]): SeasonalTrends
+    - Identify seasonal patterns
+    - Month-over-month growth
+  
+  getHoodieDemandTrends(sales: MerchSale[]): HoodieTrends
+    - Track hoodie sales by month
+    - Identify peak hoodie season
+    - Compare to t-shirt sales
+  
+  getCategorySeasonality(sales: MerchSale[]): CategorySeasonality
+    - Track category mix over time
+    - Identify seasonal shifts
+  
+  Track metrics:
+  - Revenue by month
+  - Revenue by season (winter, spring, summer, fall)
+  - Hoodie vs t-shirt demand over time
+  - Vinyl sales patterns
+  - Category percentage mix by month
+  
+  Example insights:
+  - "Hoodie sales peak in November-February"
+  - "Vinyl sales 35% higher in fall/winter months"
+  - "T-shirt sales decline 22% in winter"
+  
+  Deliverable: Seasonal analytics module
+
+□ Task 4.3: Create city performance table
+  File: src/components/merch/analytics/CityPerformance.tsx
+  
+  Features:
+  - Sortable columns (revenue, units, avg spend, shows)
+  - Search/filter cities
+  - Pagination for large datasets
+  - Export to CSV option
+  
+  Columns:
+  - City, Country
+  - Total Revenue
+  - Units Sold
+  - Show Count
+  - Avg Spend per Transaction
+  - Best Selling Product
+  - Top Size
+  - Top Category
+  - Preference Indicators (badges for over-indexing)
+  
+  Example row:
+  Oslo, Norway | $8,400 | 420 units | 3 shows | $45/txn | Tour Hoodie | M | 
+  Apparel | 🔥 Hoodies +42%
+  
+  Deliverable: City performance UI component
+
+□ Task 4.4: Create seasonal demand charts
+  File: src/components/merch/analytics/SeasonalDemand.tsx
+  
+  Charts to include:
+  
+  1. Revenue over time (line chart)
+     - Monthly revenue
+     - Trend line
+     - Year-over-year comparison (if data available)
+  
+  2. Hoodie demand trend (line chart)
+     - Hoodie revenue by month
+     - Overlaid with t-shirt revenue
+     - Seasonal markers
+  
+  3. Category mix over time (stacked area chart)
+     - Apparel, music, accessories
+     - Percentage of total over time
+  
+  4. Season comparison (bar chart)
+     - Revenue by season
+     - Units by season
+  
+  Deliverable: Seasonal visualizations
+
+□ Task 4.5: Create size distribution charts
+  File: src/components/merch/analytics/SizeDistribution.tsx
+  
+  Visualizations:
+  
+  1. Sizes by product (stacked bar chart)
+     - Products on X-axis
+     - Stacked bars showing size breakdown
+     - Color-coded by size
+  
+  2. Sizes by city (stacked bar chart)
+     - Cities on X-axis
+     - Stacked bars showing size breakdown
+     - Identify regional size preferences
+  
+  3. Overall size distribution (pie/donut chart)
+     - Visual percentage breakdown
+     - Clean labels with percentages
+  
+  Interactive features:
+  - Toggle between quantity and revenue
+  - Hover tooltips
+  - Legend with toggle
+  
+  Deliverable: Size distribution charts
+
+
+================================================================================
+PHASE 4: BASKET & INVENTORY ANALYTICS (Week 5)
+================================================================================
+
+□ Task 5.1: Basket analysis implementation
+  
+  Add functions:
+  
+  findFrequentCombos(sales: MerchSale[]): ProductCombo[]
+    - Identify items purchased together in same transaction
+    - Calculate frequency and revenue
+    - Rank by occurrence
+  
+  calculateComboMetrics(sales: MerchSale[]): ComboMetrics
+    - Combo frequency
+    - Combo revenue
+    - Average basket size
+    - Multi-item purchase rate
+  
+  getProductAffinities(product: string, sales: MerchSale[]): Affinity[]
+    - "Customers who bought X also bought Y"
+    - Calculate attachment rates
+  
+  Detect combinations like:
+  - Hoodie + Patch (appears in 15% of hoodie purchases)
+  - T-shirt + Vinyl (appears in 22% of vinyl purchases)
+  - Hat + Patch (appears in 35% of hat purchases)
+  
+  Example output:
+  {
+    combo: ["Tour Hoodie", "Band Patch"],
+    frequency: 42,
+    revenue: 1890,
+    attachmentRate: 0.15,  // 15% of hoodie buyers also buy patch
+    avgBasketValue: 45
+  }
+  
+  Deliverable: Basket analytics module
+
+□ Task 5.2: Create basket analysis component
+  File: src/components/merch/analytics/BasketAnalysis.tsx
+  
+  Display sections:
+  
+  1. Frequently Bought Together table
+     ┌────────────────────────────────────────────────────────────┐
+     │ Product Combo              Frequency  Revenue  Attach Rate │
+     ├────────────────────────────────────────────────────────────┤
+     │ Tour Hoodie + Band Patch      42      $1,890      15%     │
+     │ Logo Tee + Vinyl LP           38      $1,520      22%     │
+     │ Hat + Patch                   24        $720      35%     │
+     └────────────────────────────────────────────────────────────┘
+  
+  2. Product affinities section
+     "Customers who bought Tour Hoodie also bought:"
+     - Band Patch (15% of the time)
+     - Logo Tee (8% of the time)
+     - Hat (5% of the time)
+  
+  3. Basket metrics cards
+     - Average items per transaction
+     - Multi-item purchase rate
+     - Average basket value
+     - Most common basket size
+  
+  Future enhancement: Sankey diagram showing product flows
+  
+  Deliverable: Basket analysis UI
+
+□ Task 5.3: Inventory intelligence foundation
+  
+  Add functions (structure for future):
+  
+  calculateSellThroughRate(product: string, inventory: InventoryData): number
+    - Calculate sell-through percentage
+    - Requires inventory data (future enhancement)
+  
+  estimateDepletionRate(product: string, sales: MerchSale[]): number
+    - Estimate how fast product sells
+    - Days to sellout projection
+  
+  predictSellouts(sales: MerchSale[], inventory: InventoryData): Prediction[]
+    - Predict which items will sell out soon
+    - Requires inventory data
+  
+  identifySlowMovers(sales: MerchSale[], threshold: number): Product[]
+    - Flag products moving slowly
+    - Recommend discount or removal
+  
+  Note: Full implementation requires inventory tracking (future phase)
+  For now: Create structure with mock data for demonstration
+  
+  Deliverable: Inventory analytics structure (ready for future data)
+
+□ Task 5.4: Dead stock detection & warnings
+  File: src/components/merch/analytics/DeadStockWarnings.tsx
+  
+  Warning cards for:
+  
+  1. Size underperformance
+     - Detect sizes performing >30% below average
+     - Example: "⚠️ Small sizes underperform by 42% - consider reducing"
+  
+  2. Product underperformance
+     - Products with <10% of average revenue
+     - Example: "📉 'Vintage Poster' accounts for <2% of total sales"
+  
+  3. Stale inventory (requires inventory data)
+     - Products not sold in 3+ months
+     - Example: "🕒 'Blue Longsleeve' - no sales in 90 days"
+  
+  4. Regional dead stock
+     - Products that never sell in certain regions
+     - Example: "🌍 'Heavy Hoodie' - 0 sales in warm climates (TX, AZ, CA)"
+  
+  Visual design:
+  - Color-coded warning cards (yellow, orange, red)
+  - Severity indicator
+  - Recommended action
+  - Data supporting the warning
+  
+  Deliverable: Dead stock warning component
+
+
+================================================================================
+PHASE 5: RECOMMENDATIONS ENGINE (Week 6)
+================================================================================
+
+□ Task 6.1: Recommendation logic
+  File: src/lib/merch/buildRecommendations.ts
+  
+  Functions to implement:
+  
+  generateSizeRecommendations(analytics: MerchAnalytics): Recommendation[]
+    - Analyze size performance
+    - Identify over/under-represented sizes
+    - Generate stocking recommendations
+  
+  generateProductRecommendations(analytics: MerchAnalytics): Recommendation[]
+    - Identify winning and losing products
+    - Suggest inventory adjustments
+  
+  generateRegionalRecommendations(analytics: MerchAnalytics): Recommendation[]
+    - City-specific buying preferences
+    - Regional stocking suggestions
+  
+  generateSeasonalRecommendations(analytics: MerchAnalytics): Recommendation[]
+    - Seasonal demand patterns
+    - Upcoming season preparation
+  
+  Recommendation algorithm:
+  1. Analyze historical patterns
+  2. Calculate moving averages and trends
+  3. Identify statistically significant deviations
+  4. Score recommendations by confidence (0-100)
+  5. Format as actionable insights
+  
+  Recommendation format:
+  {
+    id: string,
+    type: 'size' | 'product' | 'regional' | 'seasonal',
+    severity: 'info' | 'suggestion' | 'warning' | 'critical',
+    icon: string,
+    title: string,
+    description: string,
+    confidence: number,
+    supportingData: any,
+    action: string
+  }
+  
+  Example recommendations:
+  {
+    type: 'size',
+    severity: 'suggestion',
+    icon: '📈',
+    title: 'Increase XL hoodie stock for winter tours',
+    description: 'XL hoodies show +35% demand in UK/Scandinavia during winter months',
+    confidence: 87,
+    supportingData: { avgDemand: 45, winterDemand: 61, increase: 35.6 },
+    action: 'Stock 35% more XL hoodies for Nov-Feb UK/Nordic shows'
+  }
+  
+  Deliverable: Recommendation engine with confidence scoring
+
+□ Task 6.2: Recommendation cards component
+  File: src/components/merch/analytics/Recommendations.tsx
+  
+  Display format:
+  
+  ┌──────────────────────────────────────────────────────────────┐
+  │ 📈 Increase XL hoodie stock for winter tours     [87% conf] │
+  │                                                               │
+  │ XL hoodies show +35% demand in UK/Scandinavia during winter  │
+  │ months. Consider stocking 35% more for Nov-Feb tours.        │
+  │                                                               │
+  │ Supporting data: 45 avg → 61 winter avg (+35.6%)            │
+  │                                                               │
+  │ Action: Stock 35% more XL hoodies for Nov-Feb UK/Nordic      │
+  └──────────────────────────────────────────────────────────────┘
+  
+  Features:
+  - Icon indicates type
+  - Confidence score badge
+  - Color-coded by severity
+  - Expandable details
+  - Supporting data visualization
+  - Dismiss/save for later
+  
+  Recommendation types with icons:
+  - 📈 Growth opportunities
+  - 📉 Inventory reduction suggestions
+  - ⚡ Quick wins
+  - 🌍 Regional insights
+  - ❄️ Seasonal preparation
+  - ⚠️ Warnings
+  
+  Deliverable: Recommendation cards UI
+
+□ Task 6.3: Tour loadout generator
+  File: src/components/merch/analytics/TourLoadoutGenerator.tsx
+  
+  Input form:
+  
+  Tour Planning Calculator
+  ├─ Cities (multi-select dropdown)
+  │  └─ Oslo, Stockholm, Copenhagen, Berlin
+  ├─ Expected attendance per show
+  │  └─ 500 people
+  ├─ Season
+  │  └─ Winter (Nov-Feb)
+  ├─ Venue types
+  │  └─ Club, Theater
+  ├─ Tour duration
+  │  └─ 4 shows
+  └─ [Generate Loadout] button
+  
+  Algorithm:
+  1. Pull historical data for selected cities
+  2. Calculate average conversion rate (attendees → buyers)
+  3. Apply seasonal adjustments
+  4. Calculate product mix based on city preferences
+  5. Calculate size distribution per product
+  6. Apply venue type multipliers
+  7. Add safety stock buffer (15-20%)
+  8. Generate quantities
+  
+  Output format:
+  
+  Recommended Tour Loadout (4 shows, 2000 total attendance)
+  
+  T-SHIRTS (300 total)
+  ├─ Conan Logo Tee (180)
+  │  └─ S: 20 | M: 50 | L: 60 | XL: 40 | XXL: 10
+  ├─ Tour 2026 Tee (120)
+  │  └─ S: 15 | M: 35 | L: 40 | XL: 25 | XXL: 5
+  
+  HOODIES (120 total) ← High demand for Nordic winter
+  ├─ Tour Hoodie (80)
+  │  └─ S: 8 | M: 28 | L: 28 | XL: 12 | XXL: 4
+  ├─ Logo Hoodie (40)
+  │  └─ S: 4 | M: 14 | L: 14 | XL: 6 | XXL: 2
+  
+  VINYL (80 total) ← Oslo over-indexes on vinyl (+28%)
+  └─ Latest Album LP: 80
+  
+  ACCESSORIES (60 total)
+  ├─ Patches: 40
+  └─ Hats: 20
+  
+  Projected Revenue: $9,200 - $11,500
+  Sellout Risk: Medium (consider +20% on hoodies)
+  Storage Requirements: 6 boxes (estimated)
+  
+  Features:
+  - Adjust quantities manually
+  - Save loadout as template
+  - Export to CSV
+  - Print packing list
+  - Historical accuracy indicator
+  
+  Deliverable: Tour loadout calculator with smart defaults
+
+
+================================================================================
+PHASE 6: UI INTEGRATION & POLISH (Week 7)
+================================================================================
+
+□ Task 7.1: Update main analytics component
+  File: src/components/merch/MerchAnalytics.tsx
+  
+  Current structure:
+  - Top 3 metric cards (revenue, units, avg sale)
+  - Revenue bar chart by show
+  - Top shows table
+  
+  New structure (keep existing + add tabs):
+  
+  ┌────────────────────────────────────────────────────────────┐
+  │ [Revenue Card] [Units Card] [Avg Sale Card]               │ ← Keep
+  ├────────────────────────────────────────────────────────────┤
+  │ [Revenue Bar Chart]                                        │ ← Keep
+  ├────────────────────────────────────────────────────────────┤
+  │ [Overview] [Sizes] [Products] [Geography] [Seasonal]      │
+  │ [Baskets] [Recommendations] [Tour Planning]               │ ← New tabs
+  ├────────────────────────────────────────────────────────────┤
+  │                                                             │
+  │  Tab content here                                          │
+  │                                                             │
+  └────────────────────────────────────────────────────────────┘
+  
+  Tab contents:
+  
+  Overview tab (existing):
+  - Top shows table
+  - Quick stats
+  
+  Sizes tab:
+  - Size distribution charts
+  - Size heatmap
+  - Size by product breakdown
+  - Size by city breakdown
+  
+  Products tab:
+  - Top products list
+  - Worst performers
+  - Category breakdown
+  - Product metrics table
+  
+  Geography tab:
+  - City performance table
+  - City preference indicators
+  - Regional insights
+  
+  Seasonal tab:
+  - Revenue over time chart
+  - Seasonal comparison
+  - Hoodie demand trend
+  - Category mix over time
+  
+  Baskets tab:
+  - Frequently bought together
+  - Product affinities
+  - Basket metrics
+  
+  Recommendations tab:
+  - Recommendation cards
+  - Sorted by confidence
+  - Filter by type
+  
+  Tour Planning tab:
+  - Tour loadout generator
+  - Saved loadout templates
+  
+  Use shadcn/ui Tabs component
+  Persist active tab to URL params
+  
+  Deliverable: Integrated tabbed analytics dashboard
+
+□ Task 7.2: Global filter system
+  File: src/components/merch/analytics/AnalyticsFilters.tsx
+  
+  Filter options:
+  
+  ┌────────────────────────────────────────────────────────────┐
+  │ Filters: [Date Range ▼] [Countries ▼] [Cities ▼]          │
+  │          [Categories ▼] [Seasons ▼] [Clear All]            │
+  └────────────────────────────────────────────────────────────┘
+  
+  Specific filters:
+  
+  Date range picker
+  - Predefined ranges: Last 30 days, Last 90 days, Last year, All time
+  - Custom range selector
+  - Default: All time
+  
+  Country multi-select
+  - Checkboxes for each country
+  - Select all / deselect all
+  
+  City multi-select
+  - Searchable dropdown
+  - Checkboxes for each city
+  - Grouped by country
+  
+  Venue type
+  - Club, Theater, Arena, Festival, Other
+  
+  Tour selector
+  - Dropdown of past tours (if tour data available)
+  
+  Product category
+  - Apparel, Music, Accessories, All
+  
+  Season
+  - Winter, Spring, Summer, Fall, All
+  
+  Garment type
+  - T-shirt, Hoodie, Longsleeve, Vinyl, All
+  
+  Implementation:
+  - Filter state managed in parent component
+  - Apply filters to raw data before analytics computation
+  - Persist filter state to URL params
+  - "Clear all" button resets to defaults
+  - Show active filter count badge
+  
+  Filter application:
+  1. User selects filters
+  2. Filter raw sales data
+  3. Re-run buildMerchAnalytics() on filtered data
+  4. Update all charts/tables
+  
+  Deliverable: Global filter component with URL persistence
+
+□ Task 7.3: Responsive design pass
+  
+  Ensure all components work perfectly on:
+  
+  Desktop (1920px+)
+  - Full layout
+  - Multi-column grids
+  - Side-by-side charts
+  
+  Laptop (1440px)
+  - Optimized layout
+  - Comfortable spacing
+  
+  Tablet (768px - 1024px)
+  - 2-column grids
+  - Stacked sections
+  - Collapsible filters
+  
+  Mobile (375px - 768px)
+  - Single column layout
+  - Horizontal scrolling for tables
+  - Simplified charts
+  - Bottom sheet filters
+  - Touch-friendly tap targets (44px min)
+  
+  Specific adjustments:
+  - Tables: horizontal scroll container
+  - Charts: reduce height on mobile, simplify axes
+  - Filters: drawer/bottom sheet on mobile
+  - Cards: full-width on mobile
+  - Tabs: scrollable on mobile
+  
+  Test on:
+  - iPhone (375px, 390px, 428px)
+  - iPad (768px, 1024px)
+  - Common desktop sizes
+  
+  Deliverable: Fully responsive analytics dashboard
+
+□ Task 7.4: Dark mode refinement
+  
+  Verify all components in dark mode:
+  
+  Charts:
+  - Readable axes and labels
+  - High contrast data points
+  - Proper grid line opacity
+  - Tooltip backgrounds
+  
+  Tables:
+  - Proper row striping
+  - Readable text
+  - Hover states visible
+  
+  Cards:
+  - Proper background colors
+  - Border visibility
+  - Shadow consistency
+  
+  Color palette for dark mode:
+  - Background: zinc-900
+  - Cards: zinc-800
+  - Borders: zinc-700
+  - Text: zinc-100
+  - Muted text: zinc-400
+  - Accent: cyan-400
+  - Charts: cyan-400, purple-400, pink-400, amber-400
+  
+  Contrast ratios:
+  - All text: minimum 4.5:1
+  - Large text: minimum 3:1
+  - Interactive elements: 3:1
+  
+  Deliverable: Perfect dark mode support with proper contrast
+
+□ Task 7.5: Loading states & empty states
+  
+  Loading states:
+  
+  Skeleton loaders for:
+  - Metric cards (pulsing rectangles)
+  - Charts (pulsing chart shapes)
+  - Tables (pulsing rows)
+  - Recommendation cards
+  
+  Use shadcn/ui Skeleton component
+  Match layout of actual content
+  Smooth transitions when content loads
+  
+  Empty states:
+  
+  No data scenarios:
+  - No merch sales yet
+  - No sales in selected date range
+  - No sales in selected city
+  - No matched sales
+  
+  Empty state format:
+  ┌────────────────────────────────────────┐
+  │         🎤                             │
+  │                                        │
+  │   No Merch Sales Yet                  │
+  │                                        │
+  │   Sales will appear here once you     │
+  │   connect Square and make some sales  │
+  │                                        │
+  │   [Connect Square]                    │
+  └────────────────────────────────────────┘
+  
+  Error states:
+  - Failed to load data
+  - Analytics computation error
+  - Network error
+  
+  Error boundaries:
+  - Wrap each analytics section
+  - Graceful degradation
+  - Retry button
+  
+  Deliverable: Professional loading, empty, and error states
+
+
+================================================================================
+PHASE 7: EXPORT & REPORTING (Week 8)
+================================================================================
+
+□ Task 8.1: CSV export functionality
+  File: src/lib/merch/exporters/csvExport.ts
+  
+  Use: papaparse library
+  
+  Exportable reports:
+  
+  1. Size distribution CSV
+     Columns: Size, Quantity, Revenue, Percentage
+  
+  2. City performance CSV
+     Columns: City, Country, Revenue, Units, Shows, Avg Spend, Top Product, 
+              Top Size, Top Category
+  
+  3. Product rankings CSV
+     Columns: Rank, Product, Revenue, Units, Avg Price, Top Size, Top Cities
+  
+  4. Monthly summary CSV
+     Columns: Month, Revenue, Units, Transactions, Avg Sale
+  
+  5. Tour loadout CSV (packing list)
+     Columns: Product, Size, Quantity, Notes
+  
+  Functions:
+  
+  exportSizeDistribution(analytics: MerchAnalytics): Blob
+  exportCityPerformance(analytics: MerchAnalytics): Blob
+  exportProductRankings(analytics: MerchAnalytics): Blob
+  exportMonthlySummary(analytics: MerchAnalytics): Blob
+  exportTourLoadout(loadout: TourLoadout): Blob
+  
+  Implementation:
+  - Convert analytics data to CSV format
+  - Generate Blob
+  - Trigger download
+  - Proper escaping of special characters
+  - Include timestamp in filename
+  
+  Deliverable: CSV export utility functions
+
+□ Task 8.2: PDF export functionality
+  File: src/lib/merch/exporters/pdfExport.ts
+  
+  Use: jsPDF or react-pdf library
+  
+  PDF reports to generate:
+  
+  1. Executive Summary PDF
+     - Key metrics overview
+     - Top products
+     - Top cities
+     - Key recommendations
+     - Charts embedded as images
+     - 2-3 pages
+  
+  2. Tour Planning Report PDF
+     - Loadout calculator results
+     - City-by-city breakdown
+     - Packing list
+     - Revenue projections
+     - 3-5 pages
+  
+  3. Inventory Recommendations PDF
+     - Size recommendations
+     - Dead stock warnings
+     - Restock suggestions
+     - Supporting charts
+     - 2-4 pages
+  
+  4. Performance Snapshot PDF
+     - Date range summary
+     - All key charts
+     - Tables with data
+     - Complete export
+     - 5-10 pages
+  
+  PDF styling:
+  - SceneGen branding
+  - Professional layout
+  - Color charts
+  - Page numbers
+  - Header/footer
+  - Table of contents
+  
+  Functions:
+  
+  exportExecutiveSummary(analytics: MerchAnalytics): Blob
+  exportTourPlanningReport(loadout: TourLoadout): Blob
+  exportInventoryReport(analytics: MerchAnalytics): Blob
+  exportFullReport(analytics: MerchAnalytics): Blob
+  
+  Deliverable: PDF export utility functions
+
+□ Task 8.3: Export UI components
+  File: src/components/merch/analytics/ExportMenu.tsx
+  
+  Export button with dropdown menu:
+  
+  ┌─────────────────────────────────────┐
+  │ 📥 Export ▼                         │
+  ├─────────────────────────────────────┤
+  │ CSV Exports                         │
+  │  • Size Distribution                │
+  │  • City Performance                 │
+  │  • Product Rankings                 │
+  │  • Monthly Summary                  │
+  │  • Current Tour Loadout             │
+  ├─────────────────────────────────────┤
+  │ PDF Reports                         │
+  │  • Executive Summary                │
+  │  • Tour Planning Report             │
+  │  • Inventory Recommendations        │
+  │  • Full Performance Report          │
+  └─────────────────────────────────────┘
+  
+  Features:
+  - Export dropdown menu (shadcn DropdownMenu)
+  - Format selection (CSV/PDF)
+  - Report type selection
+  - Date range applied to export
+  - Download progress indicator
+  - Success notification
+  - Error handling
+  
+  User flow:
+  1. Click "Export" button
+  2. Select format and report type
+  3. Show generating indicator
+  4. Trigger download
+  5. Show success toast
+  
+  Deliverable: Export menu UI component
+
+□ Task 8.4: Print-friendly styling
+  
+  Add print CSS media query:
+  
+  @media print {
+    /* Hide UI elements */
+    nav, header, footer, .filters, .export-button { display: none; }
+    
+    /* Expand collapsed sections */
+    details[open] { display: block; }
+    
+    /* Optimize chart sizing */
+    .chart-container { height: 300px; page-break-inside: avoid; }
+    
+    /* Table formatting */
+    table { page-break-inside: avoid; }
+    
+    /* Page breaks */
+    .analytics-section { page-break-after: auto; }
+    h2 { page-break-after: avoid; }
+    
+    /* Color adjustments */
+    background: white;
+    color: black;
+  }
+  
+  Print optimization:
+  - Hide navigation and filters
+  - Expand all collapsed sections
+  - Optimize chart sizes for print
+  - Proper page breaks
+  - Black and white friendly
+  - Header/footer on each page
+  
+  Test print preview:
+  - Chrome print preview
+  - Safari print preview
+  - PDF print output
+  
+  Deliverable: Print-ready analytics pages
+
+
+================================================================================
+PHASE 8: PERFORMANCE & OPTIMIZATION (Ongoing)
+================================================================================
+
+□ Task 9.1: Performance benchmarking
+  
+  Create benchmark test suite:
+  File: src/lib/merch/__tests__/performance.bench.ts
+  
+  Test datasets:
+  - Small: 1,000 transactions (1 month data)
+  - Medium: 10,000 transactions (1 year data)
+  - Large: 50,000 transactions (multi-year data)
+  
+  Metrics to measure:
+  
+  1. Initial load time
+     - Time to first render
+     - Time to interactive
+  
+  2. Analytics computation time
+     - buildMerchAnalytics() execution time
+     - Per module timing
+  
+  3. Filter application time
+     - Time to apply filters and recompute
+  
+  4. Chart render time
+     - Time to render each chart type
+  
+  5. Memory usage
+     - Peak memory during computation
+     - Memory leaks check
+  
+  Performance goals:
+  - Small dataset: < 100ms total
+  - Medium dataset: < 500ms total
+  - Large dataset: < 2s total
+  - Filter application: < 100ms
+  - Chart render: < 50ms per chart
+  
+  Benchmark tools:
+  - console.time() / console.timeEnd()
+  - performance.now()
+  - React DevTools Profiler
+  - Chrome DevTools Performance tab
+  
+  Deliverable: Performance benchmark suite with baseline metrics
+
+□ Task 9.2: Optimization implementation
+  
+  React optimization techniques:
+  
+  1. Memoization
+     - useMemo for expensive calculations
+     - useMemo for filtered data
+     - useMemo for analytics results
+  
+  2. Callbacks
+     - useCallback for event handlers
+     - useCallback for filter functions
+  
+  3. Component memoization
+     - React.memo for pure components
+     - Memo chart components
+     - Memo table rows
+  
+  4. Virtualization
+     - react-virtual for large tables
+     - Virtualize city performance table
+     - Virtualize product list
+  
+  5. Web Workers
+     - Move heavy computation to worker
+     - buildMerchAnalytics() in worker
+     - Non-blocking UI during computation
+  
+  6. Debouncing
+     - Debounce filter inputs (300ms)
+     - Debounce search (300ms)
+  
+  7. Code splitting
+     - Lazy load analytics tabs
+     - Lazy load chart libraries
+     - Lazy load export utilities
+  
+  8. Data structures
+     - Use Maps instead of objects for lookups
+     - Use Sets for unique values
+     - Efficient array operations
+  
+  Example optimizations:
+  
+  // Before
+  const analytics = buildMerchAnalytics(sales, options);
+  
+  // After
+  const analytics = useMemo(
+    () => buildMerchAnalytics(sales, options),
+    [sales, options]
+  );
+  
+  // Before
+  {cities.map((city) => <CityRow city={city} />)}
+  
+  // After
+  const CityRowMemo = React.memo(CityRow);
+  {cities.map((city) => <CityRowMemo key={city.name} city={city} />)}
+  
+  Deliverable: Optimized codebase meeting performance goals
+
+□ Task 9.3: Code splitting & lazy loading
+  
+  Split points:
+  
+  1. Analytics tabs
+     const SizeAnalytics = lazy(() => import('./analytics/SizeAnalytics'));
+     const ProductAnalytics = lazy(() => import('./analytics/ProductAnalytics'));
+     // ... etc
+  
+  2. Chart library
+     - Lazy load recharts when chart tab is viewed
+     - Reduce initial bundle size
+  
+  3. Export functionality
+     const ExportMenu = lazy(() => import('./analytics/ExportMenu'));
+     - Only load when user clicks export
+  
+  4. PDF generation
+     - Lazy load jsPDF library
+     - Only when generating PDF
+  
+  Bundle analysis:
+  - Run webpack-bundle-analyzer
+  - Identify large dependencies
+  - Split or remove if possible
+  
+  Goals:
+  - Initial bundle: < 500kb
+  - Lazy chunks: < 100kb each
+  - Reduce time to interactive
+  
+  Deliverable: Code-split, optimized bundle
+
+
+================================================================================
+PHASE 9: AI-READY ARCHITECTURE (Future Foundation)
+================================================================================
+
+□ Task 10.1: Structured data schema for AI
+  File: src/lib/merch/aiSchema.ts
+  
+  Create clean, typed JSON schemas for all analytics outputs:
+  
+  1. Analytics schema
+     - Complete type definitions
+     - Consistent naming
+     - Documented fields
+  
+  2. Recommendation schema
+     - Structured recommendations
+     - Confidence scores
+     - Supporting data references
+  
+  3. Query result schema
+     - Standardized query responses
+     - Metadata included
+  
+  Purpose: Enable future AI to:
+  - Query analytics data in natural language
+  - Generate recommendations
+  - Answer specific questions
+  - Learn from patterns
+  
+  Example schema structure:
+  
+  interface AIAnalyticsSchema {
+    metadata: {
+      generatedAt: string;
+      dateRange: { start: string; end: string };
+      totalSales: number;
+      totalRevenue: number;
+    };
+    insights: {
+      sizes: SizeInsight[];
+      products: ProductInsight[];
+      cities: CityInsight[];
+      recommendations: Recommendation[];
+    };
+    rawData: {
+      // Structured, queryable raw data
+    };
+  }
+  
+  Deliverable: AI-ready data structures and schemas
+
+□ Task 10.2: Query endpoint preparation (design phase)
+  
+  Design future API structure for AI querying:
+  
+  Endpoint: POST /api/merch/query
+  
+  Request format:
+  {
+    query: "What should we print for Scandinavia winter tour?",
+    context: {
+      dateRange?: { start: string; end: string };
+      cities?: string[];
+      season?: string;
+    }
+  }
+  
+  Response format:
+  {
+    answer: "Based on historical data...",
+    recommendations: [...],
+    supportingData: {...},
+    confidence: 0.85
+  }
+  
+  Example natural language queries to support:
+  
+  - "What should we print for Scandinavia winter tour?"
+    → Returns tour loadout with Nordic preferences, winter adjustments
+  
+  - "Which designs underperform in Germany?"
+    → Returns products with below-average sales in Germany
+  
+  - "What hoodie sizes for Texas shows?"
+    → Returns size distribution for hoodies in Texas specifically
+  
+  - "What's our best selling product in Oslo?"
+    → Returns top product for Oslo with metrics
+  
+  - "Should we restock small t-shirts?"
+    → Analyzes small size performance, returns yes/no with reasoning
+  
+  AI implementation (future):
+  - GPT-4 or similar for query understanding
+  - Structured analytics data as context
+  - Generate natural language responses
+  - Cite specific data points
+  
+  Deliverable: Query interface design document
+
+□ Task 10.3: AI integration documentation
+  
+  Create comprehensive documentation:
+  File: docs/AI_INTEGRATION_GUIDE.md
+  
+  Sections:
+  
+  1. Data Dictionary
+     - Every field in analytics object
+     - Data types and formats
+     - Valid ranges
+     - Example values
+  
+  2. Recommendation Logic
+     - How recommendations are generated
+     - Confidence scoring algorithm
+     - Supporting data explanation
+  
+  3. Query Examples
+     - 50+ example queries
+     - Expected responses
+     - Edge cases
+  
+  4. Integration Guide
+     - How to connect AI model
+     - API design
+     - Authentication
+     - Rate limiting
+  
+  5. Best Practices
+     - Prompt engineering tips
+     - Context window optimization
+     - Caching strategies
+  
+  Deliverable: Complete AI integration documentation
+
+
+================================================================================
+TESTING STRATEGY
+================================================================================
+
+Unit Tests (Jest + React Testing Library)
+────────────────────────────────────────────────────────────────────────────
+
+□ src/lib/merch/normalizeMerchItem.test.ts
+  Coverage target: 95%
+  
+  Test cases:
+  - Size extraction (all size formats)
+  - Garment type detection (all types)
+  - Color extraction
+  - Design name parsing
+  - Edge cases (empty strings, special chars, etc.)
+  - Multiple items with same name
+  - International characters
+
+□ src/lib/merch/buildMerchAnalytics.test.ts
+  Coverage target: 90%
+  
+  Test cases:
+  - Basic aggregations
+  - Empty dataset handling
+  - Single item dataset
+  - Large dataset (10k+ items)
+  - Filtered datasets
+  - Edge cases (all same size, all same product, etc.)
+
+□ All aggregation functions
+  - groupByShow()
+  - groupBySize()
+  - groupByCity()
+  - groupByProduct()
+  - groupByMonth()
+
+□ Filter logic tests
+  - Date range filtering
+  - City filtering
+  - Category filtering
+  - Combined filters
+  - Filter edge cases
+
+□ Recommendation algorithm tests
+  - Size recommendations
+  - Product recommendations
+  - Regional recommendations
+  - Seasonal recommendations
+  - Confidence scoring
+
+Integration Tests
+────────────────────────────────────────────────────────────────────────────
+
+□ End-to-end analytics pipeline
+  Test: Sales data → Normalization → Analytics → UI display
+  
+□ Filter application across all sections
+  Test: Apply filter → All tabs update correctly
+  
+□ Export functionality
+  Test: Generate CSV → Download → Verify contents
+  Test: Generate PDF → Download → Verify structure
+  
+□ Tour loadout calculator
+  Test: Input cities → Calculate loadout → Verify quantities
+
+Visual Regression Tests (Chromatic or Percy)
+────────────────────────────────────────────────────────────────────────────
+
+□ Chart rendering consistency
+  - All chart types render correctly
+  - Data updates reflected visually
+  - No visual regressions on changes
+
+□ Dark mode appearance
+  - All components in dark mode
+  - Proper contrast
+  - Chart colors appropriate
+
+□ Responsive breakpoints
+  - Desktop (1920px)
+  - Laptop (1440px)
+  - Tablet (768px)
+  - Mobile (375px)
+
+Performance Tests
+────────────────────────────────────────────────────────────────────────────
+
+□ Large dataset handling
+  Test: 50,000+ transactions
+  Goal: < 2s analytics computation
+  
+□ Filter performance
+  Test: Apply complex filters
+  Goal: < 100ms update time
+  
+□ Chart render performance
+  Test: Render all charts
+  Goal: < 50ms per chart
+  
+□ Memory leak detection
+  Test: Navigate between tabs repeatedly
+  Goal: No memory growth
+
+User Acceptance Testing (UAT)
+────────────────────────────────────────────────────────────────────────────
+
+□ Test with real data
+  - Import actual Square data
+  - Verify accuracy of analytics
+  - Validate recommendations
+
+□ Test with touring musicians
+  - Get feedback on usefulness
+  - Validate tour loadout calculator
+  - Confirm actionability of recommendations
+
+□ Test cross-browser
+  - Chrome
+  - Safari
+  - Firefox
+  - Mobile browsers
+
+
+================================================================================
+MILESTONES & DELIVERABLES
+================================================================================
+
+Week 2 Milestone: Data Foundation Complete
+────────────────────────────────────────────────────────────────────────────
+□ Normalization system working with 95%+ accuracy
+□ Analytics engine framework complete
+□ Performance benchmarks established
+□ All types defined
+□ Core aggregation functions tested
+
+Week 4 Milestone: Core Analytics Live
+────────────────────────────────────────────────────────────────────────────
+□ Size analytics fully functional
+□ Product analytics fully functional
+□ City analytics fully functional
+□ Seasonal analytics fully functional
+□ 3+ new visualization components deployed
+□ All charts rendering correctly
+
+Week 6 Milestone: Intelligence Layer Complete
+────────────────────────────────────────────────────────────────────────────
+□ Basket analysis complete and accurate
+□ Recommendation engine generating insights
+□ Tour loadout generator functional and tested
+□ Dead stock detection active
+□ All algorithms validated
+
+Week 8 Milestone: Production Ready
+────────────────────────────────────────────────────────────────────────────
+□ All features integrated into main UI
+□ Export system (CSV + PDF) functional
+□ Performance optimized (< 500ms for 10k transactions)
+□ Fully responsive across all devices
+□ Documentation complete
+□ AI-ready architecture in place
+□ Ready for production deployment
+
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+Functional Requirements
+────────────────────────────────────────────────────────────────────────────
+✓ All existing features preserved and working
+✓ 8+ new analytics sections deployed
+✓ Real-time filtering across all views
+✓ Export to CSV working for all reports
+✓ Export to PDF working for key reports
+✓ Tour planning calculator providing accurate recommendations
+✓ Recommendations engine generating actionable insights
+
+Performance Requirements
+────────────────────────────────────────────────────────────────────────────
+✓ < 500ms analytics computation for 10,000 transactions
+✓ < 100ms filter application time
+✓ Smooth 60fps chart interactions
+✓ No UI blocking during computation
+✓ < 500kb initial bundle size
+
+User Experience Requirements
+────────────────────────────────────────────────────────────────────────────
+✓ Spotify-quality polish and professional aesthetics
+✓ Professional touring vibe throughout
+✓ Fully mobile responsive (375px+)
+✓ Perfect dark mode support
+✓ Intuitive navigation
+✓ Clear, actionable insights
+✓ Helpful empty states and loading states
+
+Business Value Requirements
+────────────────────────────────────────────────────────────────────────────
+✓ Answers: "What sizes to print?" with data-driven recommendations
+✓ Answers: "Which cities buy hoodies?" with city-level preferences
+✓ Answers: "Which designs underperform?" with product rankings
+✓ Answers: "What to bring on tour?" with loadout calculator
+✓ Provides actionable recommendations to reduce waste
+✓ Provides projections to maximize revenue
+
+
+================================================================================
+RISK MITIGATION
+================================================================================
+
+Risk: Performance degradation with large datasets
+Severity: High
+Mitigation: 
+- Early performance testing in Phase 1
+- Continuous benchmarking
+- Web workers for heavy computation
+- Code splitting to reduce bundle size
+- Virtualization for large lists
+
+Risk: Complex UI overwhelming users
+Severity: Medium
+Mitigation:
+- Progressive disclosure (tabs, collapsible sections)
+- Tooltips and help text throughout
+- Optional onboarding tour
+- Clear section headers and descriptions
+- "Simple mode" vs "Advanced mode" toggle (future)
+
+Risk: Inaccurate normalization of product names
+Severity: Medium
+Mitigation:
+- Extensive testing with real data
+- User feedback loop
+- Manual override option for edge cases
+- Continuous improvement of parsing rules
+- Fallback to raw names if normalization fails
+
+Risk: Scope creep delaying delivery
+Severity: Medium
+Mitigation:
+- Phased rollout with clear milestones
+- MVP focus (MUST HAVE features first)
+- Future enhancement backlog
+- Weekly progress reviews
+- Strict adherence to timeline
+
+Risk: Timezone and date handling issues
+Severity: Low
+Mitigation:
+- Comprehensive date handling from the start
+- UTC storage, local display conversion
+- Extensive date edge case testing
+- Consistent use of date-fns library
+
+
+================================================================================
+POST-LAUNCH ENHANCEMENTS (Future Roadmap)
+================================================================================
+
+Future Phase 10: Live Inventory Integration
+────────────────────────────────────────────────────────────────────────────
+- Real-time stock level tracking
+- Automatic reorder point calculations
+- Sellout predictions based on current inventory + sales velocity
+- Integration with inventory management systems
+- Stock level alerts and notifications
+
+Future Phase 11: AI Assistant (Natural Language Queries)
+────────────────────────────────────────────────────────────────────────────
+- Chat interface for natural language questions
+- GPT-4 integration for query understanding
+- Automated daily/weekly insights emails
+- Proactive recommendations ("You might want to...")
+- Voice query support
+
+Future Phase 12: Predictive Analytics
+────────────────────────────────────────────────────────────────────────────
+- Demand forecasting (ML models)
+- Revenue projections for future tours
+- Trend analysis and pattern detection
+- Seasonal demand prediction
+- Optimal pricing recommendations
+
+Future Phase 13: Integration Ecosystem
+────────────────────────────────────────────────────────────────────────────
+- Shopify sync (two-way)
+- BigCartel integration
+- Square inventory sync (beyond sales)
+- Email campaign integration (Mailchimp)
+- Social media metrics correlation
+- Spotify listener data integration
+
+Future Phase 14: Advanced Visualizations
+────────────────────────────────────────────────────────────────────────────
+- Interactive map showing sales by location
+- Sankey diagrams for product flows
+- 3D visualizations for complex data
+- Animated time-series playback
+- Custom dashboard builder
+
+Future Phase 15: Collaboration Features
+────────────────────────────────────────────────────────────────────────────
+- Share reports with team members
+- Commenting on insights
+- Role-based access (manager, merch person, accountant)
+- Export templates
+- Scheduled report delivery
+
+
+================================================================================
+RESOURCES REQUIRED
+================================================================================
+
+Development Team
+────────────────────────────────────────────────────────────────────────────
+- 1 Senior Frontend Developer (full-time, 8 weeks)
+  Skills: React, TypeScript, data visualization, performance optimization
+  
+- 1 UX Designer (part-time, 2 weeks)
+  Skills: Dashboard design, data visualization, touring industry knowledge
+  
+- 1 QA Engineer (part-time, 2 weeks)
+  Skills: Test automation, performance testing, cross-browser testing
+
+External Libraries (to add)
+────────────────────────────────────────────────────────────────────────────
+- recharts (already in use) - Charts and visualizations
+- date-fns (already in use) - Date manipulation
+- react-virtual - Virtualized lists for performance
+- jsPDF or react-pdf - PDF generation
+- papaparse - CSV parsing and export
+- lodash (optional) - Utility functions
+
+Infrastructure
+────────────────────────────────────────────────────────────────────────────
+- No additional backend required (uses existing Square data)
+- Optional: Redis for caching computed analytics
+- Optional: CDN for exported reports storage
+- Optional: Background job queue for large exports
+
+Development Tools
+────────────────────────────────────────────────────────────────────────────
+- Webpack Bundle Analyzer - Bundle size optimization
+- React DevTools Profiler - Performance profiling
+- Chromatic or Percy - Visual regression testing
+- Jest - Unit testing
+- React Testing Library - Component testing
+
+
+================================================================================
+ESTIMATED EFFORT BREAKDOWN
+================================================================================
+
+Phase 1: Foundation & Data Layer            80 hours
+  - Type definitions                        10 hours
+  - Normalization utilities                 30 hours
+  - Analytics engine core                   30 hours
+  - Performance optimization                10 hours
+
+Phase 2: Size & Product Analytics           60 hours
+  - Size analytics implementation           20 hours
+  - Product analytics implementation        20 hours
+  - UI components (heatmap, charts)         20 hours
+
+Phase 3: Geographic & Temporal Analytics    60 hours
+  - City analytics implementation           20 hours
+  - Seasonal analytics implementation       15 hours
+  - UI components (tables, charts)          25 hours
+
+Phase 4: Basket & Inventory Analytics       50 hours
+  - Basket analysis implementation          20 hours
+  - Inventory intelligence structure        10 hours
+  - UI components                           20 hours
+
+Phase 5: Recommendations Engine             70 hours
+  - Recommendation logic                    30 hours
+  - Tour loadout generator                  25 hours
+  - UI components                           15 hours
+
+Phase 6: UI Integration & Polish            60 hours
+  - Main component refactor                 15 hours
+  - Global filters                          15 hours
+  - Responsive design pass                  15 hours
+  - Loading/empty states                    15 hours
+
+Phase 7: Export & Reporting                 40 hours
+  - CSV export                              10 hours
+  - PDF export                              20 hours
+  - UI components                           10 hours
+
+Phase 8: Performance & Optimization         30 hours
+  - Benchmarking                            10 hours
+  - Optimization implementation             15 hours
+  - Code splitting                          5 hours
+
+Phase 9: AI-Ready Architecture              20 hours
+  - Schema design                           10 hours
+  - Documentation                           10 hours
+
+────────────────────────────────────────────────────────────────────────────
+TOTAL ESTIMATED EFFORT:                     470 hours
+
+Timeline Scenarios:
+- Solo developer (40 hrs/week):             ~12 weeks
+- With team support:                        ~6-8 weeks
+- Accelerated (focused sprints):            ~5-6 weeks
+
+
+================================================================================
+IMPLEMENTATION ORDER PRIORITY
+================================================================================
+
+MUST HAVE (MVP - Launch Blockers)
+────────────────────────────────────────────────────────────────────────────
+Priority ⭐⭐⭐ (Do these first)
+
+1. Data normalization system
+   Why: Foundation for all other features
+   Impact: Enables all intelligent analytics
+   
+2. Size analytics
+   Why: #1 most requested feature from touring musicians
+   Impact: Directly reduces waste and improves margins
+   
+3. Product analytics
+   Why: Identify winners and losers
+   Impact: Inform which designs to print more/less of
+   
+4. City analytics
+   Why: Regional preferences are significant
+   Impact: Optimize loadouts per region
+   
+5. Basic recommendations
+   Why: Make data actionable
+   Impact: Direct business value
+
+SHOULD HAVE (High Value, Post-MVP)
+────────────────────────────────────────────────────────────────────────────
+Priority ⭐⭐ (Do these after MVP)
+
+6. Seasonal analytics
+   Why: Important for planning ahead
+   Impact: Seasonal stocking optimization
+   
+7. Basket analysis
+   Why: Combo merchandising opportunities
+   Impact: Increase average transaction value
+   
+8. Tour loadout generator
+   Why: Huge time-saver for tour planning
+   Impact: Data-driven tour prep
+   
+9. Export functionality (CSV)
+   Why: Share data with team/accountant
+   Impact: Workflow integration
+
+NICE TO HAVE (Polish, Future Enhancements)
+────────────────────────────────────────────────────────────────────────────
+Priority ⭐ (Do if time permits)
+
+10. Dead stock warnings
+    Why: Proactive inventory management
+    Impact: Further reduce waste
+    
+11. AI-ready architecture
+    Why: Future-proofing
+    Impact: Enable future AI features
+    
+12. PDF exports
+    Why: Professional reporting
+    Impact: Better stakeholder communication
+
+
+================================================================================
+NEXT IMMEDIATE STEPS (Getting Started)
+================================================================================
+
+Step 1: Create project structure
+────────────────────────────────────────────────────────────────────────────
+Run these commands:
+
+mkdir -p src/lib/merch
+mkdir -p src/lib/merch/exporters
+mkdir -p src/lib/merch/__tests__
+mkdir -p src/components/merch/analytics
+
+Step 2: Set up types file
+────────────────────────────────────────────────────────────────────────────
+Create: src/lib/merch/types.ts
+
+Define all TypeScript interfaces:
+- NormalizedMerchItem
+- MerchAnalytics
+- SizeAnalytics
+- ProductAnalytics
+- CityAnalytics
+- Recommendation
+- etc.
+
+Step 3: Build normalization utility
+────────────────────────────────────────────────────────────────────────────
+Create: src/lib/merch/normalizeMerchItem.ts
+
+Implement functions:
+- extractSize()
+- extractGarmentType()
+- extractColor()
+- extractDesignName()
+- generateDesignId()
+- normalizeItem() (main function)
+
+Step 4: Write tests for normalization
+────────────────────────────────────────────────────────────────────────────
+Create: src/lib/merch/__tests__/normalizeMerchItem.test.ts
+
+Test all edge cases with real product name examples
+
+Step 5: Begin analytics engine
+────────────────────────────────────────────────────────────────────────────
+Create: src/lib/merch/buildMerchAnalytics.ts
+
+Start with basic aggregations:
+- groupBySize()
+- groupByProduct()
+
+Step 6: Create first visualization
+────────────────────────────────────────────────────────────────────────────
+Create: src/components/merch/analytics/SizeDistribution.tsx
+
+Build simple bar chart showing size breakdown
+
+Step 7: Integrate into main component
+────────────────────────────────────────────────────────────────────────────
+Update: src/components/merch/MerchAnalytics.tsx
+
+Add new size analytics section to existing component
+
+
+================================================================================
+QUESTIONS BEFORE STARTING?
+================================================================================
+
+Before we begin implementation, please confirm:
+
+□ Do you have access to real Square merch data to test with?
+□ What's the typical size of your dataset (# of transactions)?
+□ Are there specific product naming conventions you use?
+□ Are there any must-have features not listed here?
+□ What's the timeline/deadline pressure (if any)?
+□ Would you like to start with a specific phase or feature?
+
+────────────────────────────────────────────────────────────────────────────
+
+READY TO BEGIN PHASE 1: DATA NORMALIZATION?
+
+Say "Start Phase 1" and we'll create the foundation!
+
+
+================================================================================
+END OF IMPLEMENTATION PLAN
+================================================================================
+
+This plan will transform SceneGen's merch analytics from basic tracking into 
+a world-class intelligence system that answers every question a touring 
+musician has about their merch business.
+
+Let's build something amazing! 🚀
+
+Generated: May 12, 2026
+Version: 1.0

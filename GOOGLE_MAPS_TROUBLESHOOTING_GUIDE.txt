@@ -1,0 +1,535 @@
+================================================================================
+GOOGLE MAPS DIRECTIONS API TROUBLESHOOTING GUIDE
+================================================================================
+Last Updated: April 7, 2026
+Project: SceneGen UI V2 - Tour Map Feature
+Issue: Route lines not displaying despite valid coordinates and API setup
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. Issue Summary
+2. Root Cause Analysis
+3. Completed Fixes
+4. Current Status
+5. Remaining Problem
+6. Step-by-Step Troubleshooting
+7. Code Changes Made
+8. Testing Verification
+9. Next Steps
+10. Alternative Solutions
+
+================================================================================
+1. ISSUE SUMMARY
+================================================================================
+
+SYMPTOM:
+- Google Maps loads successfully in the TourMap component
+- Map markers would display (currently blocked by route loading)
+- Route lines between tour stops are NOT displaying
+- Console shows "REQUEST_DENIED" error from Google Directions API
+- Distance calculations are not working
+
+EXPECTED BEHAVIOR:
+- Map should display markers for each tour venue
+- Polylines should connect venues in chronological order
+- Total tour distance should be calculated and displayed
+- Routes should follow actual roads (via Directions API)
+
+================================================================================
+2. ROOT CAUSE ANALYSIS
+================================================================================
+
+INITIAL PROBLEM (RESOLVED):
+- Coordinates were stored as strings in the database
+- Frontend expected numeric lat/lng values
+- Type mismatch prevented proper coordinate processing
+
+CURRENT PROBLEM (ACTIVE):
+- Google Directions API returns "REQUEST_DENIED" error
+- This is a Google Cloud Platform configuration issue
+- API key, quota, or project settings are blocking requests
+
+POSSIBLE CAUSES:
+1. API key restrictions (HTTP referrer, IP address, API restrictions)
+2. Directions API not enabled in Google Cloud Console
+3. Billing not properly configured
+4. API quota exceeded
+5. API key not fully propagated (can take 5+ minutes)
+6. API key tied to wrong Google Cloud project
+7. API key missing necessary scopes/permissions
+
+================================================================================
+3. COMPLETED FIXES
+================================================================================
+
+✅ BACKEND FIXES (server.js):
+- Added parseFloat() conversion for venueLat and venueLng
+- Ensured both camelCase and snake_case coordinate fields are numeric
+- Verified API returns proper number types (not strings)
+- Restarted backend server on port 3001
+
+✅ FRONTEND FIXES (routeUtils.ts):
+- Updated convertShowForMap() to enforce numeric types
+- Added hasValidCoordinates() validation function
+- Enhanced getMapBounds() with coordinate filtering
+- Added type guards to prevent string coordinates
+
+✅ ERROR LOGGING (TourMap.tsx):
+- Added detailed Directions API error logging
+- Included error status, message, and available routes
+- Provides actionable feedback for debugging
+
+✅ VERIFICATION:
+- Confirmed coordinates are now numbers in backend response
+- Confirmed frontend properly validates coordinate types
+- Confirmed Google Maps JavaScript API loads successfully
+- Confirmed API key is set in .env.local
+- Restarted both frontend and backend servers
+
+================================================================================
+4. CURRENT STATUS
+================================================================================
+
+WORKING:
+✅ Backend API returns shows with numeric coordinates
+✅ Frontend validates and filters coordinates properly
+✅ Google Maps JavaScript API loads (no console errors)
+✅ API key is properly configured in environment variables
+✅ Type safety enforced throughout the coordinate pipeline
+
+NOT WORKING:
+❌ Google Directions API returns REQUEST_DENIED
+❌ Route polylines not rendering on map
+❌ Distance calculations not executing
+❌ Map functionality blocked by route loading failure
+
+ERROR MESSAGE:
+"Error calculating tour route: REQUEST_DENIED"
+
+================================================================================
+5. REMAINING PROBLEM
+================================================================================
+
+GOOGLE CLOUD CONSOLE CONFIGURATION ISSUE
+
+The Directions API is rejecting requests despite:
+- Valid API key
+- Numeric coordinates
+- Proper request format
+- API enabled in console
+- Billing enabled
+
+MOST LIKELY CAUSES (in order of probability):
+
+1. API KEY RESTRICTIONS
+   - HTTP referrer restrictions blocking localhost
+   - IP address restrictions
+   - API restrictions limiting which APIs can be called
+
+2. PROPAGATION DELAY
+   - Recently created/modified API key
+   - Changes can take 5-10 minutes to propagate
+
+3. BILLING ISSUES
+   - Free trial expired
+   - Payment method declined
+   - Spending limits reached
+
+4. PROJECT CONFIGURATION
+   - API key tied to wrong project
+   - Directions API not enabled in correct project
+   - Quota limits set too low
+
+================================================================================
+6. STEP-BY-STEP TROUBLESHOOTING
+================================================================================
+
+STEP 1: VERIFY DIRECTIONS API IS ENABLED
+-----------------------------------------
+1. Go to: https://console.cloud.google.com/apis/library
+2. Search for "Directions API"
+3. Ensure it shows "API ENABLED" (not "ENABLE" button)
+4. Click "MANAGE" and check quotas:
+   - Queries per day should be > 0
+   - Queries per 100 seconds should be > 0
+5. If not enabled, click "ENABLE" and wait 5 minutes
+
+STEP 2: CHECK API KEY RESTRICTIONS
+-----------------------------------
+1. Go to: https://console.cloud.google.com/apis/credentials
+2. Find your API key and click to edit
+3. Under "Application restrictions":
+   - Set to "None" for testing (INSECURE - temporary only)
+   - OR set to "HTTP referrers" with: http://localhost:*
+4. Under "API restrictions":
+   - Set to "Don't restrict key" for testing
+   - OR ensure "Directions API" is in the allowed list
+5. Save changes and wait 5-10 minutes for propagation
+
+STEP 3: VERIFY BILLING
+-----------------------
+1. Go to: https://console.cloud.google.com/billing
+2. Ensure billing account is linked to your project
+3. Check that payment method is valid
+4. Verify no spending limits are blocking API calls
+5. Check billing alerts for any warnings
+
+STEP 4: CHECK QUOTAS
+---------------------
+1. Go to: https://console.cloud.google.com/apis/api/directions-backend.googleapis.com/quotas
+2. Verify "Queries per day" is not 0 or exhausted
+3. Check "Queries per 100 seconds" limit
+4. If quotas are low, request an increase
+5. Check quota usage graph for any spikes
+
+STEP 5: TEST API KEY DIRECTLY
+------------------------------
+1. Open a new browser tab
+2. Paste this URL (replace YOUR_API_KEY):
+
+https://maps.googleapis.com/maps/api/directions/json?origin=37.7749,-122.4194&destination=34.0522,-118.2437&key=YOUR_API_KEY
+
+3. Expected response: JSON with "status": "OK" and routes
+4. If error, note the exact error message
+5. Common errors:
+   - REQUEST_DENIED: API key or billing issue
+   - OVER_QUERY_LIMIT: Quota exceeded
+   - INVALID_REQUEST: Malformed parameters
+
+STEP 6: CREATE NEW API KEY (if needed)
+---------------------------------------
+1. Go to: https://console.cloud.google.com/apis/credentials
+2. Click "+ CREATE CREDENTIALS" → "API Key"
+3. Copy the new key immediately
+4. Edit restrictions:
+   - Application restrictions: None (for testing)
+   - API restrictions: None (for testing)
+5. Update .env.local with new key:
+   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_new_key_here
+6. Restart the frontend server
+7. Wait 5-10 minutes for propagation
+8. Test again
+
+STEP 7: VERIFY ENVIRONMENT VARIABLE
+------------------------------------
+1. Check .env.local file exists in project root
+2. Verify this exact line (no typos):
+   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_actual_key
+3. No quotes, spaces, or special characters
+4. Restart Next.js dev server: npm run dev
+5. Check browser console for the API key being loaded
+
+STEP 8: CHECK BROWSER CONSOLE
+------------------------------
+1. Open browser DevTools (F12 or Cmd+Option+I)
+2. Go to Console tab
+3. Filter for "Google" or "Maps"
+4. Look for error messages with details
+5. Check Network tab for failed API requests
+6. Look for red 403/400 errors to Directions API
+
+================================================================================
+7. CODE CHANGES MADE
+================================================================================
+
+FILE: /backend/server.js
+CHANGES:
+- Line ~150-160: Added parseFloat() conversion
+- Ensures venueLat and venueLng are returned as numbers
+- Affects both camelCase and snake_case fields
+
+CODE:
+```javascript
+app.get('/api/shows', authenticateToken, async (req, res) => {
+  // ...existing code...
+  const shows = results.map(show => ({
+    // ...existing fields...
+    venueLat: show.venue_lat ? parseFloat(show.venue_lat) : null,
+    venueLng: show.venue_lng ? parseFloat(show.venue_lng) : null,
+    venue_lat: show.venue_lat ? parseFloat(show.venue_lat) : null,
+    venue_lng: show.venue_lng ? parseFloat(show.venue_lng) : null,
+    // ...existing fields...
+  }));
+  res.json(shows);
+});
+```
+
+FILE: /src/lib/maps/routeUtils.ts
+CHANGES:
+- Enhanced type safety for coordinates
+- Added validation functions
+- Filter invalid coordinates from bounds calculation
+
+KEY FUNCTIONS:
+```typescript
+export function convertShowForMap(show: Show): MapLocation {
+  return {
+    id: show.id,
+    name: show.venueName || 'Unknown Venue',
+    lat: Number(show.venueLat),
+    lng: Number(show.venueLng),
+    date: show.date,
+    city: show.city || '',
+    state: show.state || '',
+  };
+}
+
+export function hasValidCoordinates(location: MapLocation): boolean {
+  return (
+    typeof location.lat === 'number' &&
+    typeof location.lng === 'number' &&
+    !isNaN(location.lat) &&
+    !isNaN(location.lng) &&
+    location.lat !== 0 &&
+    location.lng !== 0 &&
+    location.lat >= -90 &&
+    location.lat <= 90 &&
+    location.lng >= -180 &&
+    location.lng <= 180
+  );
+}
+```
+
+FILE: /src/components/maps/TourMap.tsx
+CHANGES:
+- Added detailed error logging for Directions API
+- Enhanced error messages for troubleshooting
+
+CODE:
+```typescript
+if (status !== google.maps.DirectionsStatus.OK) {
+  console.error('Directions API Error:', {
+    status,
+    message: result,
+    locations: locations.map(l => ({ lat: l.lat, lng: l.lng }))
+  });
+  setError(`Error calculating tour route: ${status}`);
+  return;
+}
+```
+
+================================================================================
+8. TESTING VERIFICATION
+================================================================================
+
+BACKEND VERIFICATION:
+---------------------
+1. Navigate to: http://localhost:3001/api/shows
+2. Login if prompted (use valid JWT token)
+3. Check response JSON:
+   - venueLat should be NUMBER (not "37.7749" string)
+   - venueLng should be NUMBER (not "-122.4194" string)
+4. Verify no quotes around coordinate values
+5. Example correct format:
+   {
+     "venueLat": 37.7749,
+     "venueLng": -122.4194
+   }
+
+FRONTEND VERIFICATION:
+----------------------
+1. Open browser DevTools Console
+2. Navigate to tour map page
+3. Check for logs showing:
+   - "Fetching route for X locations"
+   - Coordinate values as numbers
+4. Check for errors:
+   - "REQUEST_DENIED" = Google Cloud issue
+   - "Type errors" = coordinate type issue (should be fixed)
+5. Check Network tab:
+   - Filter for "directions"
+   - Look for API calls and their responses
+
+API KEY VERIFICATION:
+---------------------
+1. Command line test:
+   echo $NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+2. Should output your API key
+3. If empty, check .env.local file
+4. Restart terminal and dev server if needed
+
+BROWSER DIRECT TEST:
+--------------------
+1. Open: https://maps.googleapis.com/maps/api/js?key=YOUR_KEY&libraries=places
+2. Should NOT show error page
+3. Should load JavaScript file
+4. If error, API key is invalid or restricted
+
+================================================================================
+9. NEXT STEPS
+================================================================================
+
+IMMEDIATE ACTIONS (in order):
+------------------------------
+
+1. ⚠️ VERIFY API KEY HAS NO RESTRICTIONS (5 minutes)
+   - Set to "None" temporarily for testing
+   - This is the most common cause of REQUEST_DENIED
+
+2. ⏱️ WAIT FOR PROPAGATION (5-10 minutes)
+   - Recent changes may not be live yet
+   - Google Cloud changes can take time
+
+3. 🔑 CREATE NEW API KEY (if Step 1-2 fail)
+   - Fresh key with no restrictions
+   - Replace in .env.local
+   - Restart server
+
+4. 💳 VERIFY BILLING (if still failing)
+   - Check billing account linked
+   - Verify payment method active
+   - Check for billing alerts
+
+5. 📊 CHECK QUOTAS (if still failing)
+   - Ensure daily quota > 0
+   - Check for quota exhaustion
+   - Request increase if needed
+
+6. 🆘 IMPLEMENT FALLBACK (if API remains blocked)
+   - Draw straight lines instead of routes
+   - Use Haversine distance formula
+   - Still provides basic visualization
+
+RECOMMENDED ORDER:
+------------------
+1. Remove API key restrictions (APPLICATION + API)
+2. Wait 10 minutes
+3. Clear browser cache and restart dev server
+4. Test again
+5. If still failing, create new unrestricted API key
+6. If still failing, check billing and quotas
+7. If still failing, implement polyline fallback
+
+================================================================================
+10. ALTERNATIVE SOLUTIONS
+================================================================================
+
+OPTION A: POLYLINE FALLBACK (SIMPLE)
+-------------------------------------
+If Directions API continues to fail, draw straight lines:
+
+PROS:
+- No API quota usage
+- Always works
+- Fast rendering
+- No billing required
+
+CONS:
+- Lines don't follow roads
+- Distance is "as the crow flies"
+- Less accurate for road trips
+- Less professional appearance
+
+IMPLEMENTATION:
+Add to TourMap.tsx after Directions API error:
+
+```typescript
+// Fallback: Draw straight lines
+const path = locations.map(loc => ({
+  lat: loc.lat,
+  lng: loc.lng
+}));
+
+const polyline = new google.maps.Polyline({
+  path: path,
+  geodesic: true,
+  strokeColor: '#3B82F6',
+  strokeOpacity: 1.0,
+  strokeWeight: 3,
+  map: map
+});
+
+// Calculate distance using Haversine formula
+const totalDistance = calculateHaversineDistance(locations);
+```
+
+OPTION B: DISTANCE MATRIX API
+------------------------------
+Alternative to Directions API for distances:
+
+PROS:
+- May have different quota limits
+- Provides travel times
+- Multiple origin/destination support
+
+CONS:
+- Doesn't provide route polylines
+- Still requires Google Cloud billing
+- May have same restriction issues
+
+OPTION C: THIRD-PARTY ROUTING
+------------------------------
+Use alternative mapping services:
+
+OPTIONS:
+- Mapbox Directions API
+- HERE Maps API
+- OpenRouteService (open source)
+- OSRM (Open Source Routing Machine)
+
+PROS:
+- Different billing/quota structure
+- May be more cost-effective
+- Some have free tiers
+
+CONS:
+- Requires new API setup
+- Different integration code
+- May require migration from Google Maps
+
+================================================================================
+QUICK REFERENCE: COMMON ERROR CODES
+================================================================================
+
+REQUEST_DENIED
+- API key missing or invalid
+- API not enabled
+- Billing not configured
+- API restrictions blocking request
+
+OVER_QUERY_LIMIT
+- Daily quota exceeded
+- Rate limit exceeded
+- Need to increase quotas
+
+INVALID_REQUEST
+- Malformed parameters
+- Missing origin/destination
+- Invalid coordinates
+
+ZERO_RESULTS
+- No route found between points
+- Points too far apart
+- Points in invalid locations
+
+UNKNOWN_ERROR
+- Server-side issue
+- Retry the request
+- Check Google Cloud Status Dashboard
+
+================================================================================
+SUPPORT RESOURCES
+================================================================================
+
+Google Maps Platform Documentation:
+https://developers.google.com/maps/documentation/directions
+
+Google Cloud Console:
+https://console.cloud.google.com
+
+API Key Best Practices:
+https://developers.google.com/maps/api-security-best-practices
+
+Directions API Troubleshooting:
+https://developers.google.com/maps/documentation/directions/error-messages
+
+Billing Information:
+https://developers.google.com/maps/billing
+
+Status Dashboard:
+https://status.cloud.google.com
+
+================================================================================
+END OF TROUBLESHOOTING GUIDE
+================================================================================

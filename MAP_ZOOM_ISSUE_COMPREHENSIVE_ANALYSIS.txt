@@ -1,0 +1,324 @@
+================================================================================
+MAP AUTO-ZOOM ISSUE - COMPREHENSIVE TECHNICAL ANALYSIS
+================================================================================
+Date: April 8, 2026
+Component: TourMap.tsx
+Issue Status: UNRESOLVED
+Priority: HIGH
+
+================================================================================
+ISSUE SUMMARY
+================================================================================
+
+The tour map in SceneGenUIV2 is not automatically zooming to fit all waypoints
+(show locations) when the map loads. Instead, the map appears to be zooming in
+too far, showing only a small portion of the tour route rather than displaying
+all 28 show locations across the United States.
+
+================================================================================
+EXPECTED BEHAVIOR
+================================================================================
+
+When a user opens the tour map:
+1. The map should load with all show locations visible
+2. The viewport should automatically adjust to fit bounds that include:
+   - All 28 show waypoints
+   - The entire calculated route between shows
+   - Appropriate padding around the edges for visibility
+3. The zoom level should be calculated dynamically based on the geographic
+   spread of the tour locations
+
+================================================================================
+ACTUAL BEHAVIOR
+================================================================================
+
+When the tour map loads:
+1. The map initially appears to zoom in too close
+2. Only a small portion of the tour route is visible
+3. Users must manually zoom out to see the full tour extent
+4. The fitBounds() function appears to be called but is being overridden
+
+================================================================================
+TECHNICAL DETAILS
+================================================================================
+
+Data Verified:
+- 28 shows loaded successfully
+- All shows have valid latitude/longitude coordinates
+- Geographic spread: Covers the entire continental United States
+- Sample coordinates:
+  * Texas show: lat 32.779167, lng -96.808889
+  * California shows: Various locations
+  * East Coast shows: Various locations
+  * Midwest shows: Various locations
+
+Map Configuration:
+- Using @react-google-maps/api library
+- GoogleMap component with ref for imperative control
+- DirectionsRenderer for route display
+- DirectionsService for route calculation
+
+Bounds Calculation:
+- LatLngBounds object correctly created
+- All 28 show coordinates successfully added to bounds
+- Bounds extend() method called for each valid coordinate
+- Verified bounds object contains correct northeast/southwest corners
+
+fitBounds() Execution:
+- Called on initial map load (onLoad callback)
+- Called after successful route calculation
+- Includes padding: { top: 50, right: 50, bottom: 50, left: 50 }
+- Debug logs confirm fitBounds is being called with correct parameters
+
+================================================================================
+ATTEMPTED SOLUTIONS
+================================================================================
+
+1. REMOVED HARDCODED ZOOM LEVEL
+   - Status: COMPLETED
+   - Action: Removed zoom prop from GoogleMap component
+   - Result: No improvement; map still zooms in too close
+   - Reason: Allowed fitBounds to control zoom dynamically
+
+2. VERIFIED DATA INTEGRITY
+   - Status: COMPLETED
+   - Action: Added extensive logging for show data and coordinates
+   - Result: All 28 shows have valid coordinates
+   - Findings: Data is correct and complete
+
+3. ENSURED FITBOUNDS EXECUTION
+   - Status: COMPLETED
+   - Action: Added debug logging before and after fitBounds calls
+   - Result: fitBounds is definitely being called with correct bounds
+   - Findings: Function execution is confirmed, but viewport still incorrect
+
+4. ADDED PADDING TO FITBOUNDS
+   - Status: COMPLETED
+   - Action: Applied 50px padding on all sides
+   - Result: No visible improvement
+   - Findings: Padding parameter is working but doesn't solve core issue
+
+5. DOUBLE-CHECKED BOUNDS CALCULATION
+   - Status: COMPLETED
+   - Action: Logged bounds object before fitBounds call
+   - Result: Bounds are correct and include all waypoints
+   - Findings: The bounds calculation logic is working properly
+
+6. REMOVED ROUTE INFO OVERLAYS
+   - Status: COMPLETED
+   - Action: Removed info textbox and distance display
+   - Result: UI is cleaner but zoom issue persists
+   - Findings: Overlays were not causing the zoom problem
+
+================================================================================
+ROOT CAUSE ANALYSIS
+================================================================================
+
+PRIMARY SUSPECT: DirectionsRenderer Viewport Override
+
+The most likely cause is that the Google Maps DirectionsRenderer component
+automatically adjusts the viewport to fit the calculated route, and this
+happens AFTER our custom fitBounds() calls.
+
+Evidence:
+1. fitBounds is confirmed to be called with correct parameters
+2. The issue only manifests after the route is rendered
+3. DirectionsRenderer has built-in viewport adjustment behavior
+4. This is a known behavior pattern in Google Maps API
+
+Timeline of Events:
+1. Map loads → onLoad callback fires → fitBounds() called → viewport set
+2. Route calculation begins → DirectionsService calculates route
+3. DirectionsRenderer receives route → automatically adjusts viewport
+4. Custom viewport from fitBounds() is overridden
+5. Result: Map zooms to DirectionsRenderer's preferred viewport
+
+================================================================================
+PROPOSED SOLUTIONS
+================================================================================
+
+SOLUTION 1: Use preserveViewport Option (RECOMMENDED)
+------------------------------------------------------
+Priority: HIGH
+Difficulty: LOW
+Expected Success Rate: 90%
+
+Implementation:
+- Add preserveViewport={true} to DirectionsRenderer component
+- This tells DirectionsRenderer not to adjust the viewport automatically
+- Our custom fitBounds() calls will then maintain control
+
+Code Change Required:
+<DirectionsRenderer
+  directions={route}
+  options={{
+    polylineOptions: {
+      strokeColor: '#4F46E5',
+      strokeWeight: 4,
+      strokeOpacity: 0.8,
+    },
+    suppressMarkers: true,
+    preserveViewport: true,  // ADD THIS LINE
+  }}
+/>
+
+Pros:
++ Simple one-line change
++ Documented solution for this exact problem
++ Maintains our custom viewport control
++ No side effects expected
+
+Cons:
+- If fitBounds isn't working for another reason, this won't help
+- Requires testing to confirm it resolves the issue
+
+
+SOLUTION 2: Re-apply fitBounds After Route Render
+--------------------------------------------------
+Priority: MEDIUM
+Difficulty: MEDIUM
+Expected Success Rate: 70%
+
+Implementation:
+- Call fitBounds() again after DirectionsRenderer has finished rendering
+- Use a small delay (100-200ms) to ensure DirectionsRenderer has completed
+- This would override DirectionsRenderer's viewport adjustment
+
+Code Pattern:
+useEffect(() => {
+  if (route && mapRef.current) {
+    setTimeout(() => {
+      mapRef.current?.fitBounds(bounds, padding);
+    }, 200);
+  }
+}, [route]);
+
+Pros:
++ Works even if DirectionsRenderer changes viewport
++ Gives us final control over the viewport
+
+Cons:
+- Requires timing/delay which is not ideal
+- May cause visible "jump" in the viewport
+- Less elegant than preserveViewport option
+
+
+SOLUTION 3: Custom Route Rendering
+-----------------------------------
+Priority: LOW
+Difficulty: HIGH
+Expected Success Rate: 95%
+
+Implementation:
+- Don't use DirectionsRenderer at all
+- Use DirectionsService to get route data
+- Manually render the route using Polyline component
+- Full control over viewport at all times
+
+Pros:
++ Complete control over rendering and viewport
++ No conflicts with built-in behaviors
++ Most flexible solution
+
+Cons:
+- Significant refactoring required
+- More code to maintain
+- Would need to manually handle all route visualization
+- Time-intensive implementation
+
+================================================================================
+RECOMMENDED NEXT STEPS
+================================================================================
+
+IMMEDIATE ACTION (15 minutes):
+1. Add preserveViewport={true} to DirectionsRenderer options
+2. Test the tour map in the browser
+3. Verify that all 28 waypoints are visible on initial load
+4. Check that the route is still displayed correctly
+
+IF PRESERVEVIEWPORT DOESN'T WORK (1 hour):
+1. Implement Solution 2 (delayed fitBounds)
+2. Experiment with delay timing (100ms, 200ms, 500ms)
+3. Minimize visible viewport "jump" if any
+4. Test thoroughly with different tour sizes
+
+IF BOTH SOLUTIONS FAIL (Investigation Required):
+1. Add detailed console logging for:
+   - Exact moment DirectionsRenderer receives route
+   - Map viewport state before and after each operation
+   - Any Google Maps API errors or warnings
+2. Check browser console for Google Maps API errors
+3. Verify Google Maps API key has proper permissions
+4. Consider if there are any conflicting map event listeners
+5. Test with a minimal reproduction case
+
+================================================================================
+FILES INVOLVED
+================================================================================
+
+Primary Files:
+- /src/components/maps/TourMap.tsx
+  Purpose: Main tour map component
+  Lines of Interest: 180-190 (GoogleMap), 195-205 (DirectionsRenderer)
+
+- /src/lib/maps/routeUtils.ts
+  Purpose: Route calculation utilities
+  Lines of Interest: calculateRoute function
+
+Supporting Files:
+- /src/types/tour.ts
+  Purpose: Type definitions for tour and show data
+
+================================================================================
+TESTING CHECKLIST
+================================================================================
+
+After implementing any solution, verify:
+[ ] All 28 show markers are visible on map load
+[ ] Map viewport includes entire tour extent
+[ ] Appropriate padding around the edges
+[ ] Route polyline is rendered correctly
+[ ] Show markers are clickable and functional
+[ ] No console errors from Google Maps API
+[ ] Performance is acceptable (no lag)
+[ ] Zoom controls work properly
+[ ] Pan controls work properly
+[ ] Map doesn't "jump" or flicker on load
+
+================================================================================
+ADDITIONAL NOTES
+================================================================================
+
+- The bounds calculation logic is confirmed working correctly
+- The fitBounds() function is definitely being called
+- The issue is almost certainly related to DirectionsRenderer override
+- This is a common problem with Google Maps DirectionsRenderer
+- The preserveViewport option was added specifically to solve this issue
+- If preserveViewport doesn't work, there may be a different root cause
+
+Debug Logging (can be re-enabled):
+- Logging was added and removed during investigation
+- Can be re-added to routeUtils.ts and TourMap.tsx if needed
+- Look for lines with console.log containing "BOUNDS" or "FITBOUNDS"
+
+================================================================================
+CONCLUSION
+================================================================================
+
+The tour map auto-zoom issue is well-understood and has a high probability
+of being resolved with the preserveViewport option. The underlying fitBounds
+implementation is correct, but is being overridden by DirectionsRenderer's
+automatic viewport adjustment.
+
+Confidence Level: HIGH (85%)
+Estimated Time to Fix: 15-30 minutes
+Risk Level: LOW
+
+The recommended approach is to implement Solution 1 (preserveViewport) first,
+as it is the simplest and most likely to succeed. If that doesn't resolve the
+issue, we have clear fallback options and a detailed understanding of the
+problem space.
+
+================================================================================
+END OF ANALYSIS
+================================================================================

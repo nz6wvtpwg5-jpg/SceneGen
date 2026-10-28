@@ -1,0 +1,618 @@
+# MERCH PAGE ISSUE ANALYSIS
+## Date: April 26, 2026
+
+================================================================================
+## EXECUTIVE SUMMARY
+================================================================================
+
+**ISSUE:** Merch page shows no data
+**ROOT CAUSE:** Backend API endpoints for merch sales are completely missing
+**STATUS:** Feature is NOT implemented in backend despite frontend being ready
+
+================================================================================
+## DETAILED ANALYSIS
+================================================================================
+
+### 1. FRONTEND CODE (src/app/merch/page.tsx)
+--------------------------------------------------------------------------------
+
+#### What the Frontend Does:
+The frontend page is FULLY IMPLEMENTED and makes the following API calls:
+
+1. **GET Merch Sales**
+   - URL: `http://localhost:3001/api/merch/sales?entityId={activeProfile.id}`
+   - Headers: `Authorization: Bearer {token}`
+   - Purpose: Fetch all merch sales for the entity
+   - Expected Response:
+     ```json
+     {
+       "sales": [
+         {
+           "id": "uuid",
+           "squareOrderId": "string",
+           "totalMoney": 4500,
+           "currency": "USD",
+           "createdAt": "timestamp",
+           "state": "COMPLETED",
+           "locationId": "string",
+           "showId": 123,
+           "showName": "Austin Show",
+           "showDate": "2026-05-01",
+           "showCity": "Austin",
+           "showState": "TX",
+           "matched": true,
+           "itemCount": 3,
+           "items": [
+             {
+               "id": "uuid",
+               "name": "T-Shirt",
+               "quantity": 2,
+               "variation": "Large",
+               "basePriceMoney": 2000,
+               "totalMoney": 4000,
+               "catalogObjectId": "sq_id"
+             }
+           ]
+         }
+       ],
+       "stats": {
+         "totalOrders": 50,
+         "totalRevenue": 125000,
+         "averageOrderValue": 2500,
+         "matchedOrders": 40,
+         "unmatchedOrders": 10,
+         "totalItems": 150
+       }
+     }
+     ```
+
+2. **POST Sync Square**
+   - URL: `http://localhost:3001/api/merch/sync`
+   - Method: POST
+   - Body: `{ "entityId": "{activeProfile.id}" }`
+   - Purpose: Sync all orders from Square API
+   - Expected Response:
+     ```json
+     {
+       "newTransactions": 10,
+       "totalFetched": 50,
+       "existingTransactions": 40
+     }
+     ```
+
+3. **POST Auto-Match**
+   - URL: `http://localhost:3001/api/merch/auto-match`
+   - Method: POST
+   - Body: `{ "entityId": "{activeProfile.id}" }`
+   - Purpose: Match orders to shows by date
+   - Expected Response:
+     ```json
+     {
+       "matched": 8
+     }
+     ```
+
+#### Frontend State Management:
+```typescript
+const [sales, setSales] = useState<MerchSale[]>([]);
+const [stats, setStats] = useState<MerchStats>({
+  totalOrders: 0,
+  totalRevenue: 0,
+  averageOrderValue: 0,
+  matchedOrders: 0,
+  unmatchedOrders: 0,
+  totalItems: 0,
+});
+const [loading, setLoading] = useState(false);
+const [syncing, setSyncing] = useState(false);
+```
+
+#### UI Components:
+- **Stats Cards** (6 cards showing aggregated data)
+- **MerchSalesTable** (table with expandable rows for line items)
+- **MerchAnalytics** (charts and insights)
+- **UnmatchedTransactions** (orders needing show assignment)
+
+================================================================================
+### 2. BACKEND STATUS (backend/server.js)
+--------------------------------------------------------------------------------
+
+#### What EXISTS:
+✅ SquareService class (`backend/services/squareService.js`)
+   - Configured with Square API credentials
+   - Has methods: fetchOrders(), fetchAllOrders(), fetchOrdersSince()
+   - Can connect to Square API
+
+✅ Database migrations exist:
+   - `backend/migrations/create-merch-sales-table.js`
+   - `backend/migrations/update-merch-sales-for-orders.js`
+
+✅ Environment variables configured:
+   - SQUARE_ENVIRONMENT=production
+   - SQUARE_APPLICATION_ID=sq0idp-bNWSn2_ZCyYGp6uDYN_zQQ
+   - SQUARE_ACCESS_TOKEN=[configured]
+
+#### What is MISSING:
+❌ **NO MERCH API ENDPOINTS in server.js**
+   - No `app.get('/api/merch/sales', ...)`
+   - No `app.post('/api/merch/sync', ...)`
+   - No `app.post('/api/merch/auto-match', ...)`
+   - No `app.post('/api/merch/match', ...)`
+   - No `app.delete('/api/merch/:id', ...)`
+
+❌ **NO DATABASE TABLES**
+   - Database check shows no merch_sales table
+   - Migrations exist but were never run
+
+#### Test Results:
+```bash
+$ curl http://localhost:3001/api/merch/sales
+Response: "Cannot GET /api/merch/sales" (404 Not Found)
+```
+
+================================================================================
+### 3. DATABASE SCHEMA NEEDED
+--------------------------------------------------------------------------------
+
+Based on migrations and frontend types, these tables should exist:
+
+#### Table: merch_sales
+```sql
+CREATE TABLE merch_sales (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_id UUID NOT NULL,
+  square_order_id TEXT UNIQUE NOT NULL,
+  total_money INTEGER NOT NULL,           -- Amount in cents
+  currency TEXT NOT NULL DEFAULT 'USD',
+  state TEXT NOT NULL,                    -- COMPLETED, OPEN, CANCELED
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP,
+  location_id TEXT,
+  show_id UUID,                           -- FK to shows table
+  matched BOOLEAN DEFAULT false,
+  synced_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  item_count INTEGER DEFAULT 0,
+  customer_id TEXT,
+  FOREIGN KEY (show_id) REFERENCES shows(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_merch_sales_entity_id ON merch_sales(entity_id);
+CREATE INDEX idx_merch_sales_show_id ON merch_sales(show_id);
+CREATE INDEX idx_merch_sales_created_at ON merch_sales(created_at);
+```
+
+#### Table: merch_sale_items
+```sql
+CREATE TABLE merch_sale_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  merch_sale_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  quantity INTEGER NOT NULL,
+  variation TEXT,
+  base_price_money INTEGER NOT NULL,
+  total_money INTEGER NOT NULL,
+  catalog_object_id TEXT,
+  FOREIGN KEY (merch_sale_id) REFERENCES merch_sales(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_merch_sale_items_sale_id ON merch_sale_items(merch_sale_id);
+```
+
+================================================================================
+### 4. MISSING BACKEND ENDPOINTS (WHAT NEEDS TO BE BUILT)
+--------------------------------------------------------------------------------
+
+#### Endpoint 1: GET /api/merch/sales
+```javascript
+app.get('/api/merch/sales', authMiddleware, async (req, res) => {
+  const { entityId } = req.query;
+  
+  // 1. Fetch merch_sales with LEFT JOIN to shows table
+  // 2. Fetch merch_sale_items for each sale
+  // 3. Calculate stats (totalOrders, totalRevenue, etc.)
+  // 4. Return { sales, stats }
+});
+```
+
+**SQL Query Needed:**
+```sql
+SELECT 
+  ms.*,
+  s.venue_name as show_name,
+  s.date as show_date,
+  s.city as show_city,
+  s.state as show_state
+FROM merch_sales ms
+LEFT JOIN shows s ON ms.show_id = s.id
+WHERE ms.entity_id = $1
+ORDER BY ms.created_at DESC
+```
+
+Then for each sale:
+```sql
+SELECT * FROM merch_sale_items WHERE merch_sale_id = $1
+```
+
+#### Endpoint 2: POST /api/merch/sync
+```javascript
+app.post('/api/merch/sync', authMiddleware, async (req, res) => {
+  const { entityId } = req.body;
+  
+  // 1. Initialize SquareService
+  // 2. Call squareService.fetchAllOrders()
+  // 3. For each order, check if square_order_id exists in DB
+  // 4. If not, INSERT INTO merch_sales
+  // 5. For each line item, INSERT INTO merch_sale_items
+  // 6. Return { newTransactions, totalFetched, existingTransactions }
+});
+```
+
+**Logic Flow:**
+```javascript
+const squareService = new SquareService();
+const orders = await squareService.fetchAllOrders();
+
+let newTransactions = 0;
+let existingTransactions = 0;
+
+for (const order of orders) {
+  // Check if exists
+  const existing = await pool.query(
+    'SELECT id FROM merch_sales WHERE square_order_id = $1',
+    [order.id]
+  );
+  
+  if (existing.rows.length > 0) {
+    existingTransactions++;
+    continue;
+  }
+  
+  // Insert sale
+  const saleResult = await pool.query(`
+    INSERT INTO merch_sales (
+      entity_id, square_order_id, total_money, currency,
+      state, created_at, updated_at, location_id,
+      item_count, customer_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    RETURNING id
+  `, [
+    entityId,
+    order.id,
+    order.totalMoney?.amount || 0,
+    order.totalMoney?.currency || 'USD',
+    order.state,
+    order.createdAt,
+    order.updatedAt,
+    order.locationId,
+    order.lineItems?.length || 0,
+    order.customerId
+  ]);
+  
+  // Insert line items
+  for (const item of order.lineItems || []) {
+    await pool.query(`
+      INSERT INTO merch_sale_items (
+        merch_sale_id, name, quantity, variation,
+        base_price_money, total_money, catalog_object_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [
+      saleResult.rows[0].id,
+      item.name,
+      item.quantity,
+      item.variationName,
+      item.basePriceMoney?.amount || 0,
+      item.totalMoney?.amount || 0,
+      item.catalogObjectId
+    ]);
+  }
+  
+  newTransactions++;
+}
+
+return { newTransactions, totalFetched: orders.length, existingTransactions };
+```
+
+#### Endpoint 3: POST /api/merch/auto-match
+```javascript
+app.post('/api/merch/auto-match', authMiddleware, async (req, res) => {
+  const { entityId } = req.body;
+  
+  // 1. Get all unmatched sales for entity
+  // 2. Get all shows for entity
+  // 3. For each sale, find show where date matches (within 24 hours)
+  // 4. UPDATE merch_sales SET show_id = ?, matched = true
+  // 5. Return { matched: count }
+});
+```
+
+**Logic Flow:**
+```javascript
+// Get unmatched sales
+const sales = await pool.query(`
+  SELECT id, created_at 
+  FROM merch_sales 
+  WHERE entity_id = $1 AND matched = false
+`, [entityId]);
+
+// Get shows
+const shows = await pool.query(`
+  SELECT id, date 
+  FROM shows 
+  WHERE entity_id = $1
+`, [entityId]);
+
+let matched = 0;
+
+for (const sale of sales.rows) {
+  const saleDate = new Date(sale.created_at);
+  
+  // Find show on same date
+  const matchedShow = shows.rows.find(show => {
+    const showDate = new Date(show.date);
+    const diffMs = Math.abs(showDate - saleDate);
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return diffHours < 24; // Within 24 hours
+  });
+  
+  if (matchedShow) {
+    await pool.query(`
+      UPDATE merch_sales 
+      SET show_id = $1, matched = true 
+      WHERE id = $2
+    `, [matchedShow.id, sale.id]);
+    matched++;
+  }
+}
+
+return { matched };
+```
+
+#### Endpoint 4: POST /api/merch/match (Manual Match)
+```javascript
+app.post('/api/merch/match', authMiddleware, async (req, res) => {
+  const { saleId, showId } = req.body;
+  
+  // UPDATE merch_sales SET show_id = $1, matched = true WHERE id = $2
+});
+```
+
+================================================================================
+### 5. IMPLEMENTATION ISSUES
+--------------------------------------------------------------------------------
+
+#### Issue #1: Frontend Directly Calls Backend
+**Problem:**
+```typescript
+const response = await fetch(`http://localhost:3001/api/merch/sales?entityId=${activeProfile.id}`, {
+  headers: {
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+  },
+});
+```
+
+**Why This is Bad:**
+- Hardcoded backend URL
+- Direct backend calls bypass Next.js API routes
+- CORS issues in production
+- Token management in localStorage (security risk)
+
+**Should Be:**
+```typescript
+const response = await fetch(`/api/merch/sales?entityId=${activeProfile.id}`, {
+  credentials: 'include',
+});
+```
+
+Then create Next.js API route: `src/app/api/merch/sales/route.ts`
+
+#### Issue #2: Authentication Token
+**Problem:**
+```typescript
+'Authorization': `Bearer ${localStorage.getItem('token')}`
+```
+
+**Issues:**
+- Token stored in localStorage (vulnerable to XSS)
+- Should use session.access_token from NextAuth
+- No token refresh logic
+
+**Should Be:**
+```typescript
+const { data: session } = useSession();
+// ...
+headers: {
+  'Authorization': `Bearer ${session.access_token}`,
+  'X-Entity-Id': activeProfile.id
+}
+```
+
+#### Issue #3: No Error Handling
+**Problem:**
+```typescript
+if (!response.ok) throw new Error('Failed to load merch sales');
+```
+
+**Issues:**
+- Generic error messages
+- No distinction between 401, 404, 500 errors
+- User sees "Failed to load merch sales" for all errors
+
+================================================================================
+### 6. SQUARE API INTEGRATION
+--------------------------------------------------------------------------------
+
+#### Square Orders API Structure:
+```json
+{
+  "id": "order_id",
+  "locationId": "location_id",
+  "createdAt": "2026-04-26T10:00:00.000Z",
+  "updatedAt": "2026-04-26T10:00:00.000Z",
+  "state": "COMPLETED",
+  "totalMoney": {
+    "amount": 4500,
+    "currency": "USD"
+  },
+  "lineItems": [
+    {
+      "name": "T-Shirt",
+      "quantity": "2",
+      "variationName": "Large",
+      "basePriceMoney": {
+        "amount": 2000,
+        "currency": "USD"
+      },
+      "totalMoney": {
+        "amount": 4000,
+        "currency": "USD"
+      },
+      "catalogObjectId": "catalog_id"
+    }
+  ],
+  "customerId": "customer_id"
+}
+```
+
+#### SquareService.fetchOrders() Details:
+- Uses Square Orders API `searchOrders` endpoint
+- Pagination support (500 orders per request)
+- Date range filtering
+- Returns raw Square order objects
+
+================================================================================
+### 7. WHAT WORKS
+--------------------------------------------------------------------------------
+
+✅ Frontend UI is complete and beautiful
+✅ TypeScript types defined correctly
+✅ Components built (MerchSalesTable, MerchAnalytics, UnmatchedTransactions)
+✅ SquareService can connect to Square API
+✅ Square credentials configured
+✅ Database migrations files exist
+✅ Backend server running on port 3001
+
+================================================================================
+### 8. WHAT DOESN'T WORK
+--------------------------------------------------------------------------------
+
+❌ Backend API endpoints missing (0 of 4 implemented)
+❌ Database tables don't exist (migrations not run)
+❌ No data sync from Square
+❌ No sales data in database
+❌ Frontend gets 404 errors
+❌ Stats show all zeros
+❌ Tables show "No data"
+
+================================================================================
+### 9. IMPLEMENTATION PRIORITY
+--------------------------------------------------------------------------------
+
+**Phase 1: Database Setup**
+1. Run migration: `backend/migrations/update-merch-sales-for-orders.js`
+2. Verify tables exist
+3. Add indexes
+
+**Phase 2: Backend Endpoints**
+1. Implement GET /api/merch/sales (read-only first)
+2. Implement POST /api/merch/sync (Square sync)
+3. Implement POST /api/merch/auto-match
+4. Implement POST /api/merch/match (manual)
+
+**Phase 3: Frontend Fixes**
+1. Create Next.js API routes in `src/app/api/merch/`
+2. Replace direct backend calls with API route calls
+3. Fix authentication (use session.access_token)
+4. Add proper error handling
+
+**Phase 4: Testing**
+1. Test Square sync with real data
+2. Test auto-matching algorithm
+3. Test UI with actual data
+4. Verify stats calculations
+
+================================================================================
+### 10. ESTIMATED EFFORT
+--------------------------------------------------------------------------------
+
+**Backend Endpoints:** 4-6 hours
+- GET /api/merch/sales: 1 hour
+- POST /api/merch/sync: 2-3 hours (Square integration)
+- POST /api/merch/auto-match: 1 hour
+- POST /api/merch/match: 30 minutes
+
+**Database Setup:** 30 minutes
+- Run migrations
+- Verify schema
+
+**Frontend Fixes:** 2 hours
+- Create API routes
+- Fix authentication
+- Add error handling
+
+**Testing:** 2 hours
+- End-to-end testing
+- Edge cases
+- Error scenarios
+
+**Total:** 8-10 hours
+
+================================================================================
+### 11. RECOMMENDED NEXT STEPS
+--------------------------------------------------------------------------------
+
+1. **FIRST:** Run database migrations to create tables
+   ```bash
+   cd backend
+   node migrations/update-merch-sales-for-orders.js
+   ```
+
+2. **SECOND:** Implement backend endpoints in server.js
+   - Start with GET /api/merch/sales (return empty array)
+   - Test that frontend can connect
+   - Then implement POST /api/merch/sync
+
+3. **THIRD:** Test Square sync
+   - Use real Square credentials
+   - Fetch actual order data
+   - Verify data appears in database
+
+4. **FOURTH:** Fix frontend
+   - Create Next.js API routes
+   - Fix authentication
+   - Test end-to-end
+
+5. **FIFTH:** Polish
+   - Add loading states
+   - Add error handling
+   - Add success toasts
+
+================================================================================
+### 12. CODE SNIPPETS TO IMPLEMENT
+--------------------------------------------------------------------------------
+
+See separate file: MERCH_IMPLEMENTATION_CODE.md
+
+================================================================================
+## CONCLUSION
+================================================================================
+
+The merch page is showing no data because:
+
+1. ❌ **Backend endpoints don't exist** - 404 errors on all API calls
+2. ❌ **Database tables don't exist** - migrations never run
+3. ❌ **No Square sync has occurred** - no data in system
+4. ⚠️  **Frontend needs fixes** - direct backend calls, hardcoded URLs
+
+**The feature is 60% complete:**
+- ✅ UI/Frontend: 100% done
+- ✅ Square integration: 80% done (service exists, needs endpoints)
+- ❌ Backend API: 0% done
+- ❌ Database: 0% done (tables don't exist)
+
+**To fix:** Implement 4 backend endpoints and run database migrations.
+
+================================================================================
+**END OF ANALYSIS**
+================================================================================
+Generated: April 26, 2026
+File: MERCH_PAGE_ANALYSIS.txt

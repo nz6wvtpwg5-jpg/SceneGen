@@ -1,0 +1,147 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+        "title": "scenegen-api-chat",
+        "description": "Import from \"scenegen-api-chat\" Function App",
+        "version": "1.0"
+    },
+    "servers": [
+        {
+            "url": "https://scenegen-apim.azure-api.net/scenegen-api-chat"
+        }
+    ],
+    "paths": {
+        "/chat/conversationhistory": {
+            "post": {
+                "summary": "ConversationHistory",
+                "operationId": "post-conversationhistory",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Conversation_History_Payload"
+                            },
+                            "example": {
+                                "pageSize": 0,
+                                "continuationToken": "string"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": null
+                    }
+                }
+            }
+        },
+        "/chat/messagehistory": {
+            "post": {
+                "summary": "MessageHistory",
+                "operationId": "post-messagehistory",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Message_History_Payload"
+                            },
+                            "example": {
+                                "conversationId": "string",
+                                "pageSize": 0,
+                                "continuationToken": "string"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": null
+                    }
+                }
+            }
+        },
+        "/chat/start": {
+            "post": {
+                "summary": "StartConversation",
+                "operationId": "post-startconversation",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Start_Conversation_Payload"
+                            },
+                            "example": {
+                                "recipientId": "b3b3b3b3-4b6d-4b3b-8b3b-3b4b6df5b3b3"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": null
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Message_History_Payload": {
+                "type": "object",
+                "properties": {
+                    "conversationId": {
+                        "type": "string"
+                    },
+                    "pageSize": {
+                        "type": "integer"
+                    },
+                    "continuationToken": {
+                        "type": "string"
+                    }
+                },
+                "x-apim-schema-name": "Message History Payload"
+            },
+            "Conversation_History_Payload": {
+                "type": "object",
+                "properties": {
+                    "pageSize": {
+                        "type": "integer"
+                    },
+                    "continuationToken": {
+                        "type": "string"
+                    }
+                },
+                "x-apim-schema-name": "Conversation History Payload"
+            },
+            "Start_Conversation_Payload": {
+                "type": "object",
+                "properties": {
+                    "recipientId": {
+                        "type": "string"
+                    }
+                },
+                "x-apim-schema-name": "Start Conversation Payload"
+            }
+        },
+        "securitySchemes": {
+            "apiKeyHeader": {
+                "type": "apiKey",
+                "name": "Ocp-Apim-Subscription-Key",
+                "in": "header"
+            },
+            "apiKeyQuery": {
+                "type": "apiKey",
+                "name": "subscription-key",
+                "in": "query"
+            }
+        }
+    },
+    "security": [
+        {
+            "apiKeyHeader": []
+        },
+        {
+            "apiKeyQuery": []
+        }
+    ]
+}

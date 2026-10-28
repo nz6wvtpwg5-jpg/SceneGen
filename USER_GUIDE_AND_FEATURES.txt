@@ -1,0 +1,815 @@
+================================================================================
+SCENEGEN - USER GUIDE & FEATURES
+A Simple Guide to What SceneGen Does and How to Use It
+================================================================================
+
+Last Updated: January 28, 2026
+Status: Ready for Beta Testing
+
+================================================================================
+WHAT IS SCENEGEN?
+================================================================================
+
+SceneGen is a platform that connects musicians, promoters, and venues to make
+booking live shows easier. Think of it as a combination of LinkedIn for the
+music industry and a tour management tool.
+
+WHO IS IT FOR?
+
+- Musicians/Bands looking for gigs
+- Promoters organizing concerts and events
+- Venues hosting live music
+- Anyone involved in booking live shows
+
+WHAT PROBLEM DOES IT SOLVE?
+
+Currently, booking shows involves endless emails, phone calls, and scattered
+spreadsheets. SceneGen brings everything into one place:
+- Find and connect with the right people
+- Manage your shows and tours
+- Communicate directly with other industry professionals
+- Keep track of all your bookings in one organized system
+
+================================================================================
+YOUR EXPERIENCE: GETTING STARTED
+================================================================================
+
+SIGNING UP & LOGGING IN
+
+When you first visit SceneGen, you'll see a welcoming landing page. To get
+started, simply click "Sign In" and choose how you want to log in:
+
+- Sign in with GitHub
+- Sign in with Google
+- (More options coming soon)
+
+No need to remember another password - just use an account you already have!
+
+FIRST-TIME SETUP
+
+After signing in, you'll be asked to:
+1. Choose your role (Artist, Promoter, or Venue)
+2. Complete your profile with basic information
+3. Add details relevant to your role (genres, location, etc.)
+
+That's it! You're ready to start using SceneGen.
+
+================================================================================
+MAIN FEATURES & HOW TO USE THEM
+================================================================================
+
+1. YOUR DASHBOARD (Home Base)
+────────────────────────────────────────────────────────────────────────────
+
+When you log in, you'll land on your dashboard - think of this as your
+command center.
+
+WHAT YOU'LL SEE:
+- Welcome message with your name
+- Quick overview of your upcoming shows
+- Recent messages
+- Pending connection requests
+- Important notifications
+
+WHAT YOU CAN DO:
+- Click on any show to see details
+- Respond to messages
+- Accept or decline connection requests
+- Jump to any section using the sidebar
+
+USER EXPERIENCE:
+The dashboard is clean and uncluttered. You'll immediately see what needs
+your attention (like new messages or requests) and get a snapshot of your
+upcoming schedule. Everything is just one click away.
+
+────────────────────────────────────────────────────────────────────────────
+
+2. YOUR PROFILE (Your Musical Identity)
+────────────────────────────────────────────────────────────────────────────
+
+Your profile is your digital business card in the music industry.
+
+WHAT'S INCLUDED:
+- Profile photo and cover image
+- Your bio (tell your story!)
+- Music genres you play or work with
+- Location (city, state, country)
+- Social media links (Spotify, Instagram, Facebook, website)
+- For bands: List of band members
+- Your upcoming shows
+- Contact button for others to reach you
+
+HOW TO UPDATE YOUR PROFILE:
+1. Go to your profile page
+2. Click "Edit Profile"
+3. Update any information
+4. Upload images if you want
+5. Click "Save Changes"
+
+USER EXPERIENCE:
+Editing your profile feels intuitive - it's like filling out a form on any
+social media site. You'll see a live preview as you make changes. When you
+save, you'll get a confirmation message letting you know it worked. If
+something goes wrong, you'll see a helpful error message explaining what
+needs to be fixed.
+
+────────────────────────────────────────────────────────────────────────────
+
+3. FINDING & CONNECTING WITH PEOPLE (Networking Made Easy)
+────────────────────────────────────────────────────────────────────────────
+
+The Contacts section helps you find and connect with other music industry
+professionals.
+
+HOW TO SEARCH FOR PEOPLE:
+1. Go to "Contacts" in the sidebar
+2. Use the search bar to find people by name
+3. Filter by:
+   - Role (Artists, Promoters, Venues)
+   - Location (find people in your area)
+   - Genre (find your musical match)
+4. Browse the results
+
+WHAT YOU'LL SEE FOR EACH PERSON:
+- Profile photo
+- Name and role
+- Location
+- Music genres
+- A preview of their bio
+- "Connect" button
+
+HOW TO SEND A CONNECTION REQUEST:
+1. Find someone you want to connect with
+2. Click the "Connect" button
+3. (Optional) Add a personal message
+4. Click "Send Request"
+5. You'll see a confirmation that your request was sent
+
+MANAGING CONNECTION REQUESTS:
+There's a "Pending Requests" tab where you can:
+- See who wants to connect with you
+- View their profile
+- Accept or decline the request
+- Each request shows when it was sent
+
+VIEWING YOUR CONNECTIONS:
+Once people accept your requests, they appear in your "Connections" list.
+From here you can:
+- View their full profile
+- Send them a message
+- See their contact information
+
+USER EXPERIENCE:
+Finding people is as easy as using any social media search. The interface
+is clean with clear buttons. When you send a request, you immediately see
+a green success message. If something goes wrong, you'll see a red message
+explaining the issue.
+
+If you have no connections yet, you'll see a friendly empty state message
+saying "No contacts yet" with suggestions on how to find people. This makes
+the platform feel welcoming, not intimidating.
+
+────────────────────────────────────────────────────────────────────────────
+
+4. MESSAGING (Direct Communication)
+────────────────────────────────────────────────────────────────────────────
+
+Once you're connected with someone, you can message them directly.
+
+HOW MESSAGING WORKS:
+1. Go to "Messages" or "Conversations" in the sidebar
+2. You'll see a list of all your conversations
+3. Click on any conversation to open it
+4. Type your message in the box at the bottom
+5. Press Enter or click "Send"
+
+WHAT YOU'LL SEE:
+- Left side: List of all conversations with preview of last message
+- Right side: Full conversation with message history
+- Unread message indicators (badges with numbers)
+- Timestamps showing when messages were sent
+- Profile photos next to each message
+
+CONVERSATION LIST FEATURES:
+- See who you're chatting with
+- Preview of the last message
+- How long ago the last message was sent
+- Unread message count
+- Search through conversations
+
+USER EXPERIENCE:
+The messaging feels like texting or any modern chat app. Your messages
+appear on the right in blue, theirs appear on the left in gray. New
+messages appear instantly. You'll see when someone is typing (coming soon).
+The interface is familiar and comfortable.
+
+────────────────────────────────────────────────────────────────────────────
+
+5. SHOWS (Managing Your Gigs)
+────────────────────────────────────────────────────────────────────────────
+
+This is where you see all shows - both yours and ones you might be
+interested in.
+
+VIEW OPTIONS:
+You can view shows in two ways:
+- Table View (list format with sortable columns)
+- Calendar View (visual calendar showing dates)
+
+SHOWS TABLE:
+Shows are displayed with the following information:
+- Show title
+- Date and time
+- Venue name and location
+- Artists performing
+- Status (Upcoming, Completed, Cancelled)
+- Actions (View details, Edit, Add to tour)
+
+FILTERING SHOWS:
+Use the filters at the top to narrow down shows:
+- Search by name
+- Filter by date range
+- Filter by location (city, state, country)
+- Filter by genre
+- Filter by status
+- Filter by tour (shows assigned to specific tours)
+
+CALENDAR VIEW:
+- See shows laid out on a monthly calendar
+- Each show appears on its date
+- Different colors for different types
+- Click any show to see details
+- Navigate between months easily
+
+SELECTING MULTIPLE SHOWS (Bulk Actions):
+This is a powerful feature for managing many shows at once:
+
+1. Click the checkbox next to any shows you want to select
+2. A toolbar appears at the top showing how many you selected
+3. Choose an action:
+   - Add to Tour (assign multiple shows to a tour)
+   - Remove from Tour (take shows off a tour)
+   - More options coming soon
+
+4. Confirm your action
+5. You'll see a success message showing how many shows were updated
+
+USER EXPERIENCE:
+When you first visit the Shows page, you see a loading animation (skeleton
+placeholder) for a moment while data loads - this makes the page feel fast
+and responsive.
+
+If you have no shows yet, you'll see a welcoming empty state with a
+calendar icon and message saying "No shows yet" with a button to create
+your first show.
+
+After performing any action (like adding shows to a tour), you'll see a
+popup notification at the bottom of the screen confirming what happened.
+These notifications automatically disappear after a few seconds.
+
+The checkbox selection feels smooth - you can select one show or a hundred.
+The bulk toolbar slides in nicely when you make selections.
+
+────────────────────────────────────────────────────────────────────────────
+
+6. TOURS (Organizing Multiple Shows)
+────────────────────────────────────────────────────────────────────────────
+
+Tours help you organize multiple shows into a single group, like a summer
+tour or a regional run of shows.
+
+WHAT YOU'LL SEE:
+- List of all your tours
+- Each tour shows:
+  - Tour name
+  - Date range (start to end)
+  - Number of shows
+  - Status (Planning, Active, Completed)
+  - Quick actions
+
+CREATING A NEW TOUR:
+1. Click the "Create Tour" button
+2. A window pops up with a form
+3. Fill in:
+   - Tour name (e.g., "Summer Tour 2026")
+   - Description (optional details about the tour)
+   - Start date
+   - End date
+4. Click "Create Tour"
+5. You'll see a success message
+6. The tour appears in your list
+
+VIEWING TOUR DETAILS:
+Click on any tour to see:
+- Full tour information
+- List of all shows in the tour
+- Show dates, venues, and locations
+- Options to edit or delete the tour
+
+MANAGING SHOWS IN A TOUR:
+From the tour details page:
+- See all shows assigned to this tour in a table
+- Select shows using checkboxes
+- Remove shows from the tour (bulk action)
+- Click any show to see its full details
+
+EDITING A TOUR:
+1. Go to the tour details page
+2. Click "Edit Tour"
+3. Update the information
+4. Click "Save Changes"
+5. See confirmation that it worked
+
+DELETING A TOUR:
+1. Click "Delete Tour" button
+2. A confirmation dialog appears asking "Are you sure?"
+3. Confirm the deletion
+4. Tour is removed (but the shows still exist)
+
+ADDING SHOWS TO A TOUR:
+You can add shows to a tour from two places:
+
+Option A - From Shows Page:
+1. Select shows using checkboxes
+2. Click "Add to Tour" in the toolbar
+3. Choose which tour from a dropdown
+4. Or create a new tour right there
+5. Confirm
+6. Success message appears
+
+Option B - From Individual Show:
+1. View a show's details
+2. Click "Add to Tour"
+3. Select the tour
+4. Confirm
+
+USER EXPERIENCE:
+Tours make organizing complex bookings simple. The interface is clean and
+focused. When you create a tour, the modal (popup window) is easy to
+understand with clearly labeled fields.
+
+If you don't have any tours yet, you'll see a friendly empty state showing
+a route icon with "No tours yet" and a clear "Create Your First Tour"
+button.
+
+Loading states show skeleton placeholders, so you never see a blank screen.
+All actions give you immediate feedback with popup notifications.
+
+────────────────────────────────────────────────────────────────────────────
+
+7. NOTIFICATIONS (Stay Informed)
+────────────────────────────────────────────────────────────────────────────
+
+Notifications keep you updated on important events.
+
+TYPES OF NOTIFICATIONS YOU'LL RECEIVE:
+- New connection requests
+- Accepted connection requests
+- New messages
+- Show updates
+- Booking requests (coming soon)
+
+WHERE YOU'LL SEE THEM:
+- Badge with number on the notification bell icon
+- List when you click the bell
+- Real-time popup notifications for important events
+
+NOTIFICATION BEHAVIOR:
+- Unread notifications are highlighted
+- Click to mark as read
+- Click to go directly to the relevant page
+- Automatically marked as read after viewing
+
+USER EXPERIENCE:
+Notifications are non-intrusive. You'll see a small badge when you have
+new ones, but they won't interrupt what you're doing. The bell icon in
+the top right corner always shows your notification count.
+
+================================================================================
+COMMON USER JOURNEYS (Real-World Scenarios)
+================================================================================
+
+SCENARIO 1: BAND LOOKING FOR SHOWS
+────────────────────────────────────────────────────────────────────────────
+
+Meet Sarah, guitarist in an indie rock band:
+
+Step 1 - Setup (One-time)
+- Signs up using her Google account
+- Selects "Artist" as her role
+- Fills out her band's profile with bio, genres, and social links
+- Uploads a cool band photo and cover image
+
+Step 2 - Finding Promoters
+- Goes to Contacts
+- Filters by "Promoter" role and her city
+- Finds 5 local promoters
+- Sends connection requests with a personal message:
+  "Hi! We're a local indie rock band looking for show opportunities"
+
+Step 3 - Building Network
+- Gets 3 acceptances within a week
+- Receives a message from one promoter about an upcoming show
+- Responds with interest
+- Shares her band's Spotify link
+
+Step 4 - Booking Shows
+- Promoter offers her a show
+- Show gets added to the platform
+- Sarah sees it appear in her Shows list
+- She creates a tour called "Spring 2026 Local Run"
+- Adds this show and 2 others to the tour
+
+Step 5 - Managing Tour
+- Views her tour to see all dates
+- Shares tour details with her band members
+- Tracks upcoming shows on the calendar
+
+USER EXPERIENCE:
+Sarah finds the platform intuitive because it feels like using social media
+she's already familiar with. The step-by-step process is clear, and she
+gets confirmation messages at each step so she knows things are working.
+
+────────────────────────────────────────────────────────────────────────────
+
+SCENARIO 2: PROMOTER ORGANIZING MULTIPLE SHOWS
+────────────────────────────────────────────────────────────────────────────
+
+Meet Mike, a concert promoter:
+
+Step 1 - Setup
+- Signs in with GitHub
+- Creates promoter profile with his company info
+- Adds his booking territory and preferred genres
+
+Step 2 - Building Artist Roster
+- Searches for artists in his region
+- Filters by "Rock" and "Electronic" genres
+- Sends 20 connection requests
+- Gets 15 acceptances
+
+Step 3 - Planning Event Series
+- Creates a tour called "Summer Concert Series 2026"
+- Sets dates: June 1 - August 31
+- Adds description about the venue and concept
+
+Step 4 - Booking Artists
+- Messages connected artists about opportunities
+- Discusses dates and terms
+- Creates show entries for confirmed bookings
+- Uses bulk selection to add all summer shows to his tour
+
+Step 5 - Managing the Series
+- Views tour details to see all shows at a glance
+- Checks calendar view to identify any gaps
+- Messages artists about logistics
+- Updates show details as needed
+
+USER EXPERIENCE:
+Mike appreciates the bulk actions feature - instead of updating shows one
+by one, he can select 10 shows and assign them to his tour with a few
+clicks. The calendar view helps him visualize the entire series. Quick
+notifications keep him updated on artist responses.
+
+────────────────────────────────────────────────────────────────────────────
+
+SCENARIO 3: DISCOVERING NEW OPPORTUNITIES
+────────────────────────────────────────────────────────────────────────────
+
+Meet Lisa, a venue owner:
+
+Step 1 - Setup
+- Creates account and selects "Venue" role
+- Fills out venue details (capacity, location, amenities)
+- Uploads photos of her space
+
+Step 2 - Finding Artists
+- Searches for artists in the "Jazz" genre
+- Finds several interesting acts
+- Reviews their profiles and Spotify links
+- Connects with the ones that fit her venue's vibe
+
+Step 3 - Getting Discovered
+- Promoters searching for venues find her profile
+- She receives connection requests
+- Accepts and starts conversations about bookings
+
+Step 4 - Managing Bookings
+- Views all upcoming shows at her venue
+- Can see which nights are booked and which are available
+- Filters shows to only see her venue
+- Uses calendar view to plan maintenance and special events
+
+USER EXPERIENCE:
+Lisa loves that the platform is role-agnostic - she can connect with both
+artists and promoters. The search and filter system makes it easy to find
+acts that match her venue's style. The calendar helps her avoid double-
+bookings and plan around maintenance.
+
+================================================================================
+DESIGN & USER EXPERIENCE PRINCIPLES
+================================================================================
+
+HOW THE INTERFACE LOOKS & FEELS
+────────────────────────────────────────────────────────────────────────────
+
+VISUAL DESIGN:
+- Clean, modern interface
+- Lots of white space (not cluttered)
+- Professional but friendly
+- Music-industry appropriate (cool but not flashy)
+
+COLOR SCHEME:
+- Light mode and dark mode (your choice!)
+- Subtle colors that don't overwhelm
+- Important actions in clear, visible colors
+- Status indicators use intuitive colors:
+  - Green for success
+  - Red for errors
+  - Blue for information
+  - Yellow for warnings
+
+TYPOGRAPHY:
+- Easy-to-read fonts
+- Clear hierarchy (headlines, body text, labels)
+- Comfortable text size
+- Good contrast for readability
+
+LAYOUT:
+- Sidebar navigation (always visible on desktop)
+- Top header with your profile and notifications
+- Main content area (changes based on what you're viewing)
+- Consistent placement of elements
+
+────────────────────────────────────────────────────────────────────────────
+
+RESPONSIVE DESIGN (Works on All Devices)
+────────────────────────────────────────────────────────────────────────────
+
+DESKTOP EXPERIENCE:
+- Full sidebar navigation
+- Wide tables with all columns visible
+- Multiple panels showing different info
+- Keyboard shortcuts work
+- Hover effects show extra details
+
+TABLET EXPERIENCE:
+- Sidebar can be hidden/shown
+- Tables adapt to medium width
+- Touch-friendly buttons
+- Comfortable spacing for fingers
+
+MOBILE EXPERIENCE:
+- Navigation collapses to a hamburger menu
+- Tables switch to card view
+- Simplified layouts
+- Large, touchable buttons
+- Swipe gestures (where appropriate)
+
+The platform automatically adjusts to your screen size - you don't need to
+do anything special.
+
+────────────────────────────────────────────────────────────────────────────
+
+FEEDBACK & COMMUNICATION
+────────────────────────────────────────────────────────────────────────────
+
+The platform constantly communicates with you about what's happening:
+
+LOADING STATES:
+When data is loading, you'll see:
+- Animated skeleton placeholders (outlines of content)
+- Spinning indicators for quick actions
+- "Loading..." text for longer operations
+- Progress bars for uploads (coming soon)
+
+You'll never see a blank screen wondering if something broke.
+
+SUCCESS MESSAGES:
+When you complete an action successfully:
+- Green popup notification at the bottom of the screen
+- Checkmark icon
+- Clear message like "Tour created successfully!"
+- Automatically disappears after 4 seconds
+- Or you can dismiss it immediately
+
+Examples:
+- "Show added to tour!"
+- "Profile updated successfully"
+- "Connection request sent"
+- "Message sent"
+
+ERROR MESSAGES:
+If something goes wrong:
+- Red popup notification
+- X icon
+- Helpful message explaining what happened
+- Sometimes a "Retry" button
+- Clear guidance on how to fix it
+
+Examples:
+- "Failed to load shows. Please try again."
+- "Connection request failed. Check your internet."
+- "Profile update failed. Please check all required fields."
+
+VALIDATION MESSAGES:
+For forms, you'll see:
+- Real-time validation as you type
+- Red text under fields with errors
+- Green checkmarks for valid fields
+- Clear instructions on what's needed
+
+EMPTY STATES:
+When you don't have any data yet:
+- Friendly icon relevant to the section
+- Clear message like "No tours yet"
+- Helpful description
+- Call-to-action button to get started
+- Sometimes tips or suggestions
+
+This makes the platform feel welcoming even when you're just starting out.
+
+CONFIRMATION DIALOGS:
+For destructive actions (like deleting):
+- Modal pops up asking "Are you sure?"
+- Explains what will happen
+- "Cancel" and "Confirm" buttons clearly labeled
+- Red color for delete buttons to signal caution
+
+────────────────────────────────────────────────────────────────────────────
+
+ACCESSIBILITY & INCLUSIVITY
+────────────────────────────────────────────────────────────────────────────
+
+The platform is designed to be usable by everyone:
+
+KEYBOARD NAVIGATION:
+- Tab through all interactive elements
+- Enter to activate buttons
+- Escape to close modals
+- Arrow keys in lists and calendars
+
+SCREEN READERS:
+- All images have descriptive text
+- Buttons are clearly labeled
+- Page structure is logical
+- Status messages are announced
+
+COLOR CONTRAST:
+- Text is easy to read against backgrounds
+- Not relying on color alone to convey information
+- Icons supplement color coding
+
+FONT SIZING:
+- Respects your browser's font size settings
+- Text remains readable when zoomed
+
+DARK MODE:
+- Full dark theme available
+- Easy toggle in the header
+- Saves your preference
+- Reduces eye strain in low light
+
+================================================================================
+WHAT'S COMING NEXT (Future Features)
+================================================================================
+
+ALREADY COMPLETE ✓
+- User profiles and authentication
+- Connection system (finding and connecting with people)
+- Messaging between connections
+- Show management with table and calendar views
+- Tour management (create, edit, organize shows)
+- Bulk actions (select multiple shows at once)
+- Advanced filtering
+- Toast notifications and feedback
+- Loading states and empty states
+- Dark/light mode
+
+IN DEVELOPMENT ⚙
+- Real backend integration (currently using test data)
+- Real-time message updates
+- File uploads (profile images, show posters)
+- Notification system
+
+COMING SOON 🎯
+- Booking proposals system
+- Contract generation
+- Payment tracking
+- Show analytics (attendance, revenue)
+- Advanced search with full-text
+- Email notifications
+- Mobile app (iOS and Android)
+
+FUTURE ENHANCEMENTS 🚀
+- Calendar integration (export to Google Calendar, etc.)
+- Automatic tour routing (suggests logical show orders)
+- Equipment rental marketplace
+- Crew and staff hiring
+- Ticket sales integration
+- Social sharing features
+- Fan engagement tools
+- Revenue analytics and reports
+
+================================================================================
+TIPS FOR THE BEST EXPERIENCE
+================================================================================
+
+PROFILE TIPS:
+✓ Add a clear profile photo
+✓ Write a compelling bio (what makes you unique?)
+✓ Include all your social media links
+✓ Keep your location updated
+✓ Add your genres accurately
+✓ Upload a great cover image
+
+NETWORKING TIPS:
+✓ Send personalized connection requests (not just generic)
+✓ Respond to requests promptly
+✓ Keep your messages professional but friendly
+✓ Follow up on conversations
+✓ Build relationships before asking for bookings
+
+SHOW MANAGEMENT TIPS:
+✓ Use tours to group related shows
+✓ Keep show information updated
+✓ Use the calendar view to avoid booking conflicts
+✓ Add detailed venue information
+✓ Update show status promptly
+
+TOUR ORGANIZATION TIPS:
+✓ Create tours for different purposes (regional tours, festival runs, etc.)
+✓ Use descriptive names for tours
+✓ Add notes in the description
+✓ Review your tour regularly to track progress
+✓ Use bulk actions to manage many shows efficiently
+
+GENERAL TIPS:
+✓ Check notifications regularly
+✓ Respond to messages within 24 hours
+✓ Keep your profile current
+✓ Use filters to find exactly what you're looking for
+✓ Switch between light and dark mode based on your environment
+
+================================================================================
+GETTING HELP
+================================================================================
+
+IF YOU RUN INTO ISSUES:
+
+1. Refresh the page - this fixes many temporary issues
+2. Check your internet connection
+3. Try logging out and back in
+4. Clear your browser cache
+5. Try a different browser
+
+COMMON QUESTIONS:
+
+Q: How do I change my profile picture?
+A: Go to Profile > Edit Profile > Click on your current image > Upload new
+
+Q: Can I message someone I'm not connected with?
+A: No, you need to send a connection request first and have it accepted
+
+Q: How do I delete a tour?
+A: Go to the tour details page > Click Delete Tour > Confirm
+
+Q: Can I see other people's shows?
+A: Yes, you can see public shows in the Shows section
+
+Q: How do I know if someone read my message?
+A: Read receipts are coming soon!
+
+Q: Can I export my tour to a spreadsheet?
+A: This feature is coming soon!
+
+================================================================================
+FINAL THOUGHTS
+================================================================================
+
+SceneGen is designed to make the complex world of show booking simple and
+organized. Whether you're booking your first show or managing a 50-date
+tour, the platform scales with your needs.
+
+The interface is intuitive because it follows patterns you already know from
+other apps you use daily. Everything is designed to be:
+- Fast and responsive
+- Clear and understandable
+- Helpful and informative
+- Professional yet friendly
+
+You'll spend less time managing logistics and more time making great music
+and memorable shows happen.
+
+Welcome to SceneGen - let's make booking shows easier!
+
+================================================================================
+END OF USER GUIDE
+================================================================================
+
+Questions? Feedback? Want to report a bug or suggest a feature?
+Contact the development team through the feedback button in the app.
+
+Happy booking! 🎵🎸🎤
+
+================================================================================

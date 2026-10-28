@@ -1,0 +1,175 @@
+ISSUE: Google Maps Embed API Returning 403 Error for Tour Routing Feature
+
+DATE: April 6, 2026
+PROJECT: SceneGen Tour Management Application
+FILE: /Users/jon/Desktop/scenegen/SceneGenUIV2/src/app/tours/[id]/page.tsx
+
+==============================================================================
+WHAT WE'RE TRYING TO DO:
+==============================================================================
+
+Create an interactive routing view on the tour details page that shows:
+1. A map with waypoints for each show in the tour
+2. Starting location (Atlanta, GA)
+3. All show venues as waypoints in chronological order
+4. Ending location (Atlanta, GA - return home)
+5. The complete driving route connecting all points
+
+==============================================================================
+THE ISSUE:
+==============================================================================
+
+When clicking the "Routing" tab, the Google Maps iframe embed is returning a 403 error:
+
+Error from console:
+www.google.com/maps/embed/v1/directions?key=[REDACTED_ROTATED_GOOGLE_MAPS_KEY]&origin=Atlanta%2C%20GA&destination=Atlanta%2C%20GA&waypoints=497%20W%203rd%20St%2C%20Lexington%2C%20KY%2040508%2C%20USA%2C%20Lexington%2C%20KY|529%20Flat%20Shoals%20Ave%20SE%2C%20Atlanta%2C%20GA%2030316%2C%20USA%2C%20Atlanta%2C%20GA|...[truncated]...&mode=driving:1
+Failed to load resource: the server responded with a status of 403 ()
+
+==============================================================================
+CURRENT IMPLEMENTATION:
+==============================================================================
+
+Using Google Maps Embed API with directions mode:
+- API Key: [REDACTED_ROTATED_GOOGLE_MAPS_KEY]
+- Mode: iframe embed
+- Endpoint: https://www.google.com/maps/embed/v1/directions
+- Origin: Atlanta, GA
+- Destination: Atlanta, GA
+- Waypoints: 28 show locations (pipe-separated)
+
+Code snippet:
+```jsx
+<iframe
+  src={`https://www.google.com/maps/embed/v1/directions?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&origin=Atlanta,GA&destination=Atlanta,GA&waypoints=${shows.map(show => encodeURIComponent(`${show.venueAddress}, ${show.venueCity}, ${show.venueState}`)).join('|')}&mode=driving`}
+/>
+```
+
+==============================================================================
+POSSIBLE CAUSES:
+==============================================================================
+
+1. Google Maps Embed API quota exceeded
+2. API key restrictions (domain/referrer restrictions)
+3. Too many waypoints (28 venues might exceed Google's limit)
+4. API key doesn't have Maps Embed API enabled
+5. Billing not enabled on Google Cloud project
+
+==============================================================================
+WHAT WE NEED:
+==============================================================================
+
+A solution that:
+1. Shows all 28 show locations on a map
+2. Displays a route from Atlanta → all shows → back to Atlanta
+3. Works with the existing Google Maps API key (or uses an alternative)
+4. Displays waypoint numbers and venue names
+5. Shows distance information between stops
+
+==============================================================================
+DATA AVAILABLE:
+==============================================================================
+
+Tour Data:
+- 28 shows in tour "Tour Mar 2026"
+- Each show has: venueName, venueAddress, venueCity, venueState
+- Start date: March 30, 2026
+- End date: April 27, 2026
+- Budgets include distance calculations for each show
+
+Example show object:
+{
+  id: 'e472417b-3856-48a6-af18-32f7caacc079',
+  venueName: 'The Green Lantern',
+  venueAddress: '497 W 3rd St, Lexington, KY 40508, USA',
+  venueCity: 'Lexington',
+  venueState: 'KY',
+  showDate: '2026-03-30',
+  // ... other fields
+}
+
+==============================================================================
+ALTERNATIVE SOLUTIONS TO CONSIDER:
+==============================================================================
+
+1. Use Google Maps JavaScript API instead of Embed API
+   - More control over markers and routes
+   - Can handle multiple waypoints better
+   - Requires @googlemaps/js-api-loader package
+
+2. Split the route into segments if 28 waypoints is too many
+   - Google allows max 25 waypoints per directions request
+   - Could show map in sections
+
+3. Use a different mapping service
+   - Mapbox GL JS (requires separate API key)
+   - Leaflet with OpenStreetMap (free, open source)
+   - Azure Maps (we already use Azure for other features)
+
+4. Show markers only without route lines
+   - Simpler implementation
+   - Still visualizes all show locations
+   - Less data transfer
+
+5. Generate a static map image
+   - Google Static Maps API
+   - Faster loading
+   - Less interactive but works
+
+==============================================================================
+ENVIRONMENT VARIABLES:
+==============================================================================
+
+Current .env.local should have:
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=[REDACTED_ROTATED_GOOGLE_MAPS_KEY]
+
+This key is currently being used for:
+- PlacesAutocomplete component (working)
+- Maps Embed API (failing with 403)
+
+==============================================================================
+QUESTIONS TO RESOLVE:
+==============================================================================
+
+1. Is the Google Cloud project set up with billing enabled?
+2. Are there API restrictions on the key (HTTP referrers, IP addresses)?
+3. Which Google Maps APIs are enabled on this project?
+4. What's the preferred solution: fix the embed API or use an alternative?
+5. Is there a waypoint limit we're hitting (28 stops might be too many)?
+
+==============================================================================
+RECOMMENDED NEXT STEPS:
+==============================================================================
+
+OPTION A - Fix Google Maps Embed (if possible):
+1. Check Google Cloud Console for API restrictions
+2. Enable Maps Embed API if not already enabled
+3. Verify billing is active
+4. Check domain allowlist (localhost:3000 should be allowed)
+5. Reduce waypoints if needed (Google limits to 25)
+
+OPTION B - Use Google Maps JavaScript API:
+1. Install @googlemaps/js-api-loader
+2. Create custom map component with markers
+3. Use Directions Service API for route
+4. More code but more control
+
+OPTION C - Use Open Source Alternative:
+1. Install react-leaflet
+2. Use OpenStreetMap (no API key needed)
+3. Add route visualization with Leaflet Routing Machine
+4. Free and unlimited usage
+
+==============================================================================
+USER PREFERENCE:
+==============================================================================
+
+User wants to see on the routing tab:
+- Map with waypoints for each show
+- Starting location: Atlanta, GA
+- Ending location: Atlanta, GA
+- Visual route connecting all points
+- All 28 shows displayed
+
+User doesn't care about the specific technology used, just wants it to work.
+
+==============================================================================

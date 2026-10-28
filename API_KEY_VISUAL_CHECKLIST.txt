@@ -1,0 +1,224 @@
+================================================================================
+🎯 VISUAL CHECKLIST - GOOGLE API KEY CONFIGURATION
+================================================================================
+API Key: [REDACTED_ROTATED_GOOGLE_MAPS_KEY]
+ERROR: "API keys with referer restrictions cannot be used with this API"
+================================================================================
+
+STEP-BY-STEP VISUAL GUIDE
+==========================
+
+1️⃣  OPEN GOOGLE CLOUD CONSOLE
+   https://console.cloud.google.com/apis/credentials
+
+
+2️⃣  FIND YOUR API KEY
+   Look for: [REDACTED_ROTATED_GOOGLE_MAPS_KEY]
+   Click on it to edit
+
+
+3️⃣  CHECK "APPLICATION RESTRICTIONS" SECTION
+
+   ┌──────────────────────────────────────────────┐
+   │ Application restrictions                     │
+   │                                              │
+   │ Select the radio button that applies to     │
+   │ your API key to restrict usage              │
+   │                                              │
+   │ ⭕ None                    ← MUST BE THIS!  │
+   │ ⚪ HTTP referrers          ← NOT THIS!      │
+   │ ⚪ IP addresses                              │
+   │ ⚪ Android apps                              │
+   │ ⚪ iOS apps                                  │
+   └──────────────────────────────────────────────┘
+
+   ❓ WHAT DO YOU SEE?
+
+   ✅ If "None" is selected → GOOD! Move to step 4
+
+   ❌ If "HTTP referrers" is selected → THIS IS THE PROBLEM!
+      Click "None" radio button
+      Scroll down and click "SAVE"
+      Wait 10 minutes
+      Skip to step 6
+
+
+4️⃣  CHECK "API RESTRICTIONS" SECTION
+
+   ┌──────────────────────────────────────────────┐
+   │ API restrictions                             │
+   │                                              │
+   │ ⭕ Don't restrict key      ← BEST FOR DEV   │
+   │ ⚪ Restrict key            ← NOT THIS       │
+   │                                              │
+   │   If restricted, which APIs:                │
+   │   □ Maps JavaScript API                     │
+   │   □ Directions API                          │
+   │   □ Places API                              │
+   │   □ Distance Matrix API                     │
+   │   □ Geocoding API                           │
+   └──────────────────────────────────────────────┘
+
+   ❓ WHAT DO YOU SEE?
+
+   ✅ "Don't restrict key" → PERFECT!
+
+   ⚠️  "Restrict key" with some APIs checked:
+      Make sure ALL of these are checked:
+      - Maps JavaScript API
+      - Directions API
+      - Places API
+      - Distance Matrix API
+      - Geocoding API
+
+   OR just select "Don't restrict key" for testing
+
+
+5️⃣  SAVE AND WAIT
+
+   Click the blue "SAVE" button at bottom of page
+
+   ⏱️  START A 10-MINUTE TIMER
+
+   Google needs time to propagate changes across their servers.
+   Don't test immediately - it won't work yet!
+
+
+6️⃣  AFTER 10 MINUTES - TEST IN TERMINAL
+
+   Open terminal and run:
+
+   curl "https://maps.googleapis.com/maps/api/directions/json?origin=Atlanta,GA&destination=Boston,MA&key=[REDACTED_ROTATED_GOOGLE_MAPS_KEY]"
+
+   ✅ SUCCESS LOOKS LIKE:
+   {
+      "geocoded_waypoints" : [ ... ],
+      "routes" : [ ... ],
+      "status" : "OK"
+   }
+
+   ❌ STILL BROKEN LOOKS LIKE:
+   {
+      "error_message" : "API keys with referer restrictions...",
+      "routes" : [],
+      "status" : "REQUEST_DENIED"
+   }
+
+   If still broken → Changes haven't propagated yet, wait 10 more minutes
+                   OR create a brand new API key
+
+
+7️⃣  CLEAR BROWSER CACHE
+
+   Chrome/Edge:
+   1. Press Cmd+Shift+Delete (Mac) or Ctrl+Shift+Delete (Windows)
+   2. Select "Cached images and files"
+   3. Time range: "All time"
+   4. Click "Clear data"
+
+   Firefox:
+   1. Press Cmd+Shift+Delete (Mac) or Ctrl+Shift+Delete (Windows)
+   2. Check "Cache"
+   3. Click "Clear"
+
+   Safari:
+   1. Safari menu → Preferences → Advanced
+   2. Check "Show Develop menu in menu bar"
+   3. Develop menu → Empty Caches
+
+
+8️⃣  RESTART DEV SERVER
+
+   Stop current server (Ctrl+C)
+
+   Run: npm run dev
+
+   Wait for: ✓ Ready in X seconds
+
+
+9️⃣  TEST YOUR APP
+
+   1. Open: http://localhost:3000
+   2. Navigate to tour map page
+   3. Open DevTools Console (F12)
+   4. Look for: "✅ Successfully loaded X route segments"
+   5. Map should show blue route lines connecting venues
+
+
+🔟  IF STILL NOT WORKING
+
+   CREATE A BRAND NEW API KEY:
+
+   1. Go to: https://console.cloud.google.com/apis/credentials
+   2. Click "+ CREATE CREDENTIALS" → "API Key"
+   3. IMMEDIATELY click "RESTRICT KEY"
+   4. Set "Application restrictions" to "None"
+   5. Set "API restrictions" to "Don't restrict key"
+   6. Click "SAVE"
+   7. Copy the new key
+   8. Update .env.local: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=new_key
+   9. Update backend/.env: GOOGLE_MAPS_API_KEY=new_key
+   10. Restart servers
+   11. Wait 10 minutes
+   12. Test again
+
+================================================================================
+WHAT YOU PROBABLY SAW (THE MISTAKE)
+================================================================================
+
+When you said "it was already set to unrestricted," you probably saw this:
+
+┌──────────────────────────────────────────────┐
+│ API restrictions                             │
+│                                              │
+│ ⭕ Don't restrict key      ← YOU SAW THIS   │
+└──────────────────────────────────────────────┘
+
+BUT you didn't check this section:
+
+┌──────────────────────────────────────────────┐
+│ Application restrictions                     │
+│                                              │
+│ ⚪ None                                      │
+│ ⭕ HTTP referrers          ← PROBLEM IS HERE │
+│                                              │
+│ Website restrictions:                        │
+│ (empty list)              ← LOOKS OK BUT... │
+└──────────────────────────────────────────────┘
+
+The problem: Even with an EMPTY list of referrers, having "HTTP referrers"
+selected (instead of "None") triggers the restriction error!
+
+You MUST select the "None" radio button, not just have an empty referrer list!
+
+================================================================================
+QUICK DIAGNOSIS
+================================================================================
+
+Run this RIGHT NOW to see the current status:
+
+curl -s "https://maps.googleapis.com/maps/api/directions/json?origin=Atlanta,GA&destination=Boston,MA&key=[REDACTED_ROTATED_GOOGLE_MAPS_KEY]" | grep -E "status|error_message"
+
+✅ If you see: "status" : "OK"
+   → Restrictions are removed! Just restart your app and test
+
+❌ If you see: "error_message" : "API keys with referer restrictions..."
+   → Restrictions are STILL active! Follow steps 1-5 above
+
+❌ If you see: "status" : "REQUEST_DENIED" (without error_message)
+   → Different problem - check billing or API enablement
+
+================================================================================
+THE REAL FIX (TL;DR)
+================================================================================
+
+1. Application restrictions → Select "None" (not "HTTP referrers")
+2. Click Save
+3. Wait 10 minutes
+4. Test
+5. If works → You're done! 🎉
+6. If not → Create new key
+
+That's literally it!
+
+================================================================================

@@ -1,0 +1,211 @@
+MAP ZOOM ISSUE - DETAILED ANALYSIS
+===================================
+Date: April 8, 2026
+Component: TourMap.tsx
+Issue: Map not auto-zooming to fit all waypoints despite correct fitBounds implementation
+
+PROBLEM STATEMENT
+-----------------
+The tour map is displaying with excessive zoom (appears zoomed in too much), preventing users
+from seeing all show markers/waypoints across the United States. Despite implementing the
+Google Maps API fitBounds() method with correct bounds calculations, the map remains zoomed
+in and does not show the full geographical spread of the tour.
+
+EXPECTED BEHAVIOR
+-----------------
+When a tour with shows spanning multiple states (e.g., coast-to-coast tour with 28 shows)
+is loaded, the map should automatically zoom out to display all show markers with appropriate
+padding, allowing the user to see the entire tour route at once.
+
+ACTUAL BEHAVIOR
+---------------
+The map loads at a zoomed-in level that only shows a portion of the tour. Users cannot see
+all show markers without manually zooming out or panning around the map.
+
+DATA VERIFICATION
+-----------------
+✓ Backend is correctly returning all 28 shows with valid coordinates
+✓ Frontend is receiving and processing all show data correctly
+✓ All show coordinates are valid latitude/longitude pairs
+✓ Sample coordinates span the entire United States:
+  - Los Angeles, CA: 34.0522, -118.2437
+  - New York, NY: 40.7128, -74.0060
+  - Chicago, IL: 41.8781, -87.6298
+  - And 25 other locations across the country
+
+BOUNDS CALCULATION VERIFICATION
+--------------------------------
+The bounds calculation has been verified and is working correctly:
+
+1. Initial bounds object created with first show coordinates
+2. Each subsequent show's coordinates properly extend the bounds
+3. Final bounds object confirmed to span:
+   - Southwest corner: ~25°N, -122°W (Southern California area)
+   - Northeast corner: ~47°N, -71°W (Northeast area)
+
+This bounds range correctly encompasses the entire continental US tour route.
+
+IMPLEMENTATION ATTEMPTS
+-----------------------
+
+Attempt #1: Initial fitBounds Implementation
+- Added fitBounds call after route calculation
+- Result: Map still zoomed in, no visible change
+
+Attempt #2: Added Padding Parameter
+- Modified fitBounds call to include padding object: { top: 50, right: 50, bottom: 50, left: 50 }
+- Result: No visible change in zoom level
+
+Attempt #3: Removed Hardcoded Zoom
+- Checked GoogleMap component props
+- Confirmed no hardcoded zoom prop was interfering
+- Result: No change in behavior
+
+Attempt #4: Added fitBounds on Initial Load
+- Added fitBounds call when map first loads (before route calculation)
+- Used same bounds calculation from show coordinates
+- Result: Still no visible zoom adjustment
+
+Attempt #5: Debug Logging
+- Added extensive console.log statements to verify:
+  * Number of shows received (confirmed: 28)
+  * Bounds calculation process
+  * fitBounds being called
+  * Timing of fitBounds calls
+- Result: All logs confirmed correct execution, but map still zoomed in
+
+Attempt #6: Verified Bounds Object Structure
+- Logged the actual bounds object passed to fitBounds
+- Confirmed structure matches Google Maps API expectations
+- Confirmed coordinates are in correct decimal degree format
+- Result: Everything correct, but still no zoom adjustment
+
+CODE LOCATIONS
+--------------
+Primary file: /Users/jon/Desktop/scenegen/SceneGenUIV2/src/components/maps/TourMap.tsx
+
+Key sections:
+1. Lines ~80-100: Initial map load and bounds calculation
+2. Lines ~120-140: Route calculation and post-route fitBounds
+3. Helper function: calculateBoundsFromShows() - creates LatLngBounds object
+
+CURRENT CODE STATE
+------------------
+The current implementation includes:
+
+1. fitBounds called twice:
+   a. When map loads (useEffect with map dependency)
+   b. After directions route is calculated
+
+2. Bounds calculation:
+   - Creates google.maps.LatLngBounds object
+   - Extends bounds for each show coordinate
+   - Returns bounds encompassing all shows
+
+3. No zoom prop on GoogleMap component (to avoid conflicts)
+
+4. Padding added to fitBounds calls for visual spacing
+
+SUSPECTED ROOT CAUSES
+---------------------
+
+Hypothesis #1: Timing Issue with Directions API
+The most likely cause is that the Directions API route calculation is completing AFTER
+our fitBounds call, and the Directions service is then applying its own zoom/bounds
+to fit the route. This would override our custom fitBounds settings.
+
+Evidence supporting this:
+- fitBounds is confirmed to be called correctly
+- Bounds calculation is correct
+- The map does display the route, suggesting Directions API is working
+- Directions API typically applies its own viewport when rendering routes
+
+Hypothesis #2: Map Animation/Transition Timing
+The fitBounds call might be executing before the map is fully initialized or before
+all show markers are rendered, causing the bounds to be calculated but then reset
+by subsequent map operations.
+
+Hypothesis #3: Multiple fitBounds Calls Conflicting
+Calling fitBounds twice (once on load, once after route) might be causing conflicts,
+where the second call doesn't complete due to the first call still animating.
+
+Hypothesis #4: DirectionsRenderer Override
+The DirectionsRenderer component (used to display the route on the map) might have
+default behavior that automatically sets the map viewport to fit the route, overriding
+our custom fitBounds calls.
+
+NEXT STEPS TO RESOLVE
+----------------------
+
+Priority 1: DirectionsRenderer Investigation
+- Check if DirectionsRenderer has a 'preserveViewport' option
+- This option (if it exists) would prevent DirectionsRenderer from auto-fitting the viewport
+- Implementation: Add { preserveViewport: true } to DirectionsRenderer options
+
+Priority 2: Timing Adjustment
+- Move fitBounds call to execute AFTER DirectionsRenderer completes
+- Use DirectionsRenderer callback or promise resolution
+- Add delay/setTimeout as temporary test to confirm timing hypothesis
+
+Priority 3: Single fitBounds Strategy
+- Remove the initial fitBounds call on map load
+- Only call fitBounds once, after the route is fully rendered
+- This eliminates potential conflicts from multiple calls
+
+Priority 4: Manual Zoom/Center as Fallback
+- If fitBounds continues to fail, implement manual zoom calculation
+- Calculate center point of all coordinates
+- Set explicit zoom level based on geographical spread
+- Use map.setCenter() and map.setZoom() instead of fitBounds
+
+TESTING RECOMMENDATIONS
+------------------------
+
+Test 1: Console Verification
+Open browser console and verify:
+- "Starting route calculation with X shows" message appears
+- "Route calculated successfully" message appears
+- "Calling fitBounds with bounds:" shows correct coordinate range
+- No JavaScript errors related to Google Maps API
+
+Test 2: Manual Zoom Test
+After map loads, manually zoom out to see if all markers are present and correctly positioned.
+This confirms the data is correct but only the auto-zoom is failing.
+
+Test 3: Comment Out DirectionsRenderer
+Temporarily disable route rendering to see if fitBounds works correctly without it.
+This would confirm if DirectionsRenderer is the interfering component.
+
+Test 4: Delay Test
+Add setTimeout(() => { map.fitBounds(bounds, padding); }, 2000) to see if delayed
+execution resolves the issue. If this works, it confirms a timing problem.
+
+TECHNICAL DETAILS
+-----------------
+Google Maps API Version: Using @react-google-maps/api library
+React Version: 18.x
+Map Component: GoogleMap from @react-google-maps/api
+TypeScript: Enabled
+
+API Methods Used:
+- google.maps.LatLngBounds()
+- bounds.extend(coordinate)
+- map.fitBounds(bounds, padding)
+- google.maps.DirectionsService
+- google.maps.DirectionsRenderer
+
+CONCLUSION
+----------
+The issue is NOT with data loading, coordinate validity, or bounds calculation. All
+these aspects have been verified and are working correctly. The problem lies in the
+interaction between our custom fitBounds implementation and the Google Maps
+DirectionsRenderer component, likely due to timing or the DirectionsRenderer
+automatically setting its own viewport.
+
+The most promising solution is to add preserveViewport option to DirectionsRenderer
+or to ensure fitBounds is called after the route rendering completes and potentially
+overrides any viewport changes made by DirectionsRenderer.
+
+STATUS: UNRESOLVED
+The map loads and displays data correctly, but does not auto-zoom to show all waypoints.
+Manual zoom-out by the user currently required to see full tour extent.

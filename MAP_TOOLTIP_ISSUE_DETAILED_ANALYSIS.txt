@@ -1,0 +1,421 @@
+================================================================================
+MAP TOOLTIP (INFOWINDOW) ISSUE - COMPREHENSIVE ANALYSIS
+================================================================================
+Date: April 8, 2026
+Component: TourMap.tsx, MarkerTooltip.tsx
+Issue Status: CRITICAL - WORSE THAN BEFORE
+Priority: HIGH
+
+================================================================================
+ISSUE HISTORY & EVOLUTION
+================================================================================
+
+ORIGINAL ISSUE #1: Map Zoom
+- Map was not auto-zooming to fit all waypoints
+- Fixed by adding: preserveViewport: true to DirectionsRenderer
+- Status: RESOLVED ✅
+
+ORIGINAL ISSUE #2: Page Bouncing on Hover
+- When hovering over waypoints, the page was bouncing around
+- Cause: InfoWindow was auto-panning the map
+- Fixed by adding: disableAutoPan: true
+- Status: RESOLVED ✅
+
+ORIGINAL ISSUE #3: Uneven White Border
+- InfoWindow had Google's default white background/border around custom tooltip
+- Caused an uneven, unprofessional appearance
+- Fixed by adding custom CSS to override Google Maps default styling
+- Status: RESOLVED ✅
+
+ORIGINAL ISSUE #4: Tooltip Clipping at Top
+- In windowed view, tooltip was getting cut off at the top edge
+- Attempted fix: Changed pixelOffset from -40 (above) to +10 (below)
+- Result: CREATED NEW ISSUE (flickering)
+- Status: FAILED ❌
+
+CURRENT ISSUE #5: Tooltip Flickering/Positioning Broken
+- Tooltip now flickers when hovering
+- Tooltip positioned far to the right (320px offset)
+- Tooltip appears in wrong location
+- Tooltip behavior is unstable and unusable
+- Status: CRITICAL - WORSE THAN BEFORE ❌
+
+================================================================================
+ROOT CAUSE ANALYSIS - CURRENT ISSUE
+================================================================================
+
+WHAT WENT WRONG:
+
+The latest "fix" attempted to solve flickering by:
+1. Positioning tooltip to the right of marker: pixelOffset(320, -200)
+2. Adding hover delay logic with 150ms timeout
+3. Wrapping tooltip in div with onMouseEnter/onMouseLeave
+
+WHY IT FAILED:
+
+1. EXTREME OFFSET POSITIONING
+   - pixelOffset: new google.maps.Size(320, -200)
+   - This pushes tooltip 320px to the right and 200px up
+   - Creates massive spatial disconnect from marker
+   - Tooltip appears nowhere near the waypoint it describes
+
+2. MOUSE EVENT COORDINATION PROBLEM
+   - Marker has: onMouseOver / onMouseOut
+   - Tooltip div has: onMouseEnter / onMouseLeave
+   - When tooltip is far from marker, mouse path doesn't cross both
+   - Gap between marker and tooltip causes events to fire incorrectly
+   - 150ms delay doesn't help when spatial distance is too large
+
+3. FUNDAMENTAL DESIGN CONFLICT
+   - InfoWindow is designed to appear AT or NEAR the marker position
+   - Moving it far away breaks the mental model
+   - User expects tooltip to appear at/near the hovered element
+   - Current implementation violates this expectation
+
+================================================================================
+THE REAL PROBLEM - INFOWINDOW IS THE WRONG TOOL
+================================================================================
+
+GOOGLE MAPS INFOWINDOW LIMITATIONS:
+
+InfoWindow is designed for:
+- Click interactions (not hover)
+- Single active window at a time
+- Auto-positioning near markers
+- Built-in close button
+- Speech bubble appearance with arrow pointer
+
+InfoWindow is NOT designed for:
+- Hover tooltips that appear/disappear rapidly
+- Custom positioning far from the target
+- Preventing all default behaviors (pan, styling, positioning)
+- Rapid state changes without flickering
+
+EVIDENCE OF WRONG TOOL:
+1. We've disabled most InfoWindow features (disableAutoPan, custom styling)
+2. We're fighting against its default behaviors constantly
+3. We've tried multiple positioning strategies, all problematic
+4. The component keeps breaking when we override its design intent
+
+================================================================================
+WHY EACH ATTEMPTED FIX FAILED
+================================================================================
+
+ATTEMPT #1: Position Below Marker (pixelOffset: 0, 10)
+Problem: When mouse moves from marker to tooltip below, it triggers onMouseOut
+Result: Flickering loop - tooltip opens, mouse moves down, tooltip closes
+Why it failed: Mouse path naturally crosses the boundary
+
+ATTEMPT #2: Add Hover Delay + Position Far Right (pixelOffset: 320, -200)
+Problem: Tooltip too far from marker, breaks user expectations
+Result: Tooltip appears in wrong location, confusing UX
+Why it failed: Excessive offset created spatial disconnect
+
+ATTEMPT #3: Wrap Tooltip in Div with Mouse Events
+Problem: Doesn't solve the fundamental InfoWindow positioning issue
+Result: Events work on the div, but InfoWindow still controls positioning
+Why it failed: We're mixing InfoWindow behavior with custom event handling
+
+================================================================================
+THE CORRECT SOLUTION - CUSTOM OVERLAY
+================================================================================
+
+WHAT WE SHOULD USE INSTEAD:
+
+Use a Custom Google Maps Overlay (OverlayView) instead of InfoWindow.
+
+WHY THIS IS THE RIGHT APPROACH:
+
+1. FULL CONTROL OVER POSITIONING
+   - Can position tooltip exactly where we want
+   - Can adjust based on viewport boundaries
+   - Can position relative to marker in any direction
+   - No fighting against default behaviors
+
+2. FULL CONTROL OVER STYLING
+   - Pure React/HTML/CSS component
+   - No Google Maps default styling to override
+   - No white backgrounds or speech bubble arrows
+   - Complete design freedom
+
+3. FULL CONTROL OVER EVENTS
+   - Standard React onMouseEnter/onMouseLeave
+   - No conflicts with marker events
+   - Can implement proper hover logic
+   - No flickering from event coordination issues
+
+4. DESIGNED FOR HOVER TOOLTIPS
+   - OverlayView is meant for custom overlays
+   - Perfect for tooltips, labels, custom markers
+   - Handles viewport bounds automatically (with custom logic)
+   - Doesn't fight against its design purpose
+
+================================================================================
+IMPLEMENTATION PLAN - CUSTOM OVERLAY
+================================================================================
+
+STEP 1: Create CustomTooltipOverlay Component
+-----------------------------------------------
+File: src/components/maps/CustomTooltipOverlay.tsx
+
+Features:
+- Extends google.maps.OverlayView
+- Renders MarkerTooltip at custom position
+- Calculates smart positioning (above/below/left/right)
+- Handles viewport boundary detection
+- Pure React component with full styling control
+
+Code Structure:
+```typescript
+class CustomTooltipOverlay extends google.maps.OverlayView {
+  constructor(position, content, offset) {
+    // Position relative to map coordinates
+  }
+
+  onAdd() {
+    // Create container div and append to overlay layer
+  }
+
+  draw() {
+    // Position the overlay based on map projection
+    // Smart positioning to avoid viewport edges
+  }
+
+  onRemove() {
+    // Clean up DOM elements
+  }
+}
+```
+
+STEP 2: Update TourMap.tsx
+---------------------------
+Changes needed:
+1. Remove InfoWindow import
+2. Add CustomTooltipOverlay logic
+3. Create overlay instance when hoveredShow changes
+4. Destroy overlay when hoveredShow becomes null
+5. Keep existing hover event handlers on markers
+
+STEP 3: Smart Positioning Logic
+--------------------------------
+Algorithm:
+1. Get marker screen position
+2. Get tooltip dimensions (300px width, ~350px height)
+3. Check available space in all 4 directions
+4. Choose position with most space
+5. Default to above marker if space is equal
+6. Add appropriate offset (20-40px from marker)
+
+Priority order:
+- Above marker (preferred)
+- Right of marker
+- Left of marker
+- Below marker (last resort)
+
+STEP 4: Hover Behavior
+----------------------
+1. Marker onMouseOver → Create overlay instance
+2. Marker onMouseOut → Start 200ms delay
+3. Tooltip onMouseEnter → Cancel delay, keep overlay
+4. Tooltip onMouseLeave → Destroy overlay immediately
+
+This prevents flickering because:
+- Overlay is a true HTML element
+- Standard mouse events work correctly
+- No Google Maps event conflicts
+- Proper event bubbling and timing
+
+================================================================================
+ALTERNATIVE SOLUTION - SIMPLE HTML TOOLTIP
+================================================================================
+
+EVEN SIMPLER APPROACH:
+
+Instead of Google Maps Overlay, use pure HTML/CSS tooltip positioned with
+React Portals.
+
+IMPLEMENTATION:
+
+1. On marker hover, get marker's screen coordinates
+2. Convert to viewport pixels using map.getProjection()
+3. Render tooltip as absolute-positioned div
+4. Use React Portal to render outside map container
+5. Position relative to viewport, not map
+
+ADVANTAGES:
+- Simpler than OverlayView
+- Standard React patterns
+- No Google Maps API complexity
+- Easy to test and debug
+
+DISADVANTAGES:
+- Need to handle map pan/zoom events
+- Need to update position when map moves
+- More manual coordinate conversion
+
+================================================================================
+RECOMMENDED IMMEDIATE ACTION
+================================================================================
+
+OPTION A: REVERT AND USE CUSTOM OVERLAY (RECOMMENDED)
+-----------------------------------------------------
+Timeline: 2-3 hours
+Confidence: 95%
+
+Steps:
+1. Revert the current tooltip positioning changes
+2. Implement CustomTooltipOverlay component (1.5 hours)
+3. Integrate into TourMap.tsx (30 minutes)
+4. Test and refine positioning logic (30-45 minutes)
+
+Result: Professional, stable hover tooltips with no flickering
+
+OPTION B: DISABLE HOVER TOOLTIPS TEMPORARILY
+--------------------------------------------
+Timeline: 15 minutes
+Confidence: 100%
+
+Steps:
+1. Remove hover functionality entirely
+2. Keep only click-to-open day sheet modal
+3. Consider adding tooltip only on click
+4. Revisit hover tooltips with proper implementation later
+
+Result: Functional map without problematic hover behavior
+
+OPTION C: REVERT TO ORIGINAL CLICK-ONLY
+---------------------------------------
+Timeline: 30 minutes
+Confidence: 100%
+
+Steps:
+1. Revert all hover tooltip changes
+2. Show detailed info only on marker click
+3. Use click to open day sheet modal
+4. No hover state at all
+
+Result: Simple, stable, no issues
+
+================================================================================
+COMPARISON OF OPTIONS
+================================================================================
+
+Feature                  | Custom Overlay | Disable Hover | Click Only
+-------------------------|----------------|---------------|------------
+Implementation Time      | 2-3 hours      | 15 minutes    | 30 minutes
+User Experience          | Excellent      | Good          | Good
+Technical Complexity     | Medium-High    | Low           | Low
+Long-term Maintainability| High           | N/A           | High
+Risk of Bugs             | Low            | None          | None
+Professional Appearance  | Excellent      | Good          | Good
+
+================================================================================
+CURRENT CODE STATE - WHAT TO REVERT
+================================================================================
+
+FILES TO REVERT/FIX:
+
+1. src/components/maps/TourMap.tsx
+   - Remove closeTimeout state
+   - Remove handleMarkerMouseOver function
+   - Remove handleMarkerMouseOut function
+   - Remove handleInfoWindowMouseOver function
+   - Remove handleInfoWindowMouseOut function
+   - Change InfoWindow pixelOffset back to reasonable value
+   - Simplify or remove hover logic
+
+2. src/components/maps/MarkerTooltip.tsx
+   - Fixed width (w-[300px]) is good, keep it ✅
+   - Fixed height on weather section is good, keep it ✅
+   - These prevent layout shift and are not causing problems ✅
+
+================================================================================
+TECHNICAL DEBT CREATED
+================================================================================
+
+By trying to force InfoWindow to work as a hover tooltip, we've created:
+
+1. Complex event handling logic (4 new functions)
+2. Timeout management state
+3. Extreme positioning offsets that don't make sense
+4. Confusing UX where tooltip appears far from marker
+5. Fragile code that breaks with small changes
+6. Poor user experience
+
+This is a sign that we're using the wrong tool for the job.
+
+================================================================================
+LESSONS LEARNED
+================================================================================
+
+1. InfoWindow is designed for click interactions, not hover tooltips
+2. Fighting against component design intent creates fragile code
+3. Each "fix" made the problem worse by adding complexity
+4. Should have recognized InfoWindow limitations earlier
+5. Custom solutions are sometimes better than trying to force-fit components
+6. User experience should drive technical decisions, not vice versa
+
+================================================================================
+DECISION MATRIX
+================================================================================
+
+IF YOU NEED:
+- Working map immediately → Choose Option B or C (disable/click-only)
+- Professional hover tooltips → Choose Option A (custom overlay)
+- Simplest long-term solution → Choose Option C (click-only)
+- Best user experience → Choose Option A (custom overlay)
+
+RECOMMENDATION:
+Start with Option B or C to get working functionality NOW, then implement
+Option A (custom overlay) as a future enhancement when you have 2-3 hours
+for proper implementation.
+
+================================================================================
+NEXT STEPS - IMMEDIATE
+================================================================================
+
+1. DECIDE which option to pursue (A, B, or C)
+
+2. IF OPTION A (Custom Overlay):
+   - I can implement the CustomTooltipOverlay component
+   - I can integrate it into TourMap
+   - I can add smart positioning logic
+   - Timeline: 2-3 hours of development
+
+3. IF OPTION B (Disable Hover):
+   - I can remove hover functionality now
+   - Keep only click-to-open modal
+   - Timeline: 15 minutes
+
+4. IF OPTION C (Click Only):
+   - I can revert hover changes
+   - Simplify to click-only interaction
+   - Timeline: 30 minutes
+
+================================================================================
+SUMMARY
+================================================================================
+
+PROBLEM:
+Tried to use Google Maps InfoWindow as a hover tooltip. InfoWindow is not
+designed for this use case, leading to positioning issues, flickering, and
+poor UX. Each attempted fix made it worse by adding complexity without
+solving the fundamental tool mismatch.
+
+SOLUTION:
+Either disable hover tooltips temporarily, implement a proper custom overlay
+solution, or switch to click-only interaction. Stop trying to force InfoWindow
+to do something it wasn't designed for.
+
+CURRENT STATE:
+Map is functional but tooltip behavior is broken and confusing. Needs
+immediate decision on which path to take.
+
+CONFIDENCE:
+Any of the three recommended options will work. Option A provides the best
+UX but takes longest. Options B and C work immediately but sacrifice the
+hover tooltip feature.
+
+================================================================================
+END OF ANALYSIS
+================================================================================

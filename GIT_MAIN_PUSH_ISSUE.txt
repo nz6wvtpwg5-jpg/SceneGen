@@ -1,0 +1,56 @@
+Git Push to Main - Issue Report
+
+Date: 2026-09-15
+Repository: SceneGenUIV2
+
+Issue
+-----
+The header fix could not be pushed directly to the GitHub main branch.
+
+Command attempted:
+    git push origin HEAD:main
+
+Result:
+    Push rejected: non-fast-forward
+
+Cause
+-----
+The local branch and origin/main have diverged:
+
+- origin/main contains 1 commit that the local branch does not contain.
+- The local branch contains 12 commits that origin/main does not contain.
+
+Because the remote main branch has newer history, Git rejected the push to prevent existing commits on main from being overwritten.
+
+The push was not force-pushed, and no remote changes were overwritten.
+
+Header Fix
+----------
+The requested header fix is committed locally as:
+
+    471bdff4d10012431b241184e95921bc4b88ab5f
+
+Commit message:
+    Use active profile name in app header
+
+The fix changes the app header to prefer the active profile name for the displayed account name, avatar initial, and account-menu accessibility label.
+
+Unrelated Worktree Changes
+--------------------------
+These iOS-related files remain unstaged and were not included in the header fix commit:
+
+- ios/App/App.xcodeproj/project.pbxproj
+- ios/App/CapApp-SPM/Package.swift
+- ios/App/CapApp-SPM/Package.resolved
+
+Safe Next Steps
+---------------
+Before pushing the header fix to main, the local branch must be brought up to date with origin/main. A typical safe workflow is:
+
+1. Create a backup branch if needed.
+2. Rebase or merge the local commits onto the latest origin/main.
+3. Resolve any conflicts carefully.
+4. Run the relevant validation checks.
+5. Push to main normally.
+
+Do not force-push to main unless repository administrators explicitly approve it, because that could overwrite the commit currently present on origin/main.

@@ -1,0 +1,1174 @@
+================================================================================
+SCENEGEN MVP - 8-WEEK BUILD PLAN
+================================================================================
+Project: SceneGen (Artist/Promoter Touring & Show Management Platform)
+Start Date: January 27, 2026
+Target Launch: March 23, 2026 (8 weeks)
+Reference: SCENEGEN_MVP_SPEC_LOCKED.txt
+================================================================================
+
+================================================================================
+WEEK 1: CORE IDENTITY & CONTACTS (Jan 27 - Feb 2)
+================================================================================
+
+GOALS:
+- Enforce one-entity-per-user rule
+- Build contact system foundation
+- Update existing onboarding flow
+
+────────────────────────────────────────────────────────────────────────────
+BACKEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 1.1 Add entity ownership check to POST /api/artist/add
+    - Query: SELECT id FROM entities WHERE administratorId = ?
+    - Return 409 Conflict if entity exists
+    - Test: Try creating duplicate artist
+
+[ ] 1.2 Add entity ownership check to POST /api/promoter/add
+    - Same logic as artist
+    - Return 409 Conflict if entity exists
+    - Test: Try creating duplicate promoter
+
+[ ] 1.3 Create Contact model in database
+    Schema:
+    - id (uuid, primary key)
+    - entityId1 (uuid, foreign key → entities)
+    - entityId2 (uuid, foreign key → entities)
+    - status (enum: 'pending', 'accepted')
+    - initiatedBy (uuid, foreign key → entities)
+    - createdAt (timestamp)
+    - acceptedAt (timestamp, nullable)
+    Indexes:
+    - (entityId1, entityId2) unique
+    - (status)
+    - (createdAt)
+
+[ ] 1.4 Create Contact API endpoints
+    - POST /api/contacts/request
+      Body: { recipientEntityId }
+      Returns: Contact object (status: pending)
+
+    - POST /api/contacts/accept/:contactId
+      Returns: Updated contact (status: accepted)
+
+    - POST /api/contacts/reject/:contactId
+      Returns: { success: true }
+
+    - GET /api/contacts
+      Query: ?status=pending|accepted
+      Returns: Array of contacts for current entity
+
+[ ] 1.5 Update GET /api/user/entities to include administratorId
+    - Ensure frontend can check ownership
+    - Add administratorId to Entity type
+
+────────────────────────────────────────────────────────────────────────────
+FRONTEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 1.6 Update useOnboardingRedirect hook
+    - Fetch entities and check if user owns any
+    - Check: entities.find(e => e.administratorId === userId)
+    - Only redirect if user owns NO entities
+
+[ ] 1.7 Update onboarding page
+    - Add error handling for 409 Conflict
+    - Show message: "You already own an entity"
+    - Redirect to dashboard if this occurs
+
+[ ] 1.8 Create useContacts hook
+    File: src/hooks/useContacts.ts
+    Functions:
+    - fetchContacts(status?)
+    - sendContactRequest(recipientEntityId)
+    - acceptContact(contactId)
+    - rejectContact(contactId)
+
+[ ] 1.9 Update ContactsTable component
+    - Add "Send Contact Request" flow
+    - Add Accept/Reject buttons for pending requests
+    - Filter by status (pending/accepted)
+    - Update to use new Contact API
+
+[ ] 1.10 Update contacts page
+    - Tab view: "My Contacts" | "Pending Requests"
+    - Add "Add Contact" button → entity search
+    - Display pending incoming requests
+    - Display pending outgoing requests
+
+────────────────────────────────────────────────────────────────────────────
+TESTING CHECKPOINTS
+────────────────────────────────────────────────────────────────────────────
+✓ User can only create one entity (backend blocks duplicate)
+✓ Frontend prevents onboarding if user owns entity
+✓ Contact requests can be sent between entities
+✓ Contact requests can be accepted/rejected
+✓ Contacts page displays pending and accepted contacts
+✓ Error handling works for 409 Conflict
+
+────────────────────────────────────────────────────────────────────────────
+WEEK 1 DELIVERABLES
+────────────────────────────────────────────────────────────────────────────
+✅ One-entity-per-user enforcement working
+✅ Contact system API complete
+✅ Contact request flow working in UI
+✅ Contacts page updated with new functionality
+
+
+================================================================================
+WEEK 2: ENTITY SEARCH & SHOWS FOUNDATION (Feb 3 - Feb 9)
+================================================================================
+
+GOALS:
+- Build entity search/discovery
+- Create Show model and API
+- Start Create Show flow
+
+────────────────────────────────────────────────────────────────────────────
+BACKEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 2.1 Create or update search API
+    - GET /api/search?q={query}&type=artist|promoter|all
+    - Search by name, city, alias
+    - Return: { artists: [], promoters: [] }
+    - Exclude current entity from results
+
+[ ] 2.2 Create Show model in database
+    Schema:
+    - id (uuid, primary key)
+    - artistEntityId (uuid, foreign key → entities)
+    - promoterEntityId (uuid, foreign key → entities)
+    - tourId (uuid, foreign key → tours, nullable)
+    - createdBy (uuid, foreign key → entities)
+    - status (enum: 'draft', 'pending_invite', 'pending_acceptance',
+             'confirmed', 'cancelled')
+    - createdAt, updatedAt, confirmedAt, cancelledAt (timestamps)
+    - cancelledBy (uuid, nullable)
+
+    Day Sheet Fields:
+    - showDate (date)
+    - venueName, venueAddress, venueCity, venueState, venueCountry (text)
+    - venueCapacity (integer, nullable)
+    - doorsTime, showTime, setLength (text)
+    - guarantee (decimal, nullable)
+    - dealType (enum: 'guarantee', 'door_split', 'guarantee_vs_split')
+    - doorSplitPercentage (decimal, nullable)
+    - advanceTicketPrice, doorTicketPrice (decimal, nullable)
+    - notes, technicalRequirements (text, nullable)
+    - contactName, contactPhone, contactEmail (text)
+
+    Indexes:
+    - (artistEntityId)
+    - (promoterEntityId)
+    - (tourId)
+    - (status)
+    - (showDate)
+    - (createdBy)
+
+[ ] 2.3 Create Show API endpoints (basic CRUD)
+    - POST /api/shows
+      Body: Show object
+      Returns: Created show
+      Logic: status = 'draft' or 'pending_acceptance' (if counterparty exists)
+
+    - GET /api/shows
+      Query: ?status=, ?tourId=
+      Returns: Array of shows for current entity
+
+    - GET /api/shows/:id
+      Returns: Show object
+      Guard: Must be artist or promoter of show
+
+    - PATCH /api/shows/:id
+      Body: Partial show object
+      Returns: Updated show
+      Guard: Must be artist or promoter of show
+
+    - DELETE /api/shows/:id (cancel)
+      Returns: { success: true }
+      Logic: Set status = 'cancelled', cancelledBy = current entity
+
+[ ] 2.4 Add show edit audit log (simple)
+    Create ShowEditLog table:
+    - id (uuid)
+    - showId (uuid, foreign key → shows)
+    - editedBy (uuid, foreign key → entities)
+    - changes (jsonb - before/after values)
+    - createdAt (timestamp)
+
+────────────────────────────────────────────────────────────────────────────
+FRONTEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 2.5 Create useSearch hook
+    File: src/hooks/useSearch.ts
+    Functions:
+    - searchEntities(query, type?)
+    - Returns: { artists: [], promoters: [], loading, error }
+
+[ ] 2.6 Create EntitySearch component
+    File: src/components/search/EntitySearch.tsx
+    Features:
+    - Search input with debounce
+    - Filter by type (artist/promoter/all)
+    - Results list with entity cards
+    - Click handler (onSelect callback)
+
+[ ] 2.7 Create Show type definitions
+    File: src/types/show.ts
+    interface Show {
+      id: string;
+      artistEntityId: string;
+      promoterEntityId: string;
+      tourId?: string;
+      createdBy: string;
+      status: 'draft' | 'pending_invite' | 'pending_acceptance' |
+              'confirmed' | 'cancelled';
+      // ... Day Sheet fields
+    }
+
+[ ] 2.8 Create useShows hook
+    File: src/hooks/useShows.ts
+    Functions:
+    - fetchShows(filters?)
+    - createShow(showData)
+    - updateShow(showId, updates)
+    - cancelShow(showId)
+
+[ ] 2.9 Start Create Show form (part 1 - basic fields)
+    File: src/components/shows/CreateShowForm.tsx
+    Steps:
+    1. Counterparty selection (skip tour for now)
+    2. Day Sheet fields
+    3. Submit
+
+[ ] 2.10 Update shows page with basic list view
+    - Show cards with status badges
+    - Filter by status
+    - Create Show button → modal
+    - Edit/Cancel actions
+
+────────────────────────────────────────────────────────────────────────────
+TESTING CHECKPOINTS
+────────────────────────────────────────────────────────────────────────────
+✓ Entity search returns relevant results
+✓ Shows can be created (basic flow)
+✓ Shows list displays correctly
+✓ Show status reflects in UI
+✓ Shows can be edited
+✓ Shows can be cancelled
+✓ Edit log captures changes
+
+────────────────────────────────────────────────────────────────────────────
+WEEK 2 DELIVERABLES
+────────────────────────────────────────────────────────────────────────────
+✅ Entity search working
+✅ Show model and API complete
+✅ Basic Create Show flow working (no invites/tours yet)
+✅ Shows page displaying shows
+
+
+================================================================================
+WEEK 3: COMPLETE SHOWS & START INVITES (Feb 10 - Feb 16)
+================================================================================
+
+GOALS:
+- Finish Create Show flow
+- Connect shows to contacts
+- Start invites system
+
+────────────────────────────────────────────────────────────────────────────
+BACKEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 3.1 Update chat to require accepted contact
+    - Add middleware to conversation routes
+    - Check: contact exists with status='accepted' between entities
+    - Return 403 if no contact
+
+[ ] 3.2 Create Invite model in database
+    Schema:
+    - token (uuid, primary key)
+    - invitingEntityId (uuid, foreign key → entities)
+    - requiredEntityType (enum: 'artist', 'promoter', 'any')
+    - inviteType (enum: 'contact_invite', 'show_invite')
+    - showId (uuid, foreign key → shows, nullable)
+    - recipientEmail (text, nullable)
+    - expiresAt (timestamp)
+    - acceptedAt (timestamp, nullable)
+    - acceptedBy (uuid, foreign key → entities, nullable)
+    - status (enum: 'pending', 'accepted', 'expired', 'cancelled')
+    - createdAt (timestamp)
+
+    Indexes:
+    - (token) unique
+    - (invitingEntityId)
+    - (showId)
+    - (status)
+
+[ ] 3.3 Create Invite API endpoints
+    - POST /api/invites
+      Body: { type, requiredEntityType, showId?, recipientEmail? }
+      Returns: { token, url: `/invite/${token}` }
+
+    - GET /api/invites/:token
+      Returns: Invite object (public, no auth)
+      Check expiry, return error if expired
+
+    - POST /api/invites/:token/accept
+      Body: { entityId }
+      Returns: { success: true }
+      Logic:
+        - Check entity type matches requirement
+        - Create contact (status: accepted)
+        - If show invite: link entity to show
+        - Set entity.trialExpiresAt = now + 30 days
+        - Mark invite as accepted
+
+[ ] 3.4 Add trialExpiresAt to Entity model
+    - Migration: ALTER TABLE entities ADD trialExpiresAt timestamp
+    - Default: null (no trial for manually created entities)
+    - Set on invite acceptance
+
+[ ] 3.5 Add trial check middleware
+    function checkTrial(req, res, next) {
+      const entity = req.activeEntity;
+      if (entity.trialExpiresAt && now > entity.trialExpiresAt) {
+        return res.status(403).json({
+          error: 'Trial expired. Contact support to continue.'
+        });
+      }
+      next();
+    }
+    Apply to: POST /api/shows, POST /api/tours
+
+────────────────────────────────────────────────────────────────────────────
+FRONTEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 3.6 Update Create Show form (part 2 - counterparty)
+    - Step: Select counterparty
+    - Options:
+      - Search existing entity (EntitySearch component)
+      - Invite new entity (generate invite URL)
+    - If invite: show generated URL + copy button
+
+[ ] 3.7 Create invite generation UI
+    Component: src/components/invites/GenerateInvite.tsx
+    - Select invite type (contact or show)
+    - Select required entity type
+    - Optional: recipient email
+    - Generate button → show URL
+    - Copy to clipboard
+
+[ ] 3.8 Create invite acceptance page
+    Route: src/app/invite/[token]/page.tsx
+    Flow:
+    1. Fetch invite details (GET /api/invites/:token)
+    2. If not authenticated → redirect to sign in
+    3. If authenticated but no entity:
+       - Check if user owns entity
+       - If not: redirect to onboarding (enforce type)
+    4. If authenticated with entity:
+       - Check entity type matches
+       - Show "Accept Invite" button
+       - On accept: POST /api/invites/:token/accept
+
+[ ] 3.9 Update onboarding to handle invite context
+    - Accept token as URL param: /onboarding?invite={token}
+    - Fetch invite details
+    - Enforce entity type (disable selector)
+    - After entity creation: auto-accept invite
+
+[ ] 3.10 Add trial expiry UI indicators
+    - Check entity.trialExpiresAt in dashboard
+    - Show banner if trial < 7 days to expiry
+    - Show error message if trial expired (on 403)
+
+────────────────────────────────────────────────────────────────────────────
+TESTING CHECKPOINTS
+────────────────────────────────────────────────────────────────────────────
+✓ Create Show with existing entity works
+✓ Create Show with invite generates URL
+✓ Invite URL can be shared and opened
+✓ Invite acceptance creates contact
+✓ Invite acceptance links entity to show (show_invite)
+✓ Onboarding enforces entity type from invite
+✓ Trial access granted on invite acceptance
+✓ Trial expiry blocks new show creation
+
+────────────────────────────────────────────────────────────────────────────
+WEEK 3 DELIVERABLES
+────────────────────────────────────────────────────────────────────────────
+✅ Complete Create Show flow (with invites)
+✅ Invite system working end-to-end
+✅ Trial access mechanism in place
+✅ Chat requires accepted contact
+
+
+================================================================================
+WEEK 4: TOURS INFRASTRUCTURE (Feb 17 - Feb 23)
+================================================================================
+
+GOALS:
+- Create Tours model and API
+- Connect shows to tours
+- Add artist-only guards
+
+────────────────────────────────────────────────────────────────────────────
+BACKEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 4.1 Create Tour model in database
+    Schema:
+    - id (uuid, primary key)
+    - artistEntityId (uuid, foreign key → entities)
+    - name (text)
+    - notes (text, nullable)
+    - startDate (date, computed)
+    - endDate (date, computed)
+    - createdAt, updatedAt (timestamps)
+
+    Indexes:
+    - (artistEntityId)
+    - (startDate, endDate)
+
+[ ] 4.2 Add tourId to Show model
+    - Migration: ALTER TABLE shows ADD tourId uuid REFERENCES tours(id)
+    - Index: (tourId)
+    - Allow null (standalone shows)
+
+[ ] 4.3 Create artist-only middleware
+    function requireArtistEntity(req, res, next) {
+      const entity = req.activeEntity;
+      if (!entity || entity.entityType !== 'artist') {
+        return res.status(403).json({ error: 'Artist entities only' });
+      }
+      next();
+    }
+
+[ ] 4.4 Create Tour API endpoints
+    - POST /api/tours
+      Middleware: requireArtistEntity, checkTrial
+      Body: { name, notes? }
+      Returns: Tour object
+      Logic: Create tour, compute dates from associated shows
+
+    - GET /api/tours
+      Middleware: requireArtistEntity
+      Returns: Array of tours for current artist
+      Include computed dates
+
+    - GET /api/tours/:id
+      Middleware: requireArtistEntity
+      Returns: Tour object with shows array
+      Guard: tour.artistEntityId === activeEntity.id
+
+    - PATCH /api/tours/:id
+      Middleware: requireArtistEntity
+      Body: { name?, notes? }
+      Returns: Updated tour
+      Guard: tour.artistEntityId === activeEntity.id
+
+    - DELETE /api/tours/:id
+      Middleware: requireArtistEntity
+      Returns: { success: true }
+      Logic: Set all shows.tourId = null
+      Guard: tour.artistEntityId === activeEntity.id
+
+[ ] 4.5 Add tour date computation function
+    function computeTourDates(tourId) {
+      const shows = await db.query(
+        'SELECT MIN(showDate) as start, MAX(showDate) as end
+         FROM shows WHERE tourId = ? AND status != "cancelled"',
+        [tourId]
+      );
+      await db.query(
+        'UPDATE tours SET startDate = ?, endDate = ? WHERE id = ?',
+        [shows.start, shows.end, tourId]
+      );
+    }
+
+    Call this on:
+    - Show created with tourId
+    - Show updated with new tourId
+    - Show deleted/cancelled
+    - Show date changed
+
+[ ] 4.6 Update show creation to handle tourId
+    - Accept tourId in POST /api/shows body
+    - Validate: tour belongs to artist entity
+    - Compute tour dates after creation
+
+────────────────────────────────────────────────────────────────────────────
+FRONTEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 4.7 Create Tour type definitions
+    File: src/types/tour.ts
+    interface Tour {
+      id: string;
+      artistEntityId: string;
+      name: string;
+      notes?: string;
+      startDate: string;
+      endDate: string;
+      createdAt: string;
+      updatedAt: string;
+    }
+
+[ ] 4.8 Create useTours hook
+    File: src/hooks/useTours.ts
+    Functions:
+    - fetchTours()
+    - createTour(tourData)
+    - updateTour(tourId, updates)
+    - deleteTour(tourId)
+    - addShowsToTour(tourId, showIds[])
+
+[ ] 4.9 Create CreateTour modal
+    Component: src/components/tours/CreateTourModal.tsx
+    Fields:
+    - Tour name (required)
+    - Notes (optional)
+    - If created from shows: display date range
+    Props:
+    - selectedShows?: Show[] (for context)
+    - onSuccess: (tour) => void
+
+[ ] 4.10 Update Create Show form (part 3 - tour selection)
+    - Add step: "Is this show part of a tour?" (artists only)
+    - Radio options:
+      - Standalone show
+      - Part of existing tour (dropdown)
+      - Create new tour (inline modal)
+
+────────────────────────────────────────────────────────────────────────────
+TESTING CHECKPOINTS
+────────────────────────────────────────────────────────────────────────────
+✓ Tours can be created by artists
+✓ Promoters cannot access tour endpoints (403)
+✓ Shows can be created with tourId
+✓ Tour dates computed correctly from shows
+✓ Tour dates update when shows added/removed
+✓ Create Show includes tour selection (artists only)
+
+────────────────────────────────────────────────────────────────────────────
+WEEK 4 DELIVERABLES
+────────────────────────────────────────────────────────────────────────────
+✅ Tour model and API complete
+✅ Artist-only guards working
+✅ Shows connected to tours
+✅ Tour date computation working
+✅ Create Tour modal functional
+
+
+================================================================================
+WEEK 5: TOURING PAGE FOUNDATION (Feb 24 - Mar 2)
+================================================================================
+
+GOALS:
+- Build touring page layout
+- Implement map with markers
+- Display promoter contacts
+
+────────────────────────────────────────────────────────────────────────────
+BACKEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 5.1 Create contacts summary endpoint
+    - GET /api/contacts/promoters
+      Middleware: requireArtistEntity
+      Returns: Array of promoter contacts with show counts
+      Schema:
+      {
+        entityId,
+        name,
+        city,
+        state,
+        country,
+        latitude,
+        longitude,
+        showCount,
+        shows: [{ id, showDate, venueName, status, tourId }]
+      }
+
+[ ] 5.2 Add geolocation fields to Entity model
+    - Migration: ADD latitude decimal, longitude decimal
+    - Optional: Geocode on entity creation/update
+
+────────────────────────────────────────────────────────────────────────────
+FRONTEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 5.3 Update sidebar to conditionally show Touring
+    File: src/components/sidenav/side-nav.tsx
+    Logic:
+    {activeProfile?.entityType === 'artist' && (
+      <SidebarLink href="/touring">
+        <Calendar className="h-5 w-5" />
+        Touring
+      </SidebarLink>
+    )}
+
+[ ] 5.4 Create touring page route
+    File: src/app/touring/page.tsx
+    Guards:
+    - useOnboardingRedirect()
+    - Check activeProfile.entityType === 'artist'
+    - Redirect promoters to /dashboard
+
+[ ] 5.5 Build touring page layout
+    Component: src/components/touring/TouringLayout.tsx
+    Structure:
+    - Header: title, filters, action buttons
+    - Main: split layout (map 60% | contacts 40%)
+
+[ ] 5.6 Create tour filter dropdown
+    Component: src/components/touring/TourFilter.tsx
+    Options:
+    - All Shows
+    - Standalone Shows
+    - [Tour Name 1]
+    - [Tour Name 2]
+    State: selectedTour
+
+[ ] 5.7 Setup map component (Leaflet)
+    Component: src/components/touring/TouringMap.tsx
+    Dependencies: react-leaflet
+    Features:
+    - Map container with tiles
+    - Center on artist hometown
+    - Zoom controls
+
+[ ] 5.8 Add promoter markers to map
+    - Fetch promoters: GET /api/contacts/promoters
+    - Create marker for each with lat/lng
+    - Color code by show count:
+      - Green: confirmed shows
+      - Yellow: pending shows
+      - Gray: no shows
+    - Add artist home marker (blue)
+
+[ ] 5.9 Create contacts list panel
+    Component: src/components/touring/PromoterContactsList.tsx
+    Display:
+    - List of promoter contacts
+    - Show count badge
+    - Filter/search
+    - Click to center map on promoter
+
+[ ] 5.10 Add marker popup
+    Component: src/components/touring/MarkerPopup.tsx
+    Display:
+    - Promoter name
+    - Location
+    - List of shows (date, venue, status, tour)
+    - If no shows: "Create Show" button
+
+────────────────────────────────────────────────────────────────────────────
+TESTING CHECKPOINTS
+────────────────────────────────────────────────────────────────────────────
+✓ Touring page accessible to artists only
+✓ Promoters cannot access /touring (redirect)
+✓ Map displays with correct center
+✓ Promoter markers appear with correct colors
+✓ Artist home marker appears
+✓ Contacts list displays all promoters
+✓ Marker popup shows show details
+
+────────────────────────────────────────────────────────────────────────────
+WEEK 5 DELIVERABLES
+────────────────────────────────────────────────────────────────────────────
+✅ Touring page route created (artist-only)
+✅ Map displaying with promoter markers
+✅ Contacts list panel working
+✅ Basic popup showing show details
+
+
+================================================================================
+WEEK 6: TOURING INTERACTIONS (Mar 3 - Mar 9)
+================================================================================
+
+GOALS:
+- Create shows from map
+- Implement tour filtering
+- Add tour context to map
+
+────────────────────────────────────────────────────────────────────────────
+BACKEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 6.1 Update shows endpoint to filter by tourId
+    - GET /api/shows?tourId={id}
+    - GET /api/shows?tourId=null (standalone)
+
+[ ] 6.2 Update promoters endpoint to filter by tour
+    - GET /api/contacts/promoters?tourId={id}
+    - Include only shows from specified tour
+    - Update show counts accordingly
+
+────────────────────────────────────────────────────────────────────────────
+FRONTEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 6.3 Implement "Create Show" from marker popup
+    - Add "Create Show" button in popup
+    - Click opens Create Show modal
+    - Pre-fill:
+      - Promoter entity
+      - Venue city (from promoter location)
+      - Tour (if tour context active)
+
+[ ] 6.4 Implement tour filter functionality
+    - Update TourFilter component with onChange
+    - Store selectedTour in state
+    - Fetch shows filtered by tourId
+    - Update map markers accordingly
+
+[ ] 6.5 Add tour context visualization
+    When tour selected:
+    - Dim markers for promoters without shows in tour
+    - Highlight markers for promoters with shows in tour
+    - Update popup to show only tour shows
+    - Add tour badge/indicator to markers
+
+[ ] 6.6 Update marker popup for tour context
+    If tour selected and promoter has no shows in tour:
+    - Display: "No shows in [Tour Name] yet"
+    - Button: "Create show as part of this tour"
+    - Pre-fill tour in Create Show flow
+
+[ ] 6.7 Add "Create Show" button to top toolbar
+    - Opens Create Show modal
+    - If tour context active: pre-select tour
+
+[ ] 6.8 Add "Create Tour" button to top toolbar
+    - Opens Create Tour modal
+
+[ ] 6.9 Implement map centering on contact click
+    - Click contact in list
+    - Map centers on promoter marker
+    - Open marker popup
+
+[ ] 6.10 Add empty state for no contacts
+    - Display when artist has no promoter contacts
+    - Message: "You haven't connected with any promoters yet"
+    - Action: Link to contacts page or search
+
+────────────────────────────────────────────────────────────────────────────
+TESTING CHECKPOINTS
+────────────────────────────────────────────────────────────────────────────
+✓ Create Show from map marker works
+✓ Promoter pre-filled in form
+✓ Tour filter updates map view
+✓ Tour context highlights correct markers
+✓ Tour context updates marker popups
+✓ Create Show from popup includes tour context
+✓ Contacts list click centers map
+✓ Empty state displays correctly
+
+────────────────────────────────────────────────────────────────────────────
+WEEK 6 DELIVERABLES
+────────────────────────────────────────────────────────────────────────────
+✅ Create Show from map working
+✅ Tour filtering functional
+✅ Tour context visualization complete
+✅ All touring interactions working
+
+
+================================================================================
+WEEK 7: SHOW BULK ACTIONS & TOUR MANAGEMENT (Mar 10 - Mar 16)
+================================================================================
+
+GOALS:
+- Add bulk actions to Shows page
+- Allow adding shows to tours after creation
+- Complete tour management features
+
+────────────────────────────────────────────────────────────────────────────
+BACKEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 7.1 Create bulk update endpoint
+    - POST /api/shows/bulk-update
+      Body: { showIds: [], updates: { tourId? } }
+      Returns: { updated: number }
+      Logic:
+        - Validate all shows belong to current artist
+        - Update shows
+        - Recompute tour dates for affected tours
+
+[ ] 7.2 Add tour shows endpoint
+    - GET /api/tours/:id/shows
+      Returns: Array of shows in tour
+      Sorted by showDate
+
+────────────────────────────────────────────────────────────────────────────
+FRONTEND TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 7.3 Add checkbox selection to Shows page
+    Component: src/components/shows/ShowsTable.tsx
+    Features:
+    - Checkbox on each row
+    - "Select all" checkbox in header
+    - Track selected show IDs in state
+
+[ ] 7.4 Create bulk actions toolbar
+    Component: src/components/shows/BulkActionsToolbar.tsx
+    Display when shows selected:
+    - "N shows selected"
+    - Actions:
+      - Add to Tour
+      - Remove from Tour
+      - Export (future)
+      - Delete
+
+[ ] 7.5 Create "Add to Tour" modal
+    Component: src/components/shows/AddToTourModal.tsx
+    Props: selectedShows: Show[]
+    UI:
+    - Display selected shows list
+    - Dropdown: existing tours
+    - Or: "Create new tour" (inline)
+    - Submit: bulk update
+
+[ ] 7.6 Handle tour reassignment warnings
+    - Check if any selected shows have tourId
+    - Show warning: "N shows are already in tours. Move them?"
+    - Options: Cancel | Move
+
+[ ] 7.7 Add right-click context menu (optional)
+    Component: src/components/shows/ShowContextMenu.tsx
+    Actions:
+    - Add to Tour
+    - Remove from Tour
+    - Edit
+    - Cancel Show
+
+[ ] 7.8 Update shows page filters
+    - Filter by status
+    - Filter by tour
+    - Search by venue/city
+
+[ ] 7.9 Add tour details page
+    Route: src/app/touring/[tourId]/page.tsx
+    Display:
+    - Tour name, dates, notes
+    - Shows list (chronological)
+    - Map with tour shows only
+    - Edit tour button
+
+[ ] 7.10 Add delete tour confirmation
+    - Warning: "N shows will become standalone"
+    - Confirm before deletion
+
+────────────────────────────────────────────────────────────────────────────
+TESTING CHECKPOINTS
+────────────────────────────────────────────────────────────────────────────
+✓ Shows can be selected via checkboxes
+✓ Bulk actions toolbar appears when shows selected
+✓ Shows can be added to tours in bulk
+✓ Tour reassignment warnings work
+✓ Right-click context menu works (if implemented)
+✓ Tour details page displays correctly
+✓ Delete tour moves shows to standalone
+
+────────────────────────────────────────────────────────────────────────────
+WEEK 7 DELIVERABLES
+────────────────────────────────────────────────────────────────────────────
+✅ Bulk actions working on Shows page
+✅ Shows can be added to tours after creation
+✅ Tour management complete
+✅ Tour details page functional
+
+
+================================================================================
+WEEK 8: POLISH, TESTING & LAUNCH (Mar 17 - Mar 23)
+================================================================================
+
+GOALS:
+- Add loading states and error handling
+- Implement empty states
+- User testing
+- Bug fixes
+- Documentation
+- Deploy to production
+
+────────────────────────────────────────────────────────────────────────────
+POLISH TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 8.1 Add loading states to all async operations
+    - Skeleton loaders for lists
+    - Spinner for buttons during submit
+    - Loading overlay for modals
+
+[ ] 8.2 Add error handling and toast notifications
+    - Install toast library (sonner or react-hot-toast)
+    - Wrap all API calls in try/catch
+    - Display user-friendly error messages
+    - Add retry logic for failed requests
+
+[ ] 8.3 Create empty states
+    Components needed:
+    - No shows yet (Shows page)
+    - No contacts yet (Contacts page)
+    - No conversations yet (Conversations page)
+    - No tours yet (Touring page)
+    - No promoter contacts (Touring map)
+    Each with:
+    - Illustration or icon
+    - Helpful message
+    - Primary action button
+
+[ ] 8.4 Add confirmation dialogs
+    For destructive actions:
+    - Cancel show
+    - Delete tour
+    - Reject contact request
+    - Remove from tour
+
+[ ] 8.5 Improve form validation
+    - Real-time validation
+    - Clear error messages
+    - Disabled submit until valid
+    - Required field indicators
+
+[ ] 8.6 Add keyboard shortcuts (optional)
+    - Cmd/Ctrl + K: Search
+    - Cmd/Ctrl + N: New show
+    - Escape: Close modal
+
+[ ] 8.7 Responsive design check
+    - Test all pages on mobile
+    - Adjust map view for mobile
+    - Hamburger menu for sidebar
+    - Touch-friendly buttons
+
+[ ] 8.8 Accessibility audit
+    - Add ARIA labels
+    - Keyboard navigation
+    - Focus management in modals
+    - Color contrast check
+
+────────────────────────────────────────────────────────────────────────────
+TESTING TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 8.9 Create test scenarios document
+    Document: TESTING_SCENARIOS.md
+    Include:
+    - Artist user journey
+    - Promoter user journey
+    - Invite flows
+    - Edge cases
+
+[ ] 8.10 User testing (3-5 users)
+    - Recruit artist/promoter users
+    - Walk through key flows
+    - Observe and take notes
+    - Collect feedback
+
+[ ] 8.11 Fix critical bugs
+    Priority order:
+    1. Data loss issues
+    2. Authentication failures
+    3. Show/tour creation failures
+    4. Chat not working
+    5. UI/UX issues
+
+[ ] 8.12 Performance optimization
+    - Optimize images
+    - Lazy load components
+    - Add pagination to lists
+    - Cache API responses
+
+────────────────────────────────────────────────────────────────────────────
+DOCUMENTATION TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 8.13 Create user documentation
+    Document: USER_GUIDE.md
+    Sections:
+    - Getting Started
+    - Creating Your Entity
+    - Managing Shows
+    - Using Touring (artists)
+    - Inviting Counterparties
+    - FAQ
+
+[ ] 8.14 Create admin documentation
+    Document: ADMIN_GUIDE.md
+    Sections:
+    - Database schema
+    - API endpoints
+    - Environment variables
+    - Deployment process
+    - Troubleshooting
+
+[ ] 8.15 Update README.md
+    Include:
+    - Project overview
+    - Setup instructions
+    - Development workflow
+    - Tech stack
+    - Contributing guidelines
+
+────────────────────────────────────────────────────────────────────────────
+DEPLOYMENT TASKS
+────────────────────────────────────────────────────────────────────────────
+[ ] 8.16 Production environment setup
+    - Database provisioning
+    - Environment variables
+    - Domain configuration
+    - SSL certificates
+
+[ ] 8.17 Deploy backend
+    - Run migrations
+    - Deploy API
+    - Test endpoints
+
+[ ] 8.18 Deploy frontend
+    - Build production bundle
+    - Deploy to hosting (Vercel/Netlify)
+    - Test all features in production
+
+[ ] 8.19 Setup monitoring
+    - Error tracking (Sentry)
+    - Analytics (Plausible/PostHog)
+    - Uptime monitoring
+
+[ ] 8.20 Launch checklist
+    ✓ All critical features working
+    ✓ No major bugs
+    ✓ Documentation complete
+    ✓ Monitoring active
+    ✓ Backup strategy in place
+    ✓ Rollback plan ready
+
+────────────────────────────────────────────────────────────────────────────
+WEEK 8 DELIVERABLES
+────────────────────────────────────────────────────────────────────────────
+✅ All loading states and error handling in place
+✅ Empty states implemented
+✅ User testing completed
+✅ Critical bugs fixed
+✅ Documentation complete
+✅ Production deployment successful
+✅ MVP LAUNCHED! 🚀
+
+
+================================================================================
+POST-LAUNCH (Week 9+)
+================================================================================
+
+IMMEDIATE PRIORITIES (Week 9)
+────────────────────────────────────────────────────────────────────────────
+[ ] Monitor production errors and fix issues
+[ ] Collect user feedback
+[ ] Address urgent bug reports
+[ ] Performance optimizations based on real usage
+[ ] Add basic analytics to understand user behavior
+
+QUICK WINS (Week 10-11)
+────────────────────────────────────────────────────────────────────────────
+[ ] Email notifications for invites
+[ ] Show reminders (1 week before show)
+[ ] Calendar view for shows
+[ ] Export show to PDF
+[ ] Profile customization (bio, photos)
+
+FUTURE FEATURES (Week 12+)
+────────────────────────────────────────────────────────────────────────────
+[ ] Member roles and permissions
+[ ] Show-specific chat threads
+[ ] Financial tracking
+[ ] Multi-artist bills
+[ ] Venue entity type
+[ ] Mobile app
+[ ] Billing and subscriptions
+
+
+================================================================================
+PROGRESS TRACKING
+================================================================================
+
+Weekly Stand-ups:
+- Monday: Review last week, plan this week
+- Friday: Demo progress, identify blockers
+
+Key Metrics:
+- Features completed / total features
+- Bugs found vs. bugs fixed
+- Test coverage percentage
+- User feedback score
+
+Risk Management:
+- If 2+ days behind: cut scope or extend timeline
+- If critical bug: pause new features
+- If user testing reveals major issues: iterate before launch
+
+
+================================================================================
+RESOURCES & TOOLS
+================================================================================
+
+Development:
+- Frontend: Next.js, React, TypeScript, Tailwind
+- Backend: Node.js, Express (or Next.js API routes)
+- Database: PostgreSQL (or your current DB)
+- Real-time: Ably
+- Maps: Leaflet + React Leaflet
+
+Testing:
+- Unit: Jest + React Testing Library
+- E2E: Playwright (optional)
+- Manual: Test scenarios document
+
+Deployment:
+- Frontend: Vercel
+- Backend: Your current hosting
+- Database: Your current provider
+
+Monitoring:
+- Errors: Sentry
+- Analytics: Plausible or PostHog
+- Uptime: UptimeRobot
+
+
+================================================================================
+COMMUNICATION PLAN
+================================================================================
+
+Daily Updates (to stakeholders):
+- Quick summary of progress
+- Blockers (if any)
+- Next day's plan
+
+Weekly Reports (to stakeholders):
+- Features completed this week
+- Demo video/screenshots
+- Next week's goals
+- Risks and mitigation
+
+Launch Announcement:
+- Blog post
+- Social media
+- Email to waitlist (if exists)
+- Product Hunt (optional)
+
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+MVP is successful if:
+✅ Artists can create and manage tours
+✅ Artists can visualize promoter contacts on map
+✅ Shows can be created from multiple entry points
+✅ Invites successfully onboard new entities
+✅ Chat works between connected entities
+✅ No critical bugs in production
+✅ 10+ active users within first 2 weeks
+✅ Positive user feedback (>4/5 rating)
+
+
+================================================================================
+END OF BUILD PLAN
+================================================================================
+
+Remember:
+- Focus on MVP scope (reference: SCENEGEN_MVP_SPEC_LOCKED.txt)
+- Don't add features not in the spec
+- Ship fast, iterate later
+- User feedback > perfect code
+- Progress > perfection
+
+Good luck! 🚀

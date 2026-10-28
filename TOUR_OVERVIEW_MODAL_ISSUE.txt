@@ -1,0 +1,294 @@
+================================================================================
+TOUR OVERVIEW MODAL POSITIONING ISSUE - COMPLETE OVERVIEW
+================================================================================
+
+PROBLEM:
+--------
+The Tour Overview Modal (left sidebar with tour info) keeps disappearing or
+positioning incorrectly when trying to center it vertically on the left side.
+
+CURRENT STATE:
+--------------
+- Modal is completely gone/invisible
+- This happened after trying to use OverlayView component for fullscreen support
+- OverlayView is designed for map coordinates, NOT for fixed UI positioning
+
+ROOT CAUSE:
+-----------
+We're fighting against Google Maps OverlayView which is meant for geographic
+positioning (lat/lng coordinates), not for UI elements with fixed viewport positions.
+
+The OverlayView component expects:
+- A lat/lng position (we're using 0,0 which is in the ocean off Africa!)
+- Pixel offsets from that geographic point
+- This is NOT designed for "always show in top-left corner" behavior
+
+ORIGINAL WORKING CODE (Before OverlayView):
+--------------------------------------------
+The modal was working fine with simple absolute positioning:
+
+<div className="absolute top-4 left-4 z-10 ...">
+  {/* Modal content */}
+</div>
+
+This worked in normal mode but disappeared in fullscreen because the map
+creates a new DOM context in fullscreen mode.
+
+THE WRONG APPROACH (What we tried):
+------------------------------------
+Using OverlayView with FLOAT_PANE:
+- This is designed for map overlays (like custom markers)
+- NOT for fixed UI elements
+- Causes positioning issues because it's tied to map coordinates
+
+CORRECT SOLUTIONS:
+------------------
+
+OPTION 1: CSS-Only Approach (Simplest)
+---------------------------------------
+Don't use OverlayView at all. Use CSS that works in both normal and fullscreen:
+
+In TourOverviewModal.tsx, return:
+
+<div
+  className="bg-background/95 backdrop-blur-md border border-border-subtle rounded-xl shadow-xl p-3 min-w-[260px] max-w-[280px]"
+  style={{
+    position: 'fixed',
+    top: '50%',
+    left: '16px',
+    transform: 'translateY(-50%)',
+    zIndex: 9999,  // Very high z-index for fullscreen
+  }}
+>
+  {/* Existing modal content */}
+</div>
+
+Key: Remove OverlayView wrapper entirely, use high z-index
+
+OPTION 2: Portal Approach (More Complex)
+-----------------------------------------
+Use React Portal to render outside map container:
+
+import { createPortal } from 'react-dom';
+
+export function TourOverviewModal({ ... }) {
+  const [container, setContainer] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const mapContainer = document.querySelector('.gm-style')?.parentElement;
+    setContainer(mapContainer || document.body);
+  }, []);
+
+  if (!container) return null;
+
+  return createPortal(
+    <div style={{
+      position: 'fixed',
+      top: '50%',
+      left: '16px',
+      transform: 'translateY(-50%)',
+      zIndex: 9999,
+    }}>
+      {/* Modal content */}
+    </div>,
+    container
+  );
+}
+
+OPTION 3: Custom Control (Google Maps Native)
+----------------------------------------------
+Use Google Maps Custom Control API (most "proper" but complex):
+
+const createCustomControl = (map: google.maps.Map) => {
+  const controlDiv = document.createElement('div');
+  // Render React component into controlDiv
+  map.controls[google.maps.ControlPosition.LEFT_CENTER].push(controlDiv);
+};
+
+FILES TO EDIT:
+==============
+
+PRIMARY FILE (Choose ONE approach):
+------------------------------------
+📁 /src/components/maps/TourOverviewModal.tsx
+
+OPTION 1 (Recommended - Simplest):
+-----------------------------------
+1. REMOVE all OverlayView imports and wrapper
+2. REMOVE the position={{ lat: 0, lng: 0 }} stuff
+3. RETURN a simple div with fixed positioning
+4. USE high z-index (9999)
+
+Current structure (WRONG):
+--------------------------
+import { OverlayView } from '@react-google-maps/api';
+
+export function TourOverviewModal(...) {
+  return (
+    <OverlayView position={{ lat: 0, lng: 0 }} ...>
+      <div style={{ position: 'absolute', top: '50vh', left: 0 }}>
+        {/* content */}
+      </div>
+    </OverlayView>
+  );
+}
+
+Should be (CORRECT):
+--------------------
+// Remove OverlayView import
+
+export function TourOverviewModal(...) {
+  return (
+    <div
+      className="bg-background/95 backdrop-blur-md border border-border-subtle rounded-xl shadow-xl p-3 min-w-[260px] max-w-[280px]"
+      style={{
+        position: 'fixed',
+        top: '50%',
+        left: '16px',
+        transform: 'translateY(-50%)',
+        zIndex: 9999,
+      }}
+    >
+      <h3 className="text-base font-bold text-foreground mb-2 flex items-center gap-2">
+        {/* existing content */}
+      </h3>
+
+      <div className="space-y-2">
+        {/* ALL existing modal content stays the same */}
+      </div>
+    </div>
+  );
+}
+
+SECONDARY FILE (No changes needed):
+------------------------------------
+📁 /src/components/maps/TourMap.tsx
+
+The TourMap already renders TourOverviewModal inside <GoogleMap>:
+
+<GoogleMap ...>
+  {startDate && endDate && (
+    <TourOverviewModal
+      totalShows={validShows.length}
+      startDate={startDate}
+      endDate={endDate}
+      totalMiles={totalMiles ?? totalDistance}
+      shows={shows}
+    />
+  )}
+  {/* markers, routes, etc */}
+</GoogleMap>
+
+This is fine! Don't change this.
+
+STEP-BY-STEP FIX:
+=================
+
+1. Open: /src/components/maps/TourOverviewModal.tsx
+
+2. At the top, REMOVE this line:
+   import { OverlayView } from '@react-google-maps/api';
+
+3. Find the return statement (around line 279)
+
+4. REPLACE everything from:
+   return (
+     <OverlayView ...>
+   ...
+     </OverlayView>
+   );
+
+   WITH:
+   return (
+     <div
+       className="bg-background/95 backdrop-blur-md border border-border-subtle rounded-xl shadow-xl p-3 min-w-[260px] max-w-[280px]"
+       style={{
+         position: 'fixed',
+         top: '50%',
+         left: '16px',
+         transform: 'translateY(-50%)',
+         zIndex: 9999,
+       }}
+     >
+       {/* Keep ALL existing h3, div.space-y-2, and content */}
+     </div>
+   );
+
+5. Save the file
+
+6. Hard refresh browser (Cmd+Shift+R)
+
+WHY THIS WORKS:
+===============
+
+Normal Mode:
+- position: fixed anchors to viewport
+- top: 50% + transform: translateY(-50%) = vertically centered
+- left: 16px = 16px from left edge
+- zIndex: 9999 = appears above everything
+
+Fullscreen Mode:
+- position: fixed STILL anchors to viewport (fullscreen viewport)
+- Same positioning logic applies
+- High z-index ensures it's above map controls
+
+WHAT WENT WRONG BEFORE:
+=======================
+
+1. OverlayView position={{ lat: 0, lng: 0 }}
+   → This is the ocean off the coast of Africa!
+   → Modal was trying to render at 0°N, 0°E on the map
+   → Totally wrong approach for UI elements
+
+2. getPixelPositionOffset
+   → Offset from a geographic point, not viewport
+   → Doesn't work for fixed UI positioning
+
+3. Multiple wrapper divs
+   → Created positioning conflicts
+   → Made it impossible to predict where modal would appear
+
+THE SOLUTION:
+=============
+
+Don't use OverlayView. It's for map annotations, not UI.
+Use simple CSS fixed positioning with high z-index.
+
+Google Maps fullscreen mode creates a fullscreen container, but CSS
+fixed positioning works relative to the viewport in BOTH cases.
+
+FILES SUMMARY:
+==============
+
+MUST EDIT:
+----------
+✓ /src/components/maps/TourOverviewModal.tsx
+  - Remove OverlayView import
+  - Remove OverlayView wrapper
+  - Use simple fixed positioning div
+  - Keep all content the same
+
+NO CHANGES NEEDED:
+------------------
+✗ /src/components/maps/TourMap.tsx (already correct)
+
+TESTING:
+========
+
+After fix:
+1. Refresh browser (Cmd+Shift+R)
+2. Check normal mode - modal should be on left, vertically centered
+3. Click fullscreen button - modal should STAY on left, vertically centered
+4. Exit fullscreen - modal should remain properly positioned
+
+EXPECTED RESULT:
+================
+
+Normal view:      [Modal]    [---- Map ----]
+Fullscreen view:  [Modal]    [---- Map ----]
+                  ↑
+                  Always on left, vertically centered
+
+================================================================================
+END OF OVERVIEW
+================================================================================

@@ -1,0 +1,1365 @@
+# BACKEND API REQUIREMENTS FOR SCENEGEN
+
+**Date:** February 1, 2026
+**Status:** Frontend Complete - Awaiting Backend Implementation
+**Priority:** High - Required for Shows, Tours, and Invites features
+
+---
+
+## 📋 EXECUTIVE SUMMARY
+
+The SceneGen frontend has completed 8 weeks of development and is production-ready. However, the following backend API endpoints are missing and need to be implemented for the application to function fully:
+
+**Required Endpoints:**
+- Shows API (7 endpoints)
+- Tours API (7 endpoints)
+- Invites API (3 endpoints)
+- Enhanced Contacts API (1 endpoint)
+
+**Estimated Backend Development Time:** 2-3 weeks
+**Frontend Changes Required:** None (API contracts already defined)
+
+---
+
+## 🎯 REQUIRED BACKEND ENDPOINTS
+
+### 1. SHOWS API
+
+#### 1.1 Create Show
+```
+POST /api/shows
+```
+
+**Description:** Create a new show with day sheet details.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Request Body:**
+```json
+{
+  "counterpartyEntityId": "uuid",
+  "venueName": "string",
+  "venueAddress": "string",
+  "venueCity": "string",
+  "venueState": "string (optional)",
+  "venueCountry": "string",
+  "venueCapacity": "number (optional)",
+  "latitude": "number (optional)",
+  "longitude": "number (optional)",
+  "date": "YYYY-MM-DD",
+  "showTime": "HH:MM",
+  "doorsTime": "HH:MM (optional)",
+  "setLength": "number (minutes, optional)",
+  "dealType": "guarantee | door_split | flat_fee | versus_deal",
+  "guarantee": "number (optional)",
+  "doorSplit": "number (percentage, optional)",
+  "ticketPriceLow": "number (optional)",
+  "ticketPriceHigh": "number (optional)",
+  "contactName": "string (optional)",
+  "contactPhone": "string (optional)",
+  "contactEmail": "string (optional)",
+  "notes": "string (optional)",
+  "technicalRequirements": "string (optional)",
+  "tourId": "uuid (optional)",
+  "status": "draft | pending_acceptance | confirmed"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": "uuid",
+  "artistEntityId": "uuid",
+  "promoterEntityId": "uuid",
+  "venueName": "string",
+  "venueAddress": "string",
+  "venueCity": "string",
+  "venueState": "string",
+  "venueCountry": "string",
+  "venueCapacity": 500,
+  "latitude": 40.7128,
+  "longitude": -74.0060,
+  "date": "2026-03-15",
+  "showTime": "20:00",
+  "doorsTime": "19:00",
+  "setLength": 90,
+  "dealType": "door_split",
+  "guarantee": 2000,
+  "doorSplit": 70,
+  "ticketPriceLow": 25,
+  "ticketPriceHigh": 40,
+  "contactName": "John Smith",
+  "contactPhone": "+1-555-0123",
+  "contactEmail": "john@venue.com",
+  "notes": "Load in at 3pm",
+  "technicalRequirements": "16-channel mixer, 2x monitor wedges",
+  "tourId": "uuid",
+  "status": "confirmed",
+  "createdAt": "2026-02-01T12:00:00Z",
+  "updatedAt": "2026-02-01T12:00:00Z"
+}
+```
+
+**Business Logic:**
+- Determine if user's entity is artist or promoter
+- Set artistEntityId or promoterEntityId accordingly
+- If counterparty doesn't have accepted contact relationship, set status to "pending_acceptance"
+- If tourId provided, verify tour belongs to artist entity
+- Store audit log of creation
+
+---
+
+#### 1.2 List Shows
+```
+GET /api/shows
+```
+
+**Description:** Get all shows for the current user's entity (artist or promoter).
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Query Parameters:**
+```
+?status=confirmed|pending_acceptance|pending_invite|draft|cancelled (optional)
+&tourId=uuid (optional, filter by tour)
+&tourId=null (optional, get standalone shows only)
+&startDate=YYYY-MM-DD (optional)
+&endDate=YYYY-MM-DD (optional)
+```
+
+**Response (200 OK):**
+```json
+{
+  "shows": [
+    {
+      "id": "uuid",
+      "artistEntityId": "uuid",
+      "promoterEntityId": "uuid",
+      "venueName": "string",
+      "venueCity": "string",
+      "date": "2026-03-15",
+      "showTime": "20:00",
+      "status": "confirmed",
+      "tourId": "uuid",
+      "counterparty": {
+        "entityId": "uuid",
+        "name": "string",
+        "alias": "string",
+        "type": "artist|promoter"
+      }
+    }
+  ]
+}
+```
+
+**Business Logic:**
+- Return shows where artistEntityId OR promoterEntityId matches user's entity
+- Apply filters if provided
+- Include counterparty entity details
+- Sort by date ascending by default
+
+---
+
+#### 1.3 Get Show Details
+```
+GET /api/shows/{id}
+```
+
+**Description:** Get complete details for a single show.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": "uuid",
+  "artistEntityId": "uuid",
+  "promoterEntityId": "uuid",
+  "venueName": "Madison Square Garden",
+  "venueAddress": "4 Pennsylvania Plaza",
+  "venueCity": "New York",
+  "venueState": "NY",
+  "venueCountry": "United States",
+  "venueCapacity": 20000,
+  "latitude": 40.7505,
+  "longitude": -73.9934,
+  "date": "2026-03-15",
+  "showTime": "20:00",
+  "doorsTime": "19:00",
+  "setLength": 90,
+  "dealType": "guarantee",
+  "guarantee": 50000,
+  "doorSplit": null,
+  "ticketPriceLow": 50,
+  "ticketPriceHigh": 200,
+  "contactName": "John Smith",
+  "contactPhone": "+1-555-0123",
+  "contactEmail": "john@msg.com",
+  "notes": "Load in at 3pm, sound check at 5pm",
+  "technicalRequirements": "Full production, lighting rig, pyrotechnics",
+  "tourId": "uuid",
+  "status": "confirmed",
+  "createdAt": "2026-01-15T12:00:00Z",
+  "updatedAt": "2026-02-01T10:30:00Z",
+  "counterparty": {
+    "entityId": "uuid",
+    "name": "Live Nation",
+    "alias": "livenation",
+    "type": "promoter",
+    "city": "New York",
+    "state": "NY",
+    "country": "United States"
+  }
+}
+```
+
+**Business Logic:**
+- Verify user's entity is either artist or promoter on this show
+- Return 404 if show doesn't exist
+- Return 403 if user doesn't have access
+
+---
+
+#### 1.4 Update Show
+```
+PATCH /api/shows/{id}
+```
+
+**Description:** Update show details. Only certain fields can be updated depending on status.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Request Body:** (All fields optional)
+```json
+{
+  "venueName": "string",
+  "venueAddress": "string",
+  "venueCity": "string",
+  "venueState": "string",
+  "venueCountry": "string",
+  "venueCapacity": "number",
+  "latitude": "number",
+  "longitude": "number",
+  "date": "YYYY-MM-DD",
+  "showTime": "HH:MM",
+  "doorsTime": "HH:MM",
+  "setLength": "number",
+  "dealType": "string",
+  "guarantee": "number",
+  "doorSplit": "number",
+  "ticketPriceLow": "number",
+  "ticketPriceHigh": "number",
+  "contactName": "string",
+  "contactPhone": "string",
+  "contactEmail": "string",
+  "notes": "string",
+  "technicalRequirements": "string",
+  "tourId": "uuid",
+  "status": "confirmed|cancelled"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": "uuid",
+  "artistEntityId": "uuid",
+  "promoterEntityId": "uuid",
+  ... (full show object)
+}
+```
+
+**Business Logic:**
+- Verify user owns this show (is artist or promoter)
+- Log all changes in audit table
+- If status changes to "confirmed", notify counterparty
+- If critical fields change (date, venue), notify counterparty
+- Prevent changes if show is cancelled
+
+---
+
+#### 1.5 Cancel Show
+```
+DELETE /api/shows/{id}
+```
+
+**Description:** Cancel a show (soft delete - sets status to "cancelled").
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Show cancelled successfully",
+  "id": "uuid"
+}
+```
+
+**Business Logic:**
+- Set status to "cancelled"
+- Remove from tour if assigned
+- Notify counterparty
+- Log cancellation in audit table
+- Don't actually delete the record (soft delete)
+
+---
+
+#### 1.6 Bulk Update Shows
+```
+PATCH /api/shows/bulk
+```
+
+**Description:** Update multiple shows at once (used for adding to tours).
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Request Body:**
+```json
+{
+  "showIds": ["uuid1", "uuid2", "uuid3"],
+  "updates": {
+    "tourId": "uuid"
+  }
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "updated": 3,
+  "shows": [
+    { "id": "uuid1", ... },
+    { "id": "uuid2", ... },
+    { "id": "uuid3", ... }
+  ]
+}
+```
+
+**Business Logic:**
+- Verify user owns all shows in the list
+- Only allow updating tourId in bulk operations
+- If moving from one tour to another, warn user
+- Verify tour belongs to artist entity
+- Return error if any show fails, don't partial update
+
+---
+
+#### 1.7 Remove Shows from Tour
+```
+PATCH /api/shows/remove-from-tour
+```
+
+**Description:** Remove multiple shows from their current tour (set tourId to null).
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Request Body:**
+```json
+{
+  "showIds": ["uuid1", "uuid2", "uuid3"]
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "updated": 3,
+  "message": "Shows removed from tours successfully"
+}
+```
+
+**Business Logic:**
+- Verify user owns all shows
+- Set tourId to null for all shows
+- Log the changes
+
+---
+
+### 2. TOURS API
+
+#### 2.1 Create Tour
+```
+POST /api/tours
+```
+
+**Description:** Create a new tour. Tours are artist-only features.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Request Body:**
+```json
+{
+  "name": "Summer 2026 North American Tour",
+  "notes": "Supporting the new album 'Electric Dreams'"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": "uuid",
+  "artistEntityId": "uuid",
+  "name": "Summer 2026 North American Tour",
+  "notes": "Supporting the new album 'Electric Dreams'",
+  "startDate": null,
+  "endDate": null,
+  "showCount": 0,
+  "createdAt": "2026-02-01T12:00:00Z",
+  "updatedAt": "2026-02-01T12:00:00Z"
+}
+```
+
+**Business Logic:**
+- Verify user's entity is an artist (promoters can't create tours)
+- Return 403 if user is a promoter
+- Check trial expiry (if applicable)
+- startDate and endDate computed from associated shows (initially null)
+
+---
+
+#### 2.2 List Tours
+```
+GET /api/tours
+```
+
+**Description:** Get all tours for the current artist entity.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Response (200 OK):**
+```json
+{
+  "tours": [
+    {
+      "id": "uuid",
+      "artistEntityId": "uuid",
+      "name": "Summer 2026 North American Tour",
+      "notes": "Supporting the new album",
+      "startDate": "2026-06-01",
+      "endDate": "2026-08-31",
+      "showCount": 25,
+      "createdAt": "2026-02-01T12:00:00Z",
+      "updatedAt": "2026-02-01T12:00:00Z"
+    }
+  ]
+}
+```
+
+**Business Logic:**
+- Verify user's entity is an artist
+- Return tours where artistEntityId matches user's entity
+- Compute startDate (earliest show date)
+- Compute endDate (latest show date)
+- Count shows with this tourId
+
+---
+
+#### 2.3 Get Tour with Shows
+```
+GET /api/tours/{id}
+```
+
+**Description:** Get tour details including all associated shows.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": "uuid",
+  "artistEntityId": "uuid",
+  "name": "Summer 2026 North American Tour",
+  "notes": "Supporting the new album 'Electric Dreams'",
+  "startDate": "2026-06-01",
+  "endDate": "2026-08-31",
+  "showCount": 25,
+  "createdAt": "2026-02-01T12:00:00Z",
+  "updatedAt": "2026-02-01T12:00:00Z",
+  "shows": [
+    {
+      "id": "uuid",
+      "venueName": "Madison Square Garden",
+      "venueCity": "New York",
+      "venueState": "NY",
+      "date": "2026-06-15",
+      "showTime": "20:00",
+      "status": "confirmed",
+      "counterparty": {
+        "entityId": "uuid",
+        "name": "Live Nation",
+        "type": "promoter"
+      }
+    },
+    ...more shows
+  ],
+  "statistics": {
+    "totalShows": 25,
+    "confirmedShows": 20,
+    "pendingShows": 3,
+    "draftShows": 2,
+    "cancelledShows": 0
+  }
+}
+```
+
+**Business Logic:**
+- Verify user owns this tour
+- Return all shows with this tourId
+- Sort shows by date
+- Compute statistics
+- Return 404 if tour doesn't exist
+- Return 403 if user doesn't own tour
+
+---
+
+#### 2.4 Update Tour
+```
+PATCH /api/tours/{id}
+```
+
+**Description:** Update tour name and notes.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Request Body:**
+```json
+{
+  "name": "Updated Tour Name",
+  "notes": "Updated notes"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": "uuid",
+  "artistEntityId": "uuid",
+  "name": "Updated Tour Name",
+  "notes": "Updated notes",
+  "startDate": "2026-06-01",
+  "endDate": "2026-08-31",
+  "showCount": 25,
+  "updatedAt": "2026-02-01T12:30:00Z"
+}
+```
+
+**Business Logic:**
+- Verify user owns this tour
+- Only allow updating name and notes
+- Dates are computed from shows, not editable directly
+
+---
+
+#### 2.5 Delete Tour
+```
+DELETE /api/tours/{id}
+```
+
+**Description:** Delete a tour. All shows in the tour become standalone (tourId set to null).
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Tour deleted successfully",
+  "id": "uuid",
+  "showsAffected": 25
+}
+```
+
+**Business Logic:**
+- Verify user owns this tour
+- Set tourId to null for all shows with this tourId
+- Actually delete the tour record (hard delete)
+- Return count of affected shows
+
+---
+
+#### 2.6 Add Shows to Tour
+```
+POST /api/tours/{id}/shows
+```
+
+**Description:** Add multiple shows to a tour.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Request Body:**
+```json
+{
+  "showIds": ["uuid1", "uuid2", "uuid3"]
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "added": 3,
+  "tour": {
+    "id": "uuid",
+    "name": "Summer Tour",
+    "showCount": 28
+  }
+}
+```
+
+**Business Logic:**
+- Verify user owns the tour
+- Verify user owns all shows
+- Verify shows don't already have a tour (or warn if overwriting)
+- Set tourId for all shows
+
+---
+
+#### 2.7 Remove Shows from Tour
+```
+DELETE /api/tours/{id}/shows
+```
+
+**Description:** Remove specific shows from a tour.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Request Body:**
+```json
+{
+  "showIds": ["uuid1", "uuid2"]
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "removed": 2,
+  "message": "Shows removed from tour successfully"
+}
+```
+
+**Business Logic:**
+- Verify user owns the tour
+- Set tourId to null for specified shows
+- Shows must currently be in this tour
+
+---
+
+### 3. INVITES API
+
+#### 3.1 Create Invite
+```
+POST /api/invites
+```
+
+**Description:** Generate an invite link for adding contacts or collaborating on shows.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Request Body:**
+```json
+{
+  "type": "contact | show",
+  "requiredEntityType": "any | artist | promoter",
+  "recipientEmail": "recipient@example.com (optional)",
+  "showId": "uuid (optional, required if type=show)",
+  "expiresInDays": 30
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": "uuid",
+  "token": "random-secure-token-string",
+  "type": "contact",
+  "inviterEntityId": "uuid",
+  "requiredEntityType": "promoter",
+  "recipientEmail": "recipient@example.com",
+  "showId": null,
+  "url": "https://app.scenegen.com/invite/random-secure-token-string",
+  "status": "pending",
+  "expiresAt": "2026-03-03T12:00:00Z",
+  "createdAt": "2026-02-01T12:00:00Z"
+}
+```
+
+**Business Logic:**
+- Generate cryptographically secure random token
+- Set expiration date (default 30 days)
+- If type=show, verify show exists and user owns it
+- Send email if recipientEmail provided
+- Store invite in database
+
+---
+
+#### 3.2 Get Invite Details (Public)
+```
+GET /api/invites/{token}
+```
+
+**Description:** Get invite details by token. This endpoint is public (no auth required) so recipients can view invite before signing in.
+
+**Authentication:** None required
+
+**Response (200 OK):**
+```json
+{
+  "id": "uuid",
+  "token": "random-secure-token-string",
+  "type": "contact",
+  "inviterEntity": {
+    "id": "uuid",
+    "name": "Electric Horizon",
+    "alias": "electrichorizon",
+    "type": "artist",
+    "city": "Brooklyn",
+    "state": "NY",
+    "country": "United States"
+  },
+  "requiredEntityType": "promoter",
+  "recipientEmail": "recipient@example.com",
+  "status": "pending",
+  "expiresAt": "2026-03-03T12:00:00Z",
+  "createdAt": "2026-02-01T12:00:00Z",
+  "showDetails": null
+}
+```
+
+**If type=show:**
+```json
+{
+  ...invite fields,
+  "showDetails": {
+    "venueName": "Madison Square Garden",
+    "venueCity": "New York",
+    "date": "2026-06-15",
+    "showTime": "20:00"
+  }
+}
+```
+
+**Response (404 Not Found) if:**
+- Token doesn't exist
+- Invite is expired
+- Invite is cancelled
+
+**Business Logic:**
+- Return invite details without requiring authentication
+- Don't expose sensitive information
+- Check if expired or cancelled
+- Include show details if type=show
+
+---
+
+#### 3.3 Accept Invite
+```
+POST /api/invites/{token}/accept
+```
+
+**Description:** Accept an invite and create contact relationship or join show.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Invite accepted successfully",
+  "contact": {
+    "id": "uuid",
+    "status": "accepted"
+  }
+}
+```
+
+**If type=show:**
+```json
+{
+  "message": "Invite accepted successfully",
+  "contact": {
+    "id": "uuid",
+    "status": "accepted"
+  },
+  "show": {
+    "id": "uuid",
+    "status": "confirmed"
+  }
+}
+```
+
+**Business Logic:**
+- Verify user is authenticated
+- Check invite is still valid (not expired or cancelled)
+- If requiredEntityType specified, verify user's entity matches
+- Create contact relationship (status: accepted, NOT pending)
+- If type=show, update show status to "confirmed"
+- Mark invite as "accepted"
+- Return 400 if user doesn't have required entity type
+- Return 409 if contact already exists
+
+---
+
+### 4. ENHANCED CONTACTS API
+
+#### 4.1 Get Promoter Contacts with Shows
+```
+GET /api/contacts/promoters
+```
+
+**Description:** Get all promoter contacts with their locations and associated shows. Used for the touring map feature. Artist-only endpoint.
+
+**Authentication:** Required (Bearer token)
+
+**Request Headers:**
+```
+Authorization: Bearer {jwt_token}
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+**Query Parameters:**
+```
+?tourId=uuid (optional, filter shows by tour)
+```
+
+**Response (200 OK):**
+```json
+{
+  "promoters": [
+    {
+      "entityId": "uuid",
+      "name": "Live Nation",
+      "alias": "livenation",
+      "city": "New York",
+      "state": "NY",
+      "country": "United States",
+      "latitude": 40.7128,
+      "longitude": -74.0060,
+      "showCount": 5,
+      "shows": [
+        {
+          "id": "uuid",
+          "venueName": "Madison Square Garden",
+          "venueCity": "New York",
+          "date": "2026-06-15",
+          "showTime": "20:00",
+          "status": "confirmed",
+          "tourId": "uuid"
+        },
+        ...more shows
+      ]
+    },
+    ...more promoters
+  ]
+}
+```
+
+**Business Logic:**
+- Verify user's entity is an artist (promoters don't use touring map)
+- Get all contacts where type=promoter and status=accepted
+- For each promoter, get all shows where promoter is counterparty
+- If tourId provided, filter shows by tour
+- Include geolocation data (latitude/longitude) for map markers
+- Return empty shows array if no shows with that promoter
+
+---
+
+## 📊 DATABASE SCHEMA REQUIREMENTS
+
+### Shows Table
+```sql
+CREATE TABLE shows (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  artist_entity_id UUID NOT NULL REFERENCES entities(id),
+  promoter_entity_id UUID NOT NULL REFERENCES entities(id),
+  venue_name VARCHAR(255) NOT NULL,
+  venue_address VARCHAR(500),
+  venue_city VARCHAR(100) NOT NULL,
+  venue_state VARCHAR(100),
+  venue_country VARCHAR(100) NOT NULL,
+  venue_capacity INTEGER,
+  latitude DECIMAL(10, 8),
+  longitude DECIMAL(11, 8),
+  date DATE NOT NULL,
+  show_time TIME NOT NULL,
+  doors_time TIME,
+  set_length INTEGER,
+  deal_type VARCHAR(50) NOT NULL CHECK (deal_type IN ('guarantee', 'door_split', 'flat_fee', 'versus_deal')),
+  guarantee DECIMAL(10, 2),
+  door_split DECIMAL(5, 2),
+  ticket_price_low DECIMAL(10, 2),
+  ticket_price_high DECIMAL(10, 2),
+  contact_name VARCHAR(255),
+  contact_phone VARCHAR(50),
+  contact_email VARCHAR(255),
+  notes TEXT,
+  technical_requirements TEXT,
+  tour_id UUID REFERENCES tours(id) ON DELETE SET NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'pending_invite', 'pending_acceptance', 'confirmed', 'cancelled')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by UUID NOT NULL REFERENCES users(id),
+
+  CONSTRAINT valid_date_check CHECK (date >= CURRENT_DATE),
+  CONSTRAINT valid_capacity CHECK (venue_capacity IS NULL OR venue_capacity > 0),
+  CONSTRAINT valid_guarantee CHECK (guarantee IS NULL OR guarantee >= 0),
+  CONSTRAINT valid_door_split CHECK (door_split IS NULL OR (door_split >= 0 AND door_split <= 100))
+);
+
+CREATE INDEX idx_shows_artist ON shows(artist_entity_id);
+CREATE INDEX idx_shows_promoter ON shows(promoter_entity_id);
+CREATE INDEX idx_shows_tour ON shows(tour_id);
+CREATE INDEX idx_shows_date ON shows(date);
+CREATE INDEX idx_shows_status ON shows(status);
+```
+
+### Tours Table
+```sql
+CREATE TABLE tours (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  artist_entity_id UUID NOT NULL REFERENCES entities(id),
+  name VARCHAR(255) NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by UUID NOT NULL REFERENCES users(id),
+
+  CONSTRAINT unique_tour_name_per_artist UNIQUE (artist_entity_id, name)
+);
+
+CREATE INDEX idx_tours_artist ON tours(artist_entity_id);
+```
+
+### Invites Table
+```sql
+CREATE TABLE invites (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  token VARCHAR(255) NOT NULL UNIQUE,
+  type VARCHAR(50) NOT NULL CHECK (type IN ('contact', 'show')),
+  inviter_entity_id UUID NOT NULL REFERENCES entities(id),
+  required_entity_type VARCHAR(50) CHECK (required_entity_type IN ('any', 'artist', 'promoter')),
+  recipient_email VARCHAR(255),
+  show_id UUID REFERENCES shows(id) ON DELETE CASCADE,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired', 'cancelled')),
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  accepted_at TIMESTAMP WITH TIME ZONE,
+  accepted_by UUID REFERENCES users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+  CONSTRAINT show_invite_requires_show CHECK (type != 'show' OR show_id IS NOT NULL)
+);
+
+CREATE INDEX idx_invites_token ON invites(token);
+CREATE INDEX idx_invites_inviter ON invites(inviter_entity_id);
+CREATE INDEX idx_invites_show ON invites(show_id);
+CREATE INDEX idx_invites_expires ON invites(expires_at);
+```
+
+### Show Edit Audit Log Table
+```sql
+CREATE TABLE show_edit_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  show_id UUID NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
+  edited_by UUID NOT NULL REFERENCES users(id),
+  edited_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  field_changed VARCHAR(100) NOT NULL,
+  old_value TEXT,
+  new_value TEXT,
+
+  CREATE INDEX idx_edit_logs_show ON show_edit_logs(show_id);
+  CREATE INDEX idx_edit_logs_date ON show_edit_logs(edited_at);
+);
+```
+
+### Required Schema Updates to Existing Tables
+
+#### Entities Table (add geolocation)
+```sql
+ALTER TABLE entities
+ADD COLUMN latitude DECIMAL(10, 8),
+ADD COLUMN longitude DECIMAL(11, 8);
+```
+
+#### Users Table (add trial tracking)
+```sql
+ALTER TABLE users
+ADD COLUMN trial_expires_at TIMESTAMP WITH TIME ZONE;
+```
+
+---
+
+## 🔐 AUTHENTICATION & AUTHORIZATION
+
+### Authentication
+All endpoints (except GET /api/invites/{token}) require:
+```
+Authorization: Bearer {jwt_token}
+Ocp-Apim-Subscription-Key: {subscription_key}
+```
+
+### Authorization Rules
+
+#### Artist-Only Endpoints:
+- POST /api/tours
+- GET /api/tours
+- GET /api/tours/{id}
+- PATCH /api/tours/{id}
+- DELETE /api/tours/{id}
+- GET /api/contacts/promoters
+
+**Return 403 Forbidden if user's entity is not an artist.**
+
+#### Entity Ownership:
+For shows:
+- User must be either the artist OR promoter on the show
+- Check: `user.entityId === show.artistEntityId OR user.entityId === show.promoterEntityId`
+
+For tours:
+- User must own the tour
+- Check: `user.entityId === tour.artistEntityId`
+
+For invites:
+- User must be the inviter to view/cancel
+- Check: `user.entityId === invite.inviterEntityId`
+
+#### Trial Check (if applicable):
+- Check `user.trialExpiresAt` on all POST/PATCH/DELETE operations
+- Return 403 with message "Your trial has expired. Please upgrade." if expired
+
+---
+
+## 🔔 NOTIFICATIONS
+
+### Notification Events to Trigger:
+
+1. **Show Invitation Sent**
+   - When: POST /api/shows with counterparty that doesn't have accepted contact
+   - Recipient: Counterparty entity administrators
+   - Message: "{Inviter} has invited you to a show on {date} at {venue}"
+
+2. **Show Invitation Accepted**
+   - When: POST /api/invites/{token}/accept (type=show)
+   - Recipient: Show creator
+   - Message: "{Accepter} has accepted your show invitation for {venue} on {date}"
+
+3. **Show Details Changed**
+   - When: PATCH /api/shows/{id} with date or venue changes
+   - Recipient: Counterparty entity administrators
+   - Message: "{Editor} has updated the show at {venue} on {date}"
+
+4. **Show Cancelled**
+   - When: DELETE /api/shows/{id}
+   - Recipient: Counterparty entity administrators
+   - Message: "{Canceller} has cancelled the show at {venue} on {date}"
+
+5. **Contact Request via Invite**
+   - When: POST /api/invites/{token}/accept (type=contact)
+   - Recipient: Inviter entity administrators
+   - Message: "{Accepter} has accepted your contact invitation"
+
+---
+
+## 📧 EMAIL NOTIFICATIONS
+
+### Email Templates Needed:
+
+1. **Invite Email** (when recipientEmail provided)
+   ```
+   Subject: You've been invited to connect on SceneGen
+
+   Hi there,
+
+   {Inviter Name} ({Entity Type}) has invited you to connect on SceneGen.
+
+   [View Invitation Button → /invite/{token}]
+
+   This invitation will expire on {expiresAt}.
+   ```
+
+2. **Show Invitation Email**
+   ```
+   Subject: Show invitation: {Venue} on {Date}
+
+   Hi there,
+
+   {Inviter Name} has invited you to collaborate on a show:
+
+   Venue: {Venue Name}
+   Date: {Date}
+   Time: {Show Time}
+   Location: {City}, {State/Country}
+
+   [View & Accept Show Button → /invite/{token}]
+   ```
+
+---
+
+## 🧪 TESTING REQUIREMENTS
+
+### Test Data Needed:
+
+1. **Sample Shows:**
+   - At least 5 shows with different statuses
+   - Mix of shows with and without tours
+   - Shows with different deal types
+   - Multi-day events (festival scenarios)
+
+2. **Sample Tours:**
+   - At least 2 tours with 5+ shows each
+   - Tour with shows spanning multiple months
+   - Empty tour (no shows)
+
+3. **Sample Invites:**
+   - Active contact invite
+   - Active show invite
+   - Expired invite (for error handling)
+   - Already-accepted invite
+
+### Test Scenarios:
+
+1. **Shows:**
+   - ✅ Create show as artist → promoter sees pending invitation
+   - ✅ Create show as promoter → artist sees pending invitation
+   - ✅ Accept show invitation → status changes to confirmed
+   - ✅ Update show details → counterparty receives notification
+   - ✅ Cancel show → removes from tour, notifies counterparty
+   - ✅ Bulk add shows to tour
+   - ✅ Filter shows by status
+   - ✅ Filter shows by tour
+   - ✅ Get standalone shows only (tourId=null)
+
+2. **Tours:**
+   - ✅ Create tour as artist → succeeds
+   - ✅ Create tour as promoter → returns 403
+   - ✅ Add shows to tour → all shows updated
+   - ✅ Delete tour → shows become standalone
+   - ✅ Update tour name → succeeds
+   - ✅ Computed dates update when shows added/removed
+
+3. **Invites:**
+   - ✅ Generate contact invite → creates token
+   - ✅ Generate show invite → includes show details
+   - ✅ Accept invite without entity → prompts onboarding
+   - ✅ Accept invite with wrong entity type → returns 400
+   - ✅ Accept expired invite → returns 404
+   - ✅ Accept invite → creates contact & updates show
+   - ✅ Public endpoint (no auth) returns invite details
+
+---
+
+## 🚀 DEPLOYMENT CHECKLIST
+
+### Before Deployment:
+
+1. **Database:**
+   - ✅ Create tables (shows, tours, invites, show_edit_logs)
+   - ✅ Add geolocation columns to entities
+   - ✅ Add trial_expires_at to users
+   - ✅ Create indexes for performance
+   - ✅ Set up foreign key constraints
+   - ✅ Test migrations on staging
+
+2. **API Management:**
+   - ✅ Register new endpoints in Azure API Management
+   - ✅ Configure authentication policies
+   - ✅ Set up rate limiting (if needed)
+   - ✅ Update OpenAPI specification
+   - ✅ Test subscription key authentication
+
+3. **Notifications:**
+   - ✅ Set up notification service integration
+   - ✅ Configure email templates
+   - ✅ Test email delivery
+   - ✅ Set up notification preferences
+
+4. **Testing:**
+   - ✅ Unit tests for all endpoints
+   - ✅ Integration tests with frontend
+   - ✅ Load testing (concurrent show creation)
+   - ✅ Error handling validation
+   - ✅ Trial expiry enforcement
+
+---
+
+## 📚 FRONTEND API CONTRACTS
+
+The frontend already has these API proxy routes ready:
+
+### Shows:
+- `src/app/api/shows/route.ts` - GET, POST
+- `src/app/api/shows/[id]/route.ts` - GET, PATCH, DELETE
+
+### Tours:
+- `src/app/api/tours/route.ts` - GET, POST
+- `src/app/api/tours/[id]/route.ts` - GET, PATCH, DELETE
+
+### Invites:
+- `src/app/api/invites/route.ts` - POST
+- `src/app/api/invites/[token]/route.ts` - GET (public)
+- `src/app/api/invites/[token]/accept/route.ts` - POST
+
+### Contacts:
+- `src/app/api/contacts/promoters/route.ts` - GET
+
+**All frontend routes forward to the backend with proper authentication.**
+
+---
+
+## 🎯 PRIORITY ORDER
+
+### Phase 1 (Highest Priority - Week 1):
+1. Shows endpoints (all 7)
+2. Basic tours CRUD (create, list, get, update, delete)
+
+### Phase 2 (Medium Priority - Week 2):
+3. Tour show assignment (add/remove shows)
+4. Invites endpoints (all 3)
+5. Enhanced contacts endpoint (promoters with shows)
+
+### Phase 3 (Polish - Week 3):
+6. Email notifications
+7. Audit logging
+8. Performance optimization
+9. Full integration testing
+
+---
+
+## 📞 SUPPORT
+
+### Frontend Team Contacts:
+- Frontend API contracts: See files in `src/app/api/`
+- TypeScript types: See `src/types/show.ts`, `tour.ts`, `invite.ts`
+- Questions: Contact frontend team lead
+
+### Documentation:
+- Frontend requirements: `BACKEND_API_STATUS.md`
+- OpenAPI spec location: `openapi/scenegen-api.openapi+json.json`
+- Database schemas: See above
+
+---
+
+## ✅ ACCEPTANCE CRITERIA
+
+The backend is ready when:
+
+1. ✅ All 18 endpoints return correct responses
+2. ✅ Frontend connects successfully (no 404 errors)
+3. ✅ Shows can be created, viewed, updated, cancelled
+4. ✅ Tours can be created and managed
+5. ✅ Invites work end-to-end
+6. ✅ Notifications are sent for key events
+7. ✅ Authorization properly enforced (artists vs promoters)
+8. ✅ Trial expiry checked on mutations
+9. ✅ All test scenarios pass
+10. ✅ OpenAPI spec updated and published
+
+**When complete, the SceneGen application will be fully functional! 🎉**
+
+---
+
+**Document Version:** 1.0
+**Last Updated:** February 1, 2026
+**Status:** Ready for Backend Implementation
+**Estimated Completion:** 2-3 weeks

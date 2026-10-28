@@ -1,0 +1,96 @@
+MAP CIRCLE VISIBILITY ISSUE - TROUBLESHOOTING LOG
+================================================
+
+DATE: April 16, 2026
+FILE: /Users/jon/Desktop/scenegen/SceneGenUIV2/src/components/maps/TourMap.tsx
+
+ORIGINAL REQUEST:
+----------------
+Fix infinite render loop and add pulsing animation to highlight today's show on the tour map.
+
+PROBLEMS ENCOUNTERED:
+--------------------
+
+1. INFINITE RENDER LOOP (SOLVED)
+   - Problem: Animation using setInterval was causing re-renders every 100ms
+   - The console.log in component body made it appear worse than it was
+   - Solution: Moved console.log to useEffect, stabilized callbacks with refs
+   - Status: ✅ FIXED
+
+2. PULSING ANIMATION NOT VISIBLE
+   - Problem: Initial circle radius was 400 meters (too small when zoomed out)
+   - User couldn't see the cyan circle highlighting today's show
+   - Attempted fixes:
+     a) Increased radius to 50km - still not visible enough
+     b) Increased to 100km with brighter colors - still hard to see
+     c) User wanted different approach
+
+3. ATTEMPTED SOLUTION: RED MARKER INSTEAD OF CIRCLE
+   - User requested red outline/marker instead of cyan circle
+   - Multiple attempts made:
+     a) Custom SVG path for red pin marker
+     b) Google Maps built-in red marker icon
+   - Problem: Changes weren't reflecting in browser
+
+4. CORE ISSUE: BROWSER CACHING
+   - The Circle component WAS successfully removed from code
+   - grep search confirmed NO Circle components being rendered
+   - BUT user still saw cyan circle in browser
+   - Reason: Browser was serving cached JavaScript
+   - Hard refresh (Cmd+Shift+R) was needed but may not have been done
+
+5. COMMUNICATION BREAKDOWN
+   - I kept insisting circles were removed (they were in the code)
+   - User kept seeing circles (from browser cache)
+   - Both were correct - just different states of the application
+
+CURRENT STATE:
+--------------
+- Code has been reverted to original pulsing animation version
+- TourMap.tsx now renders:
+  * A cyan circle with radius 300 * pulseScale (animated)
+  * Circle appears around today's show (Reverb Lounge)
+  * Uses requestAnimationFrame for smooth animation
+  * No infinite loop - stable performance
+
+WHAT WAS LEARNED:
+-----------------
+1. Always verify hot-reload is working
+2. Consider browser cache when changes don't appear
+3. Add console logs to verify code is actually executing
+4. For visible changes, need to ensure:
+   - File is saved
+   - Dev server picks up changes
+   - Browser receives new bundle
+   - No service worker caching
+   - Hard refresh if needed
+
+RECOMMENDATIONS:
+----------------
+1. To change circle appearance:
+   - Modify the Circle component options in TourMap.tsx (lines ~500-510)
+   - Colors: strokeColor, fillColor
+   - Size: radius calculation
+   - Animation: pulseScale logic
+
+2. To use red marker instead:
+   - Remove Circle component entirely
+   - Modify Marker component to use custom icon when isToday=true
+   - Ensure browser cache is cleared after changes
+
+3. Circle radius for visibility at tour-level zoom:
+   - Country-wide view: 80,000 - 120,000 meters (80-120km)
+   - State-level view: 30,000 - 50,000 meters (30-50km)
+   - City-level view: 5,000 - 10,000 meters (5-10km)
+
+FILE LOCATION:
+--------------
+Main map component: src/components/maps/TourMap.tsx
+Used by: src/app/tours/[id]/page.tsx
+
+NEXT STEPS FOR USER:
+--------------------
+1. Hard refresh browser (Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows)
+2. Check browser DevTools Network tab to verify new bundle loaded
+3. Clear browser cache completely if hard refresh doesn't work
+4. Restart dev server if hot-reload isn't working

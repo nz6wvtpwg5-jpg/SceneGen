@@ -1,0 +1,32 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "migrate": "npm run migrate:base && npm run migrate:deploy",
+    "migrate:base": "node migrate.js",
+    "migrate:deploy": "node migrate-deploy.js",
+    "seed:app-review": "node seed-app-review.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20 <23"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "moment-timezone": "^0.6.2",
+    "pg": "^8.18.0",
+    "square": "^44.0.1",
+    "uuid": "^14.0.0"
+  }
+}

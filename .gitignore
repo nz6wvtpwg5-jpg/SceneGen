@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+.yarn/
+
+# Next.js and build output
+.next/
+out/
+build/
+dist/
+coverage/
+
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.credentials.json
+mcp-settings.json
+.vscode/mcp-settings.json
+
+# Local databases and runtime files
+*.db
+*.sqlite
+*.sqlite3
+*.pid
+backend.pid
+
+# Backup, temporary, and debug files
+*.backup
+*.bak
+*.broken
+*.tmp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor and operating-system files
+.DS_Store
+__MACOSX/
+.vscode/
+.idea/
+
+# Deployment metadata
+.vercel/
+.render/
+
+# Generated native build products (keep ios/ itself in source control)
+ios/App/Pods/
+ios/DerivedData/
+ios/App/build/
+ios/App/App/public/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

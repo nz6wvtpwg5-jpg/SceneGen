@@ -1,0 +1,92 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+      "title": "SceneGen Search",
+      "contact": {
+        "name": "Admin",
+        "email": "api@scenegen.io"
+      },
+      "version": "1.0.0"
+    },
+    "servers": [
+      {
+        "url": "http://localhost:7276/api"
+      }
+    ],
+    "paths": {
+      "/search/{segment}": {
+        "get": {
+          "tags": [
+            "Search"
+          ],
+          "operationId": "Search",
+          "parameters": [
+            {
+              "name": "segment",
+              "in": "path",
+              "description": "search string",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/newRecord"
+                    }
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": [ ]
+            }
+          ]
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "newRecord": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number",
+              "format": "float"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "alias": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "securitySchemes": {
+        "bearer_auth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT"
+        }
+      }
+    }
+  }

@@ -1,0 +1,1607 @@
+{
+    "swagger": "2.0",
+    "info": {
+      "title": "OpenAPI Document on Azure Functions",
+      "description": "This is the OpenAPI Document on Azure Functions",
+      "version": "1.0.0"
+    },
+    "host": "scenegen-apim.azure-api.net",
+    "basePath": "/scenegen-api",
+    "schemes": [
+      "http"
+    ],
+    "paths": {
+      "/artist/add": {
+        "post": {
+          "tags": [
+            "Artist"
+          ],
+          "operationId": "AddArtist",
+          "consumes": [
+            "application/json"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "body",
+              "name": "body",
+              "required": true,
+              "schema": {
+                "$ref": "#/definitions/addArtistRequestModel"
+              },
+              "x-examples": {
+                "artist example": {
+                  "value": "{\"name\":\"Electric Horizon\",\"country\":\"United States\",\"city\":\"Brooklyn\",\"state\":\"New York\",\"bio\":\"Introducing 'Electric Horizon', a four-piece indie rock band hailing from the vibrant streets of Brooklyn, New York. With catchy hooks, electrifying riffs, and heartfelt lyrics, Electric Horizon has been making waves in the local music scene since their formation in 2018.\"}"
+                }
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "$ref": "#/definitions/artistEntityDto"
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/artist/{id}/members/add": {
+        "post": {
+          "tags": [
+            "Artist"
+          ],
+          "description": "Add members of a given artist",
+          "operationId": "AddMembers",
+          "consumes": [
+            "member"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "artist id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "in": "body",
+              "name": "body",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/artistMemberDto"
+                }
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "$ref": "#/definitions/artistEntityDto"
+              }
+            },
+            "404": {
+              "description": "No description"
+            },
+            "401": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/artist/delete/{id}": {
+        "delete": {
+          "tags": [
+            "Artist"
+          ],
+          "operationId": "DeleteArtist",
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "Artist id (Guid) as string or alias",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "No description"
+            },
+            "404": {
+              "description": "No description"
+            },
+            "401": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/artist/{id}/members/delete/{memberId}": {
+        "delete": {
+          "tags": [
+            "Artist"
+          ],
+          "operationId": "DeleteMember",
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "Artist id (Guid) as string or alias",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "in": "path",
+              "name": "memberId",
+              "description": "Member id (Guid)",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "No description"
+            },
+            "404": {
+              "description": "No description"
+            },
+            "401": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/artist/get/{id}": {
+        "get": {
+          "tags": [
+            "Artist"
+          ],
+          "operationId": "GetArtist",
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "Artist id (Guid) as string or alias",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "$ref": "#/definitions/artistEntityDto"
+              },
+              "examples": {
+                "application/json": "{\"administratorId\":\"b9420173-5c96-48fe-b99a-ee8c128e74e3\",\"users\":[\"35360072-8b5e-42e3-9bc0-5287dcbf7955\",\"3db6b43a-4971-4f07-81ab-7a93462412c4\"],\"administrators\":[\"c9bac6d8-81fd-4633-a1f8-5728068088e7\"],\"members\":[{\"name\":\"Big Z\",\"responsibility\":\"Vocals\",\"id\":\"1476939e-6b69-4fa3-be46-416089654db3\"},{\"name\":\"Bo\",\"responsibility\":\"Keys & Guitars\",\"id\":\"21a986c9-a2b7-44c2-b6c2-7d4276f78bc1\"},{\"name\":\"Animal\",\"responsibility\":\"Drums\",\"id\":null}],\"assets\":null,\"id\":null,\"name\":\"Thunder Hair\",\"alias\":\"thunder.hair\",\"country\":\"Denmark\",\"city\":\"Copenhagen\",\"state\":null,\"bio\":\"Rocking mullets since 1979\"}"
+              },
+              "x-examples": {
+                "artist example": {
+                  "value": "{\"administratorId\":\"b9420173-5c96-48fe-b99a-ee8c128e74e3\",\"users\":[\"35360072-8b5e-42e3-9bc0-5287dcbf7955\",\"3db6b43a-4971-4f07-81ab-7a93462412c4\"],\"administrators\":[\"c9bac6d8-81fd-4633-a1f8-5728068088e7\"],\"members\":[{\"name\":\"Big Z\",\"responsibility\":\"Vocals\",\"id\":\"1476939e-6b69-4fa3-be46-416089654db3\"},{\"name\":\"Bo\",\"responsibility\":\"Keys & Guitars\",\"id\":\"21a986c9-a2b7-44c2-b6c2-7d4276f78bc1\"},{\"name\":\"Animal\",\"responsibility\":\"Drums\",\"id\":null}],\"assets\":null,\"id\":null,\"name\":\"Thunder Hair\",\"alias\":\"thunder.hair\",\"country\":\"Denmark\",\"city\":\"Copenhagen\",\"state\":null,\"bio\":\"Rocking mullets since 1979\"}"
+                }
+              }
+            },
+            "404": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/artist/alias/suggest": {
+        "get": {
+          "tags": [
+            "Artist"
+          ],
+          "operationId": "SuggestionArtistAlias",
+          "consumes": [
+            "artist"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "body",
+              "name": "body",
+              "schema": {
+                "$ref": "#/definitions/addArtistRequestModel"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The suggested alias",
+              "schema": {
+                "type": "string"
+              }
+            },
+            "404": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/artist/update/{id}": {
+        "patch": {
+          "tags": [
+            "Artist"
+          ],
+          "operationId": "UpdateArtist",
+          "consumes": [
+            "application/json"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "the artist id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "in": "body",
+              "name": "body",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of ArtistEntityDto",
+              "schema": {
+                "$ref": "#/definitions/artistEntityDto"
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "404": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/assets": {
+        "post": {
+          "tags": [
+            "Assets"
+          ],
+          "operationId": "PostAsset",
+          "consumes": [
+            "multipart/form-data"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "name": "entityId",
+              "description": "",
+              "type": "string",
+              "in": "formData"
+            },
+            {
+              "name": "fileId",
+              "description": "",
+              "type": "string",
+              "in": "formData"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/connection/request/accept/{id}": {
+        "put": {
+          "tags": [
+            "Connection"
+          ],
+          "operationId": "AcceptConnectionRequest",
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "the request id",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of Boolean",
+              "schema": {
+                "type": "boolean"
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "404": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/connection/request": {
+        "post": {
+          "tags": [
+            "Connection"
+          ],
+          "operationId": "SendConnectionRequest",
+          "consumes": [
+            "request"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "body",
+              "name": "body",
+              "schema": {
+                "$ref": "#/definitions/sendConnectionRequestModel"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of ContactEntityDto",
+              "schema": {
+                "$ref": "#/definitions/contactEntityDto"
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/contact/add": {
+        "post": {
+          "tags": [
+            "Contact"
+          ],
+          "operationId": "AddContact",
+          "consumes": [
+            "contact request"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "body",
+              "name": "body",
+              "schema": {
+                "$ref": "#/definitions/addContactRequestModel"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of ContactEntityDto",
+              "schema": {
+                "$ref": "#/definitions/contactEntityDto"
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/contact/delete/{id}": {
+        "delete": {
+          "tags": [
+            "Contact"
+          ],
+          "operationId": "RemoveContact",
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "Contact id (Guid) as string",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of Array of ContactEntityDto",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/contactEntityDto"
+                }
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/contact/get/{id}": {
+        "get": {
+          "tags": [
+            "Contact"
+          ],
+          "operationId": "GetContactDetails",
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "Contact id (Guid) as string",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of Array of ContactEntityDto",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/contactEntityDto"
+                }
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/contact/list/{continuationToken?}": {
+        "get": {
+          "tags": [
+            "Contact"
+          ],
+          "operationId": "GetContacts",
+          "produces": [
+            "application/json"
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of Array of ContactEntityDto",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/contactEntityDto"
+                }
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/contact/update/{id}": {
+        "patch": {
+          "tags": [
+            "Contact"
+          ],
+          "operationId": "UpdateContact",
+          "consumes": [
+            "application/json"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "the contact id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "in": "body",
+              "name": "body",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of ArtistEntityDto",
+              "schema": {
+                "$ref": "#/definitions/artistEntityDto"
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "404": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/general/search/{segment}": {
+        "get": {
+          "tags": [
+            "General"
+          ],
+          "operationId": "Search",
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "segment",
+              "description": "the query string",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "$ref": "#/definitions/searchResultViewModel"
+              }
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/notification/history": {
+        "get": {
+          "tags": [
+            "Notification"
+          ],
+          "operationId": "GetNotificationHistoryPaged",
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "query",
+              "name": "continuationToken",
+              "description": "Continuation token",
+              "type": "string"
+            },
+            {
+              "in": "query",
+              "name": "pageSize",
+              "description": "page size",
+              "type": "integer",
+              "format": "int32"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "$ref": "#/definitions/pagedResult_notificationHistoryEntity"
+              }
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/notification/markread": {
+        "post": {
+          "tags": [
+            "Notification"
+          ],
+          "operationId": "MarkRead",
+          "parameters": [
+            {
+              "in": "query",
+              "name": "ids",
+              "description": "ids of notifications to mark as read",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/promoter/add": {
+        "post": {
+          "tags": [
+            "Promoter"
+          ],
+          "operationId": "AddPromoter",
+          "consumes": [
+            "promoter"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "body",
+              "name": "body",
+              "schema": {
+                "$ref": "#/definitions/addPromoterRequestModel"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of PromoterEntityDto",
+              "schema": {
+                "$ref": "#/definitions/promoterEntityDto"
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/promoter/delete/{id}": {
+        "delete": {
+          "tags": [
+            "Promoter"
+          ],
+          "operationId": "DeletePromoter",
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "Promoter id (Guid) as string or alias",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "No description"
+            },
+            "401": {
+              "description": "No description"
+            },
+            "404": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/promoter/get/{id}": {
+        "get": {
+          "tags": [
+            "Promoter"
+          ],
+          "operationId": "GetPromoter",
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "Promoter id (Guid) as string or alias",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of PromoterEntityDto",
+              "schema": {
+                "$ref": "#/definitions/promoterEntityDto"
+              }
+            },
+            "404": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/promoter/update/{id}": {
+        "patch": {
+          "tags": [
+            "Promoter"
+          ],
+          "operationId": "UpdatePromoter",
+          "consumes": [
+            "artist"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "description": "the promoter id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "in": "body",
+              "name": "body",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Payload of PromoterEntityDto",
+              "schema": {
+                "$ref": "#/definitions/promoterEntityDto"
+              }
+            },
+            "401": {
+              "description": "No description"
+            },
+            "404": {
+              "description": "No description"
+            },
+            "400": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/tags/entity/get/{entityId}": {
+        "get": {
+          "tags": [
+            "Tags"
+          ],
+          "operationId": "GetEntityTags",
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "entityId",
+              "description": "Entity id (Guid) as string",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/tagDto"
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/tags/get/{query}": {
+        "get": {
+          "tags": [
+            "Tags"
+          ],
+          "operationId": "GetTags",
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "query",
+              "description": "search string",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/tagDto"
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/tags/entity/set/{entityId}": {
+        "post": {
+          "tags": [
+            "Tags"
+          ],
+          "operationId": "SetEntityTags",
+          "consumes": [
+            "tags"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "entityId",
+              "description": "Entity id (Guid) as string",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "in": "body",
+              "name": "body",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/tagDto"
+                }
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "No description"
+            },
+            "401": {
+              "description": "No description"
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/user/connections/get": {
+        "get": {
+          "tags": [
+            "User"
+          ],
+          "operationId": "GetConnections",
+          "produces": [
+            "application/json"
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/connectionViewModel"
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/user/entities": {
+        "get": {
+          "tags": [
+            "User"
+          ],
+          "operationId": "Entities",
+          "produces": [
+            "application/json"
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/entitiesMenuViewModel"
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/user/get": {
+        "get": {
+          "tags": [
+            "User"
+          ],
+          "operationId": "GetUser",
+          "produces": [
+            "application/json"
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "$ref": "#/definitions/userEntityDto"
+              }
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      },
+      "/user/update": {
+        "patch": {
+          "tags": [
+            "User"
+          ],
+          "operationId": "UpdateUser",
+          "consumes": [
+            "application/json"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "body",
+              "name": "body",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The OK response",
+              "schema": {
+                "$ref": "#/definitions/userEntityDto"
+              }
+            }
+          },
+          "security": [
+            {
+              "bearer_auth": []
+            }
+          ]
+        }
+      }
+    },
+    "definitions": {
+      "addArtistRequestModel": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          }
+        }
+      },
+      "addContactRequestModel": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "streetName": {
+            "type": "string"
+          },
+          "streetNumber": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "stateProvince": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "emailAddress": {
+            "type": "string"
+          },
+          "socialMediaLinks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": "string"
+          },
+          "longitude": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "addPromoterRequestModel": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "example": "{\"name\":\"Riot Heart Promotions\",\"country\":\"United States\",\"bio\":\"Introducing 'Riot Heart Promotions', a small yet passionate promoter based in the punk rock capital of the world, Los Angeles, California. Dedicated to supporting up-and-coming touring punk bands, Riot Heart Promotions brings the noise and energy to every show they organize. With a DIY ethos and a heart for the underground punk scene, Riot Heart Promotions is a force to be reckoned with.\",\"city\":\"Los Angeles\",\"state\":\"California\"}"
+      },
+      "artistEntityDto": {
+        "type": "object",
+        "properties": {
+          "administratorId": {
+            "type": "string"
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "administrators": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/artistMemberDto"
+            }
+          },
+          "assets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/assetEntityDto"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "alias": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          }
+        },
+        "example": "{\"administratorId\":\"dbe2529b-7a04-4e2f-982a-3b2200030007\",\"users\":[\"1a9927fe-f980-4e16-b70c-735a830988e2\",\"ccba847a-0c7f-4d39-91d5-51aa540bdd15\"],\"administrators\":[\"245d4d52-92c4-45c9-ba04-4d67fe292758\"],\"members\":[{\"name\":\"Big Z\",\"responsibility\":\"Vocals\",\"id\":\"952880af-2f2d-4fb5-8106-072cc98d3bb4\"},{\"name\":\"Bo\",\"responsibility\":\"Keys & Guitars\",\"id\":\"8d05197c-0239-44bc-b823-f6321f7bcc6f\"},{\"name\":\"Animal\",\"responsibility\":\"Drums\",\"id\":null}],\"assets\":null,\"id\":null,\"name\":\"Thunder Hair\",\"alias\":\"thunder.hair\",\"country\":\"Denmark\",\"city\":\"Copenhagen\",\"state\":null,\"bio\":\"Rocking mullets since 1979\"}"
+      },
+      "artistMemberDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "responsibility": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "example": "{\"Name\":\"Alice Cobra\",\"Responsibility\":\"Guitars\",\"Id\":\"dfe436cd-c7ab-423d-9e4d-983920d4421f\"}"
+      },
+      "assetEntityDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string"
+          },
+          "extension": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          }
+        }
+      },
+      "connectionViewModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "givenName": {
+            "type": "string"
+          },
+          "surName": {
+            "type": "string"
+          },
+          "entity": {
+            "format": "uuid",
+            "type": "string"
+          }
+        }
+      },
+      "contactEntityDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "streetName": {
+            "type": "string"
+          },
+          "streetNumber": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "stateProvince": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "emailAddress": {
+            "type": "string"
+          },
+          "socialMediaLinks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": "string"
+          },
+          "longitude": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "userId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        }
+      },
+      "entitiesMenuViewModel": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "entityType": {
+            "type": "string"
+          }
+        }
+      },
+      "notificationHistoryEntity": {
+        "type": "object",
+        "properties": {
+          "contentJson": {
+            "type": "string"
+          },
+          "notificationType": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "pagedResult_notificationHistoryEntity": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/notificationHistoryEntity"
+            }
+          },
+          "continuationToken": {
+            "type": "string"
+          }
+        }
+      },
+      "postAssetRequestModel": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          }
+        }
+      },
+      "promoterEntityDto": {
+        "type": "object",
+        "properties": {
+          "administratorId": {
+            "type": "string"
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "administrators": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "alias": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          }
+        },
+        "example": "{\"administratorId\":\"035b1955-91e3-422c-ba4e-a6b092a5bcc5\",\"users\":[\"5be1d03a-2f21-416d-9ee9-05a1bb295ef5\",\"8351770b-0b01-49d0-88b6-62e49d3a0529\"],\"administrators\":[\"c2db58e4-3fc5-48ac-aa5b-ac2724631a78\",\"684a2d1a-e7af-4071-9dd6-f0e879d611db\"],\"id\":\"5e05b152-38a6-407f-bac8-61c4d5df7cab\",\"name\":\"Northern Lights Productions\",\"alias\":null,\"country\":\"Canada\",\"city\":\"Vancouver\",\"state\":\"\",\"bio\":\"Northern Lights Productions, a boutique event production company based in Vancouver, Canada. With a passion for creating unforgettable experiences, Northern Lights Productions specializes in curating immersive events and festivals that showcase local and international talent across a diverse range of genres. From indie rock to electronic music, Northern Lights Productions is committed to bringing the best in live entertainment to the beautiful West Coast of Canada.\"}"
+      },
+      "searchResultViewModel": {
+        "type": "object",
+        "properties": {
+          "artists": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "promoters": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "users": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "sendConnectionRequestModel": {
+        "type": "object",
+        "properties": {
+          "recipientId": {
+            "type": "string"
+          },
+          "recipientIdGuid": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "recipientEmail": {
+            "type": "string"
+          },
+          "recipientFirstName": {
+            "type": "string"
+          },
+          "recipientLastName": {
+            "type": "string"
+          },
+          "isValid": {
+            "type": "boolean"
+          }
+        }
+      },
+      "tagDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "example": "{\"id\":\"f4c9f407-137b-49e5-9024-d5c29abd2860\",\"value\":\"Circus Metal\"}"
+      },
+      "userEntityDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "email": {
+            "format": "email",
+            "maxLength": 250,
+            "type": "string"
+          },
+          "givenName": {
+            "maxLength": 250,
+            "type": "string"
+          },
+          "surName": {
+            "maxLength": 250,
+            "type": "string"
+          },
+          "displayName": {
+            "maxLength": 250,
+            "type": "string"
+          },
+          "entities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "example": "{\"administratorId\":\"b0660908-8b99-4f5b-b6c5-eb56362e7592\",\"users\":[\"890f0a5e-e080-4dd1-8fd0-32ad8eefdaa0\",\"6bfffa7d-487a-4d8f-a97c-f38f653aabdc\"],\"administrators\":[\"7209fe10-28cf-4c72-b8eb-82c95405f229\"],\"members\":[{\"name\":\"Big Z\",\"responsibility\":\"Vocals\",\"id\":\"0779e684-2084-419f-9388-e7bd38cd1f16\"},{\"name\":\"Bo\",\"responsibility\":\"Keys & Guitars\",\"id\":\"91ef6e4f-d13a-4723-a0d5-191b988e7c75\"},{\"name\":\"Animal\",\"responsibility\":\"Drums\",\"id\":null}],\"assets\":null,\"id\":null,\"name\":\"Thunder Hair\",\"alias\":\"thunder.hair\",\"country\":\"Denmark\",\"city\":\"Copenhagen\",\"state\":null,\"bio\":\"Rocking mullets since 1979\"}"
+      }
+    },
+    "securityDefinitions": {
+      "bearer_auth": {}
+    }
+  }

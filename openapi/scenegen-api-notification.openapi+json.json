@@ -1,0 +1,68 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+        "title": "scenegen-api-notification",
+        "description": "Import from \"scenegen-api-notification\" Function App",
+        "version": "1.0"
+    },
+    "servers": [
+        {
+            "url": "https://scenegen-apim.azure-api.net/scenegen-api-notification"
+        }
+    ],
+    "paths": {
+        "/negotiate": {
+            "post": {
+                "summary": "negotiate",
+                "operationId": "post-negotiate",
+                "responses": {
+                    "200": {
+                        "description": null
+                    }
+                }
+            },
+            "get": {
+                "summary": "negotiate",
+                "operationId": "get-negotiate",
+                "responses": {
+                    "200": {
+                        "description": null
+                    }
+                }
+            }
+        },
+        "/SendMessage": {
+            "get": {
+                "summary": "SendMessage",
+                "operationId": "get-sendmessage",
+                "responses": {
+                    "200": {
+                        "description": null
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "apiKeyHeader": {
+                "type": "apiKey",
+                "name": "Ocp-Apim-Subscription-Key",
+                "in": "header"
+            },
+            "apiKeyQuery": {
+                "type": "apiKey",
+                "name": "subscription-key",
+                "in": "query"
+            }
+        }
+    },
+    "security": [
+        {
+            "apiKeyHeader": []
+        },
+        {
+            "apiKeyQuery": []
+        }
+    ]
+}

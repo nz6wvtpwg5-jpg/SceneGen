@@ -1,0 +1,317 @@
+================================================================================
+🔥 CRITICAL ISSUE FOUND - API KEY CONFIGURATION ERROR 🔥
+================================================================================
+Date: April 7, 2026
+API Key: [REDACTED_ROTATED_GOOGLE_MAPS_KEY]
+Issue: "API keys with referer restrictions cannot be used with this API"
+================================================================================
+
+ROOT CAUSE IDENTIFIED
+=====================
+
+The error message from Google is:
+"API keys with referer restrictions cannot be used with this API."
+
+This means your API key STILL HAS HTTP REFERRER RESTRICTIONS even though you
+thought you set it to unrestricted!
+
+GOOGLE CLOUD CONSOLE HAS TWO RESTRICTION TYPES:
+
+1. APPLICATION RESTRICTIONS (where HTTP referrers are)
+2. API RESTRICTIONS (which APIs can be called)
+
+You may have removed #2 (API restrictions) but #1 (HTTP referrers) is still set!
+
+================================================================================
+THE ACTUAL PROBLEM
+================================================================================
+
+DIRECTIONS API HAS TWO INTERFACES:
+
+1. REST API (directions/json endpoint)
+   - Used by: Backend server-side calls
+   - Cannot use HTTP referrer restrictions
+   - Must use: No restrictions OR IP address restrictions
+   - URL: https://maps.googleapis.com/maps/api/directions/json
+
+2. JAVASCRIPT API (DirectionsService)
+   - Used by: Frontend browser code (your TourMap component)
+   - CAN use HTTP referrer restrictions
+   - Loaded via: google.maps.DirectionsService
+
+YOUR APP USES THE JAVASCRIPT API (DirectionsService) which SHOULD work with
+HTTP referrer restrictions, but something is misconfigured.
+
+================================================================================
+IMMEDIATE FIX - STEP BY STEP
+================================================================================
+
+OPTION 1: COMPLETELY REMOVE RESTRICTIONS (Recommended for Testing)
+-------------------------------------------------------------------
+
+1. Go to: https://console.cloud.google.com/apis/credentials
+
+2. Find and click on: [REDACTED_ROTATED_GOOGLE_MAPS_KEY]
+
+3. Under "Application restrictions" section:
+   ❌ HTTP referrers (web sites) - UNCHECK THIS
+   ✅ Select "NONE" option instead
+
+4. Under "API restrictions" section:
+   ✅ Select "Don't restrict key"
+
+5. Click "SAVE" button at the bottom
+
+6. ⏱️ WAIT 10 MINUTES for Google to propagate changes
+
+7. Clear browser cache completely:
+   - Chrome: Settings → Privacy → Clear browsing data
+   - Select "Cached images and files"
+   - Time range: "All time"
+   - Click "Clear data"
+
+8. Restart your dev server:
+   npm run dev
+
+9. Hard refresh browser (Cmd+Shift+R or Ctrl+Shift+F5)
+
+10. Test the tour map again
+
+
+OPTION 2: CREATE A BRAND NEW API KEY (If Option 1 Fails)
+---------------------------------------------------------
+
+Sometimes Google Cloud Console caches old settings. Creating a fresh key works:
+
+1. Go to: https://console.cloud.google.com/apis/credentials
+
+2. Click "+ CREATE CREDENTIALS" at top
+
+3. Select "API Key"
+
+4. Copy the new key immediately
+
+5. Click "EDIT API KEY" or "RESTRICT KEY"
+
+6. Under "Application restrictions":
+   ✅ Select "NONE"
+
+7. Under "API restrictions":
+   ✅ Select "Don't restrict key"
+
+8. Give it a name like: "SceneGen Dev Key - Unrestricted"
+
+9. Click "SAVE"
+
+10. Update your .env.local:
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_brand_new_key
+
+11. Update backend/.env:
+    GOOGLE_MAPS_API_KEY=your_brand_new_key
+
+12. Restart both servers:
+    # Backend
+    cd backend && npm start
+
+    # Frontend (in new terminal)
+    npm run dev
+
+13. Wait 5 minutes for the NEW key to propagate
+
+14. Test again
+
+================================================================================
+VERIFICATION STEPS
+================================================================================
+
+STEP 1: Verify API Key Has No Restrictions
+-------------------------------------------
+1. Go to: https://console.cloud.google.com/apis/credentials
+2. Click on your API key
+3. Check "Application restrictions" section - should say "None"
+4. Check "API restrictions" section - should say "Don't restrict key"
+5. If it says anything else, you still have restrictions!
+
+
+STEP 2: Test the Key Directly in Terminal
+------------------------------------------
+After making changes and waiting 10 minutes, run:
+
+curl "https://maps.googleapis.com/maps/api/directions/json?origin=Atlanta,GA&destination=Boston,MA&key=[REDACTED_ROTATED_GOOGLE_MAPS_KEY]"
+
+Expected: JSON with "status": "OK"
+If still "REQUEST_DENIED": Wait longer or create new key
+
+
+STEP 3: Test in Browser Console
+--------------------------------
+1. Open your tour map page
+2. Open DevTools Console (F12)
+3. Check for errors
+4. Look for successful Directions API responses
+
+
+STEP 4: Check Network Tab
+--------------------------
+1. Open DevTools → Network tab
+2. Filter by "directions"
+3. Click on a request
+4. Check the Response tab
+5. Should see "status": "OK" not "REQUEST_DENIED"
+
+================================================================================
+WHY THIS HAPPENS
+================================================================================
+
+GOOGLE'S RESTRICTION TYPES ARE CONFUSING:
+
+1. APPLICATION RESTRICTIONS (How the key can be used):
+   - None: Any application can use it (least secure, best for dev)
+   - HTTP referrers: Only specific websites (for browser/frontend)
+   - IP addresses: Only specific servers (for backend)
+   - Android apps: Only specific Android apps
+   - iOS apps: Only specific iOS apps
+
+2. API RESTRICTIONS (Which Google APIs can be called):
+   - Don't restrict key: Can call any Google API
+   - Restrict key: Only specific APIs can be called
+
+THE PROBLEM:
+- You may have "Don't restrict key" for #2 (API restrictions)
+- But still have "HTTP referrers" for #1 (Application restrictions)
+- The Directions REST API doesn't work with HTTP referrer restrictions
+- Even though the JavaScript API (DirectionsService) should work
+
+THE SOLUTION:
+- Set #1 (Application restrictions) to "NONE"
+- Set #2 (API restrictions) to "Don't restrict key"
+- This makes the key work everywhere (not secure for production!)
+- After testing works, you can add back specific restrictions
+
+================================================================================
+PRODUCTION SECURITY (After Testing Works)
+================================================================================
+
+Once everything works with no restrictions, you can secure it:
+
+OPTION A: Single Key with IP + HTTP Referrers
+----------------------------------------------
+Unfortunately, you CAN'T mix restriction types on one key.
+You must choose: None, HTTP referrers, OR IP addresses.
+
+Solution: Use different keys for frontend and backend.
+
+
+OPTION B: Separate Keys (RECOMMENDED for Production)
+-----------------------------------------------------
+
+FRONTEND KEY:
+- Application restrictions: HTTP referrers
+  * https://yourdomain.com/*
+  * https://www.yourdomain.com/*
+- API restrictions: Restrict to:
+  * Maps JavaScript API
+  * Places API
+- Use in: .env.local as NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+BACKEND KEY:
+- Application restrictions: IP addresses
+  * Add your server IP(s)
+- API restrictions: Restrict to:
+  * Directions API
+  * Distance Matrix API
+  * Geocoding API
+- Use in: backend/.env as GOOGLE_MAPS_API_KEY
+
+
+DEVELOPMENT KEYS:
+- Application restrictions: None (or HTTP referrers with localhost)
+- API restrictions: Don't restrict key
+- Keep separate from production keys
+
+================================================================================
+CURRENT STATUS
+================================================================================
+
+❌ Your API key has HTTP referrer restrictions (even if you think it doesn't)
+❌ This breaks the Directions API
+❌ The error message confirms it: "API keys with referer restrictions cannot be used with this API"
+
+✅ Your code is correct
+✅ Your .env files are correct
+✅ APIs are enabled
+✅ Billing is enabled
+
+🔧 The ONLY fix: Remove ALL restrictions from the API key
+⏱️ Wait time: 10 minutes after making changes
+🧪 Test: curl command should return "status": "OK"
+
+================================================================================
+NEXT ACTIONS (DO THESE NOW)
+================================================================================
+
+[ ] 1. Open Google Cloud Console credentials page
+[ ] 2. Click on API key: [REDACTED_ROTATED_GOOGLE_MAPS_KEY]
+[ ] 3. Under "Application restrictions" select "NONE" (not HTTP referrers!)
+[ ] 4. Under "API restrictions" select "Don't restrict key"
+[ ] 5. Click SAVE
+[ ] 6. Set a 10-minute timer
+[ ] 7. Make coffee ☕
+[ ] 8. After 10 minutes, run the curl test above
+[ ] 9. If "status": "OK", test your app
+[ ] 10. If still denied, create a brand new API key
+
+================================================================================
+SCREENSHOT WHAT YOU SHOULD SEE
+================================================================================
+
+In Google Cloud Console, when you edit the API key, you should see:
+
+┌─────────────────────────────────────────────────────────────┐
+│ Application restrictions                                    │
+│                                                             │
+│ ○ None                          ← SELECT THIS ONE!         │
+│ ○ HTTP referrers (web sites)    ← NOT THIS!               │
+│ ○ IP addresses (web servers, cron jobs, etc.)             │
+│ ○ Android apps                                             │
+│ ○ iOS apps                                                 │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ API restrictions                                            │
+│                                                             │
+│ ○ Don't restrict key            ← SELECT THIS ONE!         │
+│ ○ Restrict key                  ← NOT THIS!               │
+└─────────────────────────────────────────────────────────────┘
+
+If your screen shows "HTTP referrers" is selected (even if the list is empty),
+that's the problem! Change it to "None".
+
+================================================================================
+SUPPORT
+================================================================================
+
+If after following these steps it STILL doesn't work:
+
+1. Check Google Cloud Status Dashboard:
+   https://status.cloud.google.com
+   (Make sure there's no outage)
+
+2. Verify billing account is active:
+   https://console.cloud.google.com/billing
+
+3. Check quota limits:
+   https://console.cloud.google.com/apis/api/directions-backend.googleapis.com/quotas
+
+4. Create a completely new Google Cloud Project:
+   - New project = fresh start
+   - Enable APIs
+   - Create new unrestricted API key
+   - Use that instead
+
+================================================================================
+END OF CRITICAL FIX GUIDE
+================================================================================
+
+The fix is simple: Your API key still has HTTP referrer restrictions.
+Change it to "None" and wait 10 minutes. That's it!

@@ -1,0 +1,1134 @@
+================================================================================
+SCENEGEN DESIGN SYSTEM REFACTOR - DETAILED IMPLEMENTATION PLAN
+================================================================================
+
+PROJECT OVERVIEW
+----------------
+Transform the entire SceneGen application into a premium dark SaaS interface
+matching the visual quality and design language of weuseonvelope.com.
+
+TIMELINE: Systematic, incremental refactor (estimate: 2-3 days)
+APPROACH: Foundation-first, component-library-driven, page-by-page rollout
+
+================================================================================
+PHASE 0: CODEBASE DISCOVERY & AUDIT
+================================================================================
+Status: ✅ COMPLETE
+
+Framework Identified:
+- Next.js 14+ (App Router)
+- React with TypeScript
+- Tailwind CSS
+- Radix UI primitives
+- Class Variance Authority (CVA) for component variants
+
+Project Structure:
+- /src/app/ - Next.js pages (23 routes identified)
+- /src/components/ui/ - Shared UI primitives (26 components)
+- /src/components/ - Feature-specific components
+- /src/hooks/ - Custom React hooks
+- /src/lib/ - Utilities
+- /src/store/ - State management (Zustand)
+
+Key Pages to Refactor (Priority Order):
+1.  /app/page.tsx - Landing/home page
+2.  /app/dashboard/page.tsx - Main dashboard
+3.  /app/login/page.tsx - Authentication
+4.  /app/onboarding/page.tsx - User onboarding
+5.  /app/tours/page.tsx - Tours list
+6.  /app/tours/[id]/page.tsx - Tour details (already modernized)
+7.  /app/shows/page.tsx - Shows list
+8.  /app/shows/[id]/budget/page.tsx - Show budget
+9.  /app/calendar/page.tsx - Calendar view
+10. /app/bookkeeping/page.tsx - Bookkeeping
+11. /app/import/page.tsx - CSV import wizard
+12. /app/contacts/page.tsx - Contacts
+13. /app/profile/page.tsx - User profile
+14. /app/manage/page.tsx - Settings
+15. /app/venues/bulk-update/page.tsx - Bulk tools
+16. /app/conversations/page.tsx - Messages
+17. /app/touring/page.tsx - Touring tools
+18. /app/artist/[id]/page.tsx - Artist profiles
+19. /app/invite/[token]/page.tsx - Invitations
+
+Core UI Components (26 identified):
+- button.tsx ✅ (needs update)
+- card.tsx ✅ (needs update)
+- input.tsx ✅ (needs update)
+- dialog.tsx ✅ (needs update)
+- dropdown-menu.tsx
+- tabs.tsx
+- label.tsx
+- alert.tsx
+- avatar.tsx
+- skeleton.tsx
+- loading-button.tsx
+- loading-spinner.tsx
+- empty-state.tsx
+- error-message.tsx
+- PageHeading.tsx
+- tooltip.tsx
+- scroll-area.tsx
+- navigation-menu.tsx
+- mode-toggle.tsx
+- toaster.tsx
+- PlacesAutocomplete.tsx
+- CountryList.tsx
+- UsStatesList.tsx
+- CanadaProvinceList.tsx
+- AustraliaStateList.tsx
+
+Layout Components:
+- /src/components/sidenav/ - Sidebar navigation
+- /src/components/header/ - Top navigation
+- /app/layout.tsx - Root layout wrapper
+
+Global Styles:
+- /src/app/globals.css - CSS variables, base styles
+- /tailwind.config.ts - Tailwind configuration
+
+================================================================================
+PHASE 1: DESIGN TOKENS & FOUNDATION
+================================================================================
+Duration: 2-3 hours
+
+STEP 1.1: Update Tailwind Config
+---------------------------------
+File: /tailwind.config.ts
+
+Add extended color palette:
+  colors: {
+    // Base backgrounds
+    'bg-primary': '#05070B',
+    'bg-secondary': '#0B1018',
+    'bg-surface': '#101722',
+    'bg-elevated': '#151C2B',
+
+    // Text colors
+    'text-primary': '#F3F7FF',
+    'text-secondary': 'rgba(255, 255, 255, 0.72)',
+    'text-muted': 'rgba(255, 255, 255, 0.48)',
+
+    // Borders
+    'border-soft': 'rgba(120, 180, 255, 0.18)',
+    'border-glow': 'rgba(56, 189, 248, 0.28)',
+
+    // Accent colors
+    'accent-cyan': '#38BDF8',
+    'accent-blue': '#3B82F6',
+    'accent-indigo': '#6366F1',
+    'accent-purple': '#A855F7',
+  }
+
+Add border radius scale:
+  borderRadius: {
+    'xl': '16px',
+    '2xl': '20px',
+    '3xl': '28px',
+    '4xl': '32px',
+  }
+
+Add custom shadows:
+  boxShadow: {
+    'panel': '0 10px 30px rgba(0, 0, 0, 0.35)',
+    'glow': '0 0 0 1px rgba(90, 160, 255, 0.22), 0 12px 40px rgba(49, 130, 246, 0.18)',
+    'glow-lg': '0 0 0 1px rgba(90, 160, 255, 0.28), 0 20px 60px rgba(49, 130, 246, 0.22)',
+  }
+
+Add custom gradients:
+  backgroundImage: {
+    'gradient-primary': 'linear-gradient(90deg, #22C1EE 0%, #4F7CFF 50%, #A855F7 100%)',
+    'gradient-accent': 'linear-gradient(90deg, #22C1EE 0%, #3B82F6 45%, #A855F7 100%)',
+    'gradient-surface': 'linear-gradient(180deg, rgba(19, 25, 37, 0.92), rgba(13, 18, 28, 0.96))',
+  }
+
+STEP 1.2: Update Global CSS
+----------------------------
+File: /src/app/globals.css
+
+Update CSS variables:
+  :root {
+    --bg-primary: #05070B;
+    --bg-secondary: #0B1018;
+    --bg-surface: #101722;
+    --bg-elevated: #151C2B;
+
+    --text-primary: #F3F7FF;
+    --text-secondary: rgba(255, 255, 255, 0.72);
+    --text-muted: rgba(255, 255, 255, 0.48);
+
+    --border-soft: rgba(120, 180, 255, 0.18);
+    --border-glow: rgba(56, 189, 248, 0.28);
+  }
+
+Add utility classes:
+  /* Premium panel styling */
+  .panel-dark {
+    background: linear-gradient(180deg, rgba(19, 25, 37, 0.92), rgba(13, 18, 28, 0.96));
+    border: 1px solid rgba(120, 180, 255, 0.18);
+    border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  /* Glowing panel */
+  .panel-glow {
+    border-color: rgba(56, 189, 248, 0.28);
+    box-shadow: 0 0 0 1px rgba(90, 160, 255, 0.22),
+                0 12px 40px rgba(49, 130, 246, 0.18);
+  }
+
+  /* Dark input styling */
+  .input-dark {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #F3F7FF;
+    border-radius: 16px;
+    padding: 12px 16px;
+  }
+
+  .input-dark::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  .input-dark:focus {
+    outline: none;
+    border-color: rgba(56, 189, 248, 0.5);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
+  }
+
+  /* Gradient text */
+  .text-gradient-accent {
+    background: linear-gradient(90deg, #22C1EE 0%, #3B82F6 45%, #A855F7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Animated gradient background */
+  @keyframes gradient-shift {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+  }
+
+  .animate-gradient {
+    animation: gradient-shift 15s ease infinite;
+  }
+
+  /* Premium scrollbar */
+  .scrollable::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollable::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+  }
+
+  .scrollable::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+  }
+
+  .scrollable::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+Update body background:
+  body {
+    background: #05070B;
+    color: #F3F7FF;
+  }
+
+STEP 1.3: Create Design Tokens TypeScript Module
+-------------------------------------------------
+File: /src/styles/design-tokens.ts (NEW)
+
+Export typed design tokens for programmatic use:
+  export const colors = {
+    bg: {
+      primary: '#05070B',
+      secondary: '#0B1018',
+      surface: '#101722',
+      elevated: '#151C2B',
+    },
+    text: {
+      primary: '#F3F7FF',
+      secondary: 'rgba(255, 255, 255, 0.72)',
+      muted: 'rgba(255, 255, 255, 0.48)',
+    },
+    border: {
+      soft: 'rgba(120, 180, 255, 0.18)',
+      glow: 'rgba(56, 189, 248, 0.28)',
+    },
+    accent: {
+      cyan: '#38BDF8',
+      blue: '#3B82F6',
+      indigo: '#6366F1',
+      purple: '#A855F7',
+    },
+  }
+
+  export const gradients = {
+    primary: 'linear-gradient(90deg, #22C1EE 0%, #4F7CFF 50%, #A855F7 100%)',
+    accent: 'linear-gradient(90deg, #22C1EE 0%, #3B82F6 45%, #A855F7 100%)',
+    surface: 'linear-gradient(180deg, rgba(19, 25, 37, 0.92), rgba(13, 18, 28, 0.96))',
+  }
+
+  export const shadows = {
+    panel: '0 10px 30px rgba(0, 0, 0, 0.35)',
+    glow: '0 0 0 1px rgba(90, 160, 255, 0.22), 0 12px 40px rgba(49, 130, 246, 0.18)',
+  }
+
+  export const borderRadius = {
+    xl: '16px',
+    '2xl': '20px',
+    '3xl': '28px',
+    '4xl': '32px',
+  }
+
+================================================================================
+PHASE 2: CORE UI COMPONENTS UPDATE
+================================================================================
+Duration: 4-6 hours
+
+STEP 2.1: Update Button Component
+----------------------------------
+File: /src/components/ui/button.tsx
+
+New variants:
+1. Primary (gradient) - Default CTA style
+   - Background: gradient-primary
+   - Text: white
+   - Rounded: xl
+   - Height: 48-56px
+   - Hover: glow + slight scale
+   - Shadow: shadow-glow
+
+2. Secondary (dark) - Ghost alternative
+   - Background: rgba(255, 255, 255, 0.04)
+   - Border: border-soft
+   - Text: text-primary
+   - Hover: bg brightens
+
+3. Ghost - Subtle action
+   - Background: transparent
+   - Text: text-secondary
+   - Hover: bg rgba(255, 255, 255, 0.06)
+
+4. Destructive - Danger actions
+   - Background: rgba(239, 68, 68, 0.1)
+   - Border: rgba(239, 68, 68, 0.3)
+   - Text: red-400
+   - Keep dark styling
+
+Implementation:
+  const buttonVariants = cva(
+    "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan/50 disabled:pointer-events-none disabled:opacity-50",
+    {
+      variants: {
+        variant: {
+          default: "bg-gradient-primary text-white shadow-glow hover:shadow-glow-lg hover:scale-[1.02]",
+          secondary: "bg-white/5 backdrop-blur-sm border border-white/10 text-white hover:bg-white/10",
+          ghost: "text-white/70 hover:bg-white/5 hover:text-white",
+          destructive: "bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20",
+        },
+        size: {
+          default: "h-12 px-6 py-3",
+          sm: "h-10 px-4 py-2 text-xs",
+          lg: "h-14 px-8 py-4 text-base",
+          icon: "h-12 w-12",
+        },
+      },
+      defaultVariants: {
+        variant: "default",
+        size: "default",
+      },
+    }
+  )
+
+STEP 2.2: Update Input Component
+---------------------------------
+File: /src/components/ui/input.tsx
+
+New styling:
+  className={cn(
+    "flex w-full rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-4 py-3 text-base text-white placeholder:text-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan/50 focus-visible:border-accent-cyan/50 disabled:cursor-not-allowed disabled:opacity-50 transition-all",
+    className
+  )}
+
+STEP 2.3: Update Card Component
+--------------------------------
+File: /src/components/ui/card.tsx
+
+New styling:
+  <div className="panel-dark p-6">
+    {/* Card content */}
+  </div>
+
+Add variants:
+- card-default: panel-dark
+- card-glow: panel-dark + panel-glow
+- card-elevated: additional shadow
+
+STEP 2.4: Update Dialog/Modal Component
+----------------------------------------
+File: /src/components/ui/dialog.tsx
+
+Update overlay:
+  className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm"
+
+Update content:
+  className="fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] panel-dark p-8 shadow-glow-lg"
+
+STEP 2.5: Update Tabs Component
+--------------------------------
+File: /src/components/ui/tabs.tsx
+
+Tab list:
+  className="inline-flex h-12 items-center justify-center rounded-xl bg-white/5 p-1 text-white/70"
+
+Tab trigger (inactive):
+  className="inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-all hover:text-white hover:bg-white/10"
+
+Tab trigger (active):
+  className="bg-white/10 text-white shadow-sm"
+
+STEP 2.6: Update Badge Component
+---------------------------------
+File: /src/components/ui/badge.tsx (if exists, or create)
+
+New badge styling:
+  className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-white/10 text-white/80 border border-white/10"
+
+Active state:
+  className="bg-accent-cyan/20 text-accent-cyan border-accent-cyan/30"
+
+STEP 2.7: Update Loading States
+--------------------------------
+Files:
+- /src/components/ui/loading-spinner.tsx
+- /src/components/ui/skeleton.tsx
+- /src/components/ui/loading-button.tsx
+
+Spinner:
+  className="w-6 h-6 border-2 border-white/20 border-t-accent-cyan rounded-full animate-spin"
+
+Skeleton:
+  className="animate-pulse rounded-xl bg-white/5"
+
+STEP 2.8: Update Alert Component
+---------------------------------
+File: /src/components/ui/alert.tsx
+
+Alert container:
+  className="relative w-full rounded-xl border p-4 backdrop-blur-sm"
+
+Variants:
+- default: bg-white/5 border-white/10 text-white
+- destructive: bg-red-500/10 border-red-500/20 text-red-400
+- success: bg-green-500/10 border-green-500/20 text-green-400
+- warning: bg-yellow-500/10 border-yellow-500/20 text-yellow-400
+
+STEP 2.9: Update Dropdown Menu
+-------------------------------
+File: /src/components/ui/dropdown-menu.tsx
+
+Content:
+  className="z-50 min-w-[8rem] overflow-hidden rounded-xl border border-white/10 bg-[#151C2B] backdrop-blur-xl p-1 text-white shadow-glow"
+
+Item:
+  className="relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm outline-none transition-colors hover:bg-white/10 focus:bg-white/10"
+
+STEP 2.10: Update Empty State Component
+----------------------------------------
+File: /src/components/ui/empty-state.tsx
+
+Container:
+  className="flex flex-col items-center justify-center py-16 text-center"
+
+Icon wrapper:
+  className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white/5 border border-white/10"
+
+Title:
+  className="text-xl font-semibold text-white mb-3"
+
+Description:
+  className="text-white/60 max-w-md mb-6"
+
+================================================================================
+PHASE 3: LAYOUT COMPONENTS
+================================================================================
+Duration: 3-4 hours
+
+STEP 3.1: Update Root Layout
+-----------------------------
+File: /src/app/layout.tsx
+
+Body classes:
+  <body className="bg-[#05070B] text-white antialiased">
+
+STEP 3.2: Update Navbar/Header
+-------------------------------
+File: /src/components/header/ (identify main header component)
+
+Structure:
+  <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#05070B]/80 backdrop-blur-xl">
+    <div className="container mx-auto flex h-16 items-center justify-between px-6">
+      <!-- Logo -->
+      <div className="flex items-center gap-8">
+        <Logo />
+        <nav className="hidden md:flex items-center gap-6">
+          <NavLink>Dashboard</NavLink>
+          <NavLink>Tours</NavLink>
+          <NavLink>Shows</NavLink>
+          <NavLink>Calendar</NavLink>
+        </nav>
+      </div>
+
+      <!-- Right actions -->
+      <div className="flex items-center gap-4">
+        <Button variant="ghost">Login</Button>
+        <Button variant="default">Get Started</Button>
+      </div>
+    </div>
+  </header>
+
+NavLink styling:
+  className="text-sm font-medium text-white/70 hover:text-white transition-colors"
+
+STEP 3.3: Update Sidebar Navigation
+------------------------------------
+File: /src/components/sidenav/ (identify main component)
+
+Sidebar container:
+  className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-white/10 bg-[#0B1018] backdrop-blur-xl"
+
+Nav item (inactive):
+  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/5 hover:text-white transition-all"
+
+Nav item (active):
+  className="bg-white/10 text-white border-l-2 border-accent-cyan"
+
+Section header:
+  className="px-4 py-2 text-xs font-semibold uppercase text-white/50 tracking-wider"
+
+STEP 3.4: Create Page Container Component
+------------------------------------------
+File: /src/components/ui/page-container.tsx (NEW)
+
+Create reusable page wrapper:
+  export function PageContainer({
+    children,
+    maxWidth = "7xl"
+  }: {
+    children: React.ReactNode;
+    maxWidth?: string;
+  }) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#05070B] via-[#070B12] to-[#05070B]">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 animate-gradient" />
+        <div className={`relative container mx-auto max-w-${maxWidth} px-6 py-8`}>
+          {children}
+        </div>
+      </div>
+    )
+  }
+
+STEP 3.5: Create Section Component
+-----------------------------------
+File: /src/components/ui/section.tsx (NEW)
+
+Create reusable section wrapper:
+  export function Section({
+    title,
+    description,
+    children,
+    action
+  }: SectionProps) {
+    return (
+      <section className="mb-12">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-white">{title}</h2>
+            {description && (
+              <p className="mt-2 text-white/60">{description}</p>
+            )}
+          </div>
+          {action}
+        </div>
+        {children}
+      </section>
+    )
+  }
+
+================================================================================
+PHASE 4: FEATURE PAGES REFACTOR
+================================================================================
+Duration: 8-12 hours
+
+Priority order: High-traffic pages first
+
+STEP 4.1: Landing Page
+-----------------------
+File: /src/app/page.tsx
+
+Structure:
+  <PageContainer>
+    <!-- Hero Section -->
+    <section className="py-20">
+      <div className="grid lg:grid-cols-2 gap-12 items-center">
+        <!-- Left: Headline + CTA -->
+        <div>
+          <h1 className="text-6xl font-bold mb-6">
+            Tour Management for{' '}
+            <span className="text-gradient-accent">Modern Artists</span>
+          </h1>
+          <p className="text-xl text-white/70 mb-8 max-w-xl">
+            Plan, track, and manage your tours with precision. From booking
+            to budgets, all in one place.
+          </p>
+          <div className="flex gap-4">
+            <Button size="lg">Get Started Free</Button>
+            <Button variant="secondary" size="lg">Watch Demo</Button>
+          </div>
+        </div>
+
+        <!-- Right: Product Preview -->
+        <div className="panel-dark panel-glow p-8">
+          <img src="/dashboard-preview.png" alt="Dashboard" className="rounded-xl" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section className="py-20">
+      <h2 className="text-4xl font-bold text-center mb-12">
+        Everything You Need
+      </h2>
+      <div className="grid md:grid-cols-3 gap-6">
+        {features.map(feature => (
+          <div key={feature.id} className="panel-dark p-8">
+            <div className="mb-4">{feature.icon}</div>
+            <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+            <p className="text-white/60">{feature.description}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  </PageContainer>
+
+STEP 4.2: Dashboard
+-------------------
+File: /src/app/dashboard/page.tsx
+
+Update to modern layout:
+  <PageContainer>
+    <!-- Stats Overview -->
+    <div className="grid grid-cols-4 gap-4 mb-8">
+      {stats.map(stat => (
+        <div className="panel-dark p-6 hover:panel-glow transition-all">
+          <p className="text-sm text-white/60 mb-2">{stat.label}</p>
+          <p className="text-3xl font-bold text-white">{stat.value}</p>
+          <p className="text-xs text-white/40 mt-1">{stat.change}</p>
+        </div>
+      ))}
+    </div>
+
+    <!-- Main Content Grid -->
+    <div className="grid lg:grid-cols-3 gap-6">
+      <!-- Upcoming Shows -->
+      <div className="lg:col-span-2 panel-dark p-6">
+        <h3 className="text-xl font-bold mb-4">Upcoming Shows</h3>
+        {/* Show list */}
+      </div>
+
+      <!-- Quick Actions -->
+      <div className="panel-dark p-6">
+        <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
+        {/* Action buttons */}
+      </div>
+    </div>
+  </PageContainer>
+
+STEP 4.3: Login Page
+--------------------
+File: /src/app/login/page.tsx
+
+Center card layout:
+  <div className="min-h-screen bg-gradient-to-br from-[#05070B] via-[#070B12] to-[#05070B] flex items-center justify-center p-6">
+    <div className="w-full max-w-md panel-dark panel-glow p-8">
+      <div className="text-center mb-8">
+        <Logo className="mx-auto mb-4" />
+        <h1 className="text-3xl font-bold">Welcome back</h1>
+        <p className="text-white/60 mt-2">Sign in to your account</p>
+      </div>
+
+      <form className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-2">Email</label>
+          <Input type="email" placeholder="you@example.com" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Password</label>
+          <Input type="password" placeholder="••••••••" />
+        </div>
+        <Button className="w-full" size="lg">Sign In</Button>
+      </form>
+    </div>
+  </div>
+
+STEP 4.4: Tours List Page
+--------------------------
+File: /src/app/tours/page.tsx
+
+Update layout:
+  <PageContainer>
+    <Section
+      title="Tours"
+      description="Manage your tour schedules and itineraries"
+      action={<Button>Create Tour</Button>}
+    >
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {tours.map(tour => (
+          <div key={tour.id} className="panel-dark p-6 hover:panel-glow cursor-pointer transition-all">
+            <h3 className="text-xl font-bold mb-2">{tour.name}</h3>
+            <p className="text-white/60 text-sm mb-4">
+              {tour.startDate} - {tour.endDate}
+            </p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/50">{tour.showCount} shows</span>
+              <span className="text-accent-cyan">{tour.totalMiles} miles</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  </PageContainer>
+
+STEP 4.5: Tour Details Page
+----------------------------
+File: /src/app/tours/[id]/page.tsx
+Status: ✅ ALREADY MODERNIZED (reference implementation)
+
+No changes needed - this is our visual reference.
+
+STEP 4.6: Shows List Page
+--------------------------
+File: /src/app/shows/page.tsx
+
+Similar treatment to tours list:
+  <PageContainer>
+    <Section
+      title="Shows"
+      description="All your upcoming and past performances"
+      action={<Button>Add Show</Button>}
+    >
+      <!-- Filter tabs -->
+      <Tabs defaultValue="upcoming" className="mb-6">
+        <TabsList>
+          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+          <TabsTrigger value="past">Past</TabsTrigger>
+          <TabsTrigger value="all">All Shows</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <!-- Shows grid -->
+      <div className="space-y-4">
+        {shows.map(show => (
+          <div key={show.id} className="panel-dark p-6 hover:panel-glow">
+            {/* Show card content */}
+          </div>
+        ))}
+      </div>
+    </Section>
+  </PageContainer>
+
+STEP 4.7: Calendar Page
+------------------------
+File: /src/app/calendar/page.tsx
+
+Full-width calendar view:
+  <PageContainer maxWidth="full">
+    <Section title="Calendar">
+      <div className="panel-dark p-6">
+        {/* Calendar component */}
+        {/* Keep calendar library but update colors to match theme */}
+      </div>
+    </Section>
+  </PageContainer>
+
+STEP 4.8: Bookkeeping Page
+---------------------------
+File: /src/app/bookkeeping/page.tsx
+
+Table-heavy layout:
+  <PageContainer>
+    <Section
+      title="Bookkeeping"
+      description="Track income and expenses"
+    >
+      <div className="panel-dark">
+        <table className="w-full">
+          <thead className="border-b border-white/10">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-white/50">Date</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-white/50">Description</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-white/50">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Table rows */}
+          </tbody>
+        </table>
+      </div>
+    </Section>
+  </PageContainer>
+
+STEP 4.9: Import Wizard
+------------------------
+File: /src/app/import/page.tsx
+
+Multi-step wizard:
+  <PageContainer maxWidth="4xl">
+    <div className="panel-dark panel-glow p-8">
+      <!-- Step indicator -->
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          {steps.map((step, index) => (
+            <div key={index} className="flex items-center">
+              <div className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center",
+                currentStep === index
+                  ? "bg-gradient-primary text-white"
+                  : "bg-white/5 text-white/50"
+              )}>
+                {index + 1}
+              </div>
+              {index < steps.length - 1 && (
+                <div className="w-20 h-px bg-white/10 mx-2" />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Step content -->
+      {/* Wizard steps */}
+    </div>
+  </PageContainer>
+
+STEP 4.10: Contacts Page
+-------------------------
+File: /src/app/contacts/page.tsx
+
+Contact cards grid:
+  <PageContainer>
+    <Section
+      title="Contacts"
+      action={<Button>Add Contact</Button>}
+    >
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {contacts.map(contact => (
+          <div key={contact.id} className="panel-dark p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <Avatar />
+              <div>
+                <h3 className="font-semibold">{contact.name}</h3>
+                <p className="text-sm text-white/60">{contact.role}</p>
+              </div>
+            </div>
+            {/* Contact details */}
+          </div>
+        ))}
+      </div>
+    </Section>
+  </PageContainer>
+
+STEP 4.11: Profile/Settings Pages
+----------------------------------
+Files:
+- /src/app/profile/page.tsx
+- /src/app/manage/page.tsx
+
+Settings layout with sidebar:
+  <PageContainer>
+    <div className="grid lg:grid-cols-4 gap-6">
+      <!-- Settings nav -->
+      <div className="lg:col-span-1">
+        <nav className="space-y-1">
+          {settingsNav.map(item => (
+            <a
+              key={item.id}
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium hover:bg-white/5"
+            >
+              {item.icon}
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </div>
+
+      <!-- Settings content -->
+      <div className="lg:col-span-3 panel-dark p-8">
+        {/* Settings forms */}
+      </div>
+    </div>
+  </PageContainer>
+
+STEP 4.12: Onboarding Flow
+---------------------------
+File: /src/app/onboarding/page.tsx
+
+Full-screen centered wizard:
+  <div className="min-h-screen bg-gradient-to-br from-[#05070B] via-[#070B12] to-[#05070B] flex items-center justify-center p-6">
+    <div className="w-full max-w-2xl panel-dark panel-glow p-12">
+      <!-- Onboarding steps -->
+    </div>
+  </div>
+
+STEP 4.13: Remaining Pages
+---------------------------
+Apply same principles to:
+- /app/venues/bulk-update/page.tsx
+- /app/conversations/page.tsx
+- /app/touring/page.tsx
+- /app/artist/[id]/page.tsx
+- /app/shows/[id]/budget/page.tsx
+
+================================================================================
+PHASE 5: MODALS & OVERLAYS
+================================================================================
+Duration: 2-3 hours
+
+Update all modal components in:
+- /src/components/shows/
+- /src/components/tours/
+- /src/components/profile/
+- /src/components/contacts/
+
+Apply consistent styling:
+  <Dialog>
+    <DialogOverlay className="fixed inset-0 bg-black/80 backdrop-blur-sm" />
+    <DialogContent className="panel-dark panel-glow p-8">
+      <DialogHeader>
+        <DialogTitle className="text-2xl font-bold">Modal Title</DialogTitle>
+        <DialogDescription className="text-white/60">
+          Modal description
+        </DialogDescription>
+      </DialogHeader>
+
+      {/* Modal body */}
+
+      <DialogFooter>
+        <Button variant="secondary">Cancel</Button>
+        <Button>Confirm</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+================================================================================
+PHASE 6: CLEANUP & POLISH
+================================================================================
+Duration: 2-3 hours
+
+STEP 6.1: Remove Legacy Styles
+-------------------------------
+Search and replace:
+- Old color classes (bg-gray-*, text-gray-*, etc.)
+- Old border styles
+- Old shadow utilities
+- Inconsistent border-radius values
+
+STEP 6.2: Consistency Audit
+----------------------------
+Check all pages for:
+- Consistent spacing (use 4, 6, 8, 12, 16, 24 as spacing scale)
+- Consistent border radius (xl, 2xl, 3xl)
+- Consistent text hierarchy
+- Consistent hover states
+- Consistent focus states
+
+STEP 6.3: Mobile Responsiveness
+--------------------------------
+Test all pages on mobile and ensure:
+- Proper stacking on small screens
+- Touch-friendly button sizes
+- Readable text
+- No horizontal overflow
+- Proper spacing
+
+STEP 6.4: Accessibility Check
+------------------------------
+Verify:
+- Sufficient color contrast (text vs background)
+- Visible focus indicators
+- Keyboard navigation works
+- Screen reader compatibility
+- ARIA labels present
+
+STEP 6.5: Performance Check
+----------------------------
+- Minimize CSS bundle size
+- Remove unused Tailwind utilities
+- Optimize animations
+- Check for layout shifts
+
+================================================================================
+PHASE 7: TESTING & VALIDATION
+================================================================================
+Duration: 2-3 hours
+
+STEP 7.1: Visual Regression Testing
+------------------------------------
+- Compare before/after screenshots
+- Check all major pages
+- Verify consistent styling
+
+STEP 7.2: Functionality Testing
+--------------------------------
+- Test all user flows
+- Ensure no broken features
+- Verify forms work
+- Test navigation
+- Test modals and dialogs
+
+STEP 7.3: Cross-Browser Testing
+--------------------------------
+- Chrome ✓
+- Firefox ✓
+- Safari ✓
+- Edge ✓
+
+STEP 7.4: Device Testing
+-------------------------
+- Desktop ✓
+- Tablet ✓
+- Mobile ✓
+
+================================================================================
+IMPLEMENTATION CHECKLIST
+================================================================================
+
+PHASE 0: DISCOVERY ✅
+[ ] Framework identification
+[ ] Component inventory
+[ ] Page inventory
+[ ] Style system audit
+
+PHASE 1: FOUNDATION
+[ ] Tailwind config update
+[ ] Global CSS update
+[ ] Design tokens module
+[ ] Test compilation
+
+PHASE 2: CORE COMPONENTS
+[ ] Button component
+[ ] Input component
+[ ] Card component
+[ ] Dialog component
+[ ] Tabs component
+[ ] Badge component
+[ ] Loading states
+[ ] Alert component
+[ ] Dropdown menu
+[ ] Empty state
+
+PHASE 3: LAYOUTS
+[ ] Root layout
+[ ] Navbar/Header
+[ ] Sidebar
+[ ] Page container
+[ ] Section component
+
+PHASE 4: PAGES (Priority Order)
+[ ] Landing page
+[ ] Dashboard
+[ ] Login page
+[ ] Onboarding
+[ ] Tours list
+[ ] Tour details (already done)
+[ ] Shows list
+[ ] Show budget
+[ ] Calendar
+[ ] Bookkeeping
+[ ] Import wizard
+[ ] Contacts
+[ ] Profile/Settings
+[ ] Remaining pages
+
+PHASE 5: MODALS
+[ ] Show modals
+[ ] Tour modals
+[ ] Profile modals
+[ ] Contact modals
+
+PHASE 6: CLEANUP
+[ ] Remove legacy styles
+[ ] Consistency audit
+[ ] Mobile responsive fixes
+[ ] Accessibility check
+[ ] Performance optimization
+
+PHASE 7: TESTING
+[ ] Visual regression
+[ ] Functionality testing
+[ ] Cross-browser testing
+[ ] Device testing
+
+================================================================================
+ESTIMATED TIMELINE
+================================================================================
+
+Phase 1: Foundation - 2-3 hours
+Phase 2: Core Components - 4-6 hours
+Phase 3: Layouts - 3-4 hours
+Phase 4: Pages - 8-12 hours
+Phase 5: Modals - 2-3 hours
+Phase 6: Cleanup - 2-3 hours
+Phase 7: Testing - 2-3 hours
+
+TOTAL: 23-34 hours (approximately 3-4 full working days)
+
+================================================================================
+RISK MITIGATION
+================================================================================
+
+1. Work incrementally - commit after each phase
+2. Test frequently - run dev server and check pages
+3. Keep backups - use git branches
+4. Document changes - update this plan with progress
+5. Communicate - report blockers immediately
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+Visual:
+✓ Every page matches the premium dark SaaS aesthetic
+✓ Consistent color palette throughout
+✓ Consistent spacing and typography
+✓ Smooth transitions and hover states
+✓ Glass-morphism effects properly applied
+✓ Gradient CTAs are prominent and beautiful
+
+Functional:
+✓ No broken features
+✓ All forms still work
+✓ Navigation intact
+✓ Modals function correctly
+✓ Data displays properly
+
+Technical:
+✓ Clean, maintainable code
+✓ Reusable components
+✓ TypeScript types preserved
+✓ No console errors
+✓ Good performance
+
+================================================================================
+END OF PLAN
+================================================================================
+
+This plan is a living document. Update progress as we go.
+Next step: Begin Phase 1 - Foundation

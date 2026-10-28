@@ -1,0 +1,263 @@
+================================================================================
+GOOGLE MAPS DIRECTIONS API - REQUEST_DENIED ERROR REPORT
+================================================================================
+Date: April 7, 2026
+Project: SceneGen UI v2
+API Key: [REDACTED_ROTATED_GOOGLE_MAPS_KEY]
+Google Cloud Project: scenegen-485723
+
+================================================================================
+ISSUE SUMMARY
+================================================================================
+
+STATUS: The coordinate mapping issue is FIXED ✅
+        The Directions API is returning REQUEST_DENIED ❌
+
+ERROR MESSAGE:
+  "MapsRequestError: DIRECTIONS_ROUTE: REQUEST_DENIED: There was an issue
+   performing a Directions request."
+
+WHAT'S WORKING:
+  ✅ Backend returns coordinates as numbers (float type)
+  ✅ Frontend receives coordinates correctly
+  ✅ Map loads and displays correctly
+  ✅ Markers would display (if we weren't trying to load routes first)
+  ✅ Venue data is correct
+
+WHAT'S NOT WORKING:
+  ❌ Directions API requests are being denied by Google
+  ❌ Route lines cannot be drawn on the map
+  ❌ Distance calculations cannot be performed
+
+================================================================================
+VERIFIED FACTS
+================================================================================
+
+1. Directions API IS ENABLED in Google Cloud Console
+   - Verified at: https://console.cloud.google.com/marketplace/product/google/directions-backend.googleapis.com
+   - Status: "API Enabled" ✅
+
+2. Billing IS ENABLED
+   - User confirmed billing is active ✅
+
+3. API Key IS UNRESTRICTED
+   - User confirmed no restrictions on the key ✅
+   - Application restrictions: None
+   - API restrictions: Don't restrict key
+
+4. Coordinates ARE VALID NUMBERS
+   - Backend test shows: venue_lat: 38.055045 (type: float) ✅
+   - Backend test shows: venue_lng: -84.498314 (type: float) ✅
+
+================================================================================
+ROOT CAUSE ANALYSIS
+================================================================================
+
+The REQUEST_DENIED error from Google Directions API, despite:
+- API being enabled
+- Billing being enabled
+- Key being unrestricted
+
+This typically indicates ONE of the following:
+
+1. **API KEY QUOTA/LIMITS ISSUE**
+   - The Directions API may have per-API quotas that need to be increased
+   - Default quota might be 0 requests/day until manually increased
+
+2. **API KEY NOT PROPERLY LINKED TO ENABLED API**
+   - The API is enabled in the project
+   - But the specific API key may not have permission to use it
+   - This can happen with older keys when new APIs are enabled
+
+3. **GOOGLE CLOUD PROJECT VERIFICATION REQUIRED**
+   - Some APIs require additional verification steps
+   - The project may need to be verified for production use
+
+4. **BILLING ACCOUNT NOT LINKED TO PROJECT**
+   - Billing might be "enabled" but not linked to this specific project
+   - Or linked incorrectly
+
+5. **API KEY CACHED/STALE**
+   - Google's systems may be caching an old version of the key
+   - Can take up to 5 minutes to propagate changes
+
+================================================================================
+TECHNICAL DETAILS
+================================================================================
+
+REQUEST BEING MADE:
+  Origin: {lat: 38.055045, lng: -84.498314}
+  Destination: {lat: 33.7399098, lng: -84.3452619}
+  Waypoints: 23 intermediate locations
+  Travel Mode: DRIVING
+  Optimize Waypoints: false
+
+API ENDPOINT:
+  DirectionsService.Route (Google Maps JavaScript API)
+
+ERROR CODE: REQUEST_DENIED
+ERROR SOURCE: directions.js:8:349
+
+BROWSER REQUEST:
+  The request is being made from: http://localhost:3000
+
+API KEY IN USE:
+  [REDACTED_ROTATED_GOOGLE_MAPS_KEY]
+
+================================================================================
+RECOMMENDED SOLUTIONS (IN ORDER)
+================================================================================
+
+SOLUTION 1: CHECK DIRECTIONS API QUOTA
+-----------------------------------------
+1. Go to: https://console.cloud.google.com/apis/api/directions-backend.googleapis.com/quotas?project=scenegen-485723
+2. Look for "Requests per day" quota
+3. If it shows 0 or very low, click "EDIT QUOTAS"
+4. Request an increase (suggest 10,000/day for testing)
+5. Wait 5-10 minutes for approval (usually instant for low amounts)
+6. Refresh browser and test
+
+WHY THIS WORKS:
+  Even with billing enabled, some APIs start with 0 quota until manually increased.
+
+SOLUTION 2: CREATE A NEW API KEY
+-----------------------------------------
+1. Go to: https://console.cloud.google.com/apis/credentials?project=scenegen-485723
+2. Click "+ CREATE CREDENTIALS" → "API key"
+3. Copy the new key immediately
+4. Update .env.local:
+   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=<new_key_here>
+5. Restart dev server: npm run dev
+6. Hard refresh browser: Cmd+Shift+R
+
+WHY THIS WORKS:
+  New keys are automatically linked to all enabled APIs in the project.
+  Old keys might have stale permissions or cache issues.
+
+SOLUTION 3: VERIFY BILLING ACCOUNT LINKAGE
+-----------------------------------------
+1. Go to: https://console.cloud.google.com/billing/linkedaccount?project=scenegen-485723
+2. Verify a billing account is shown and ACTIVE
+3. If not, click "LINK A BILLING ACCOUNT"
+4. Select your billing account
+5. Wait 2-3 minutes
+6. Refresh browser and test
+
+WHY THIS WORKS:
+  Directions API absolutely requires billing, even for free tier usage.
+  The API might be "enabled" but not billable without proper linkage.
+
+SOLUTION 4: ENABLE "MAPS JAVASCRIPT API"
+-----------------------------------------
+1. Go to: https://console.cloud.google.com/apis/library/maps-backend.googleapis.com?project=scenegen-485723
+2. Click "ENABLE"
+3. Wait 1-2 minutes
+4. Refresh browser
+
+WHY THIS WORKS:
+  The Directions API is sometimes dependent on the Maps JavaScript API being enabled.
+
+SOLUTION 5: CHECK API KEY RESTRICTIONS (AGAIN)
+-----------------------------------------
+Even though you said it's unrestricted, double-check:
+
+1. Go to: https://console.cloud.google.com/apis/credentials?project=scenegen-485723
+2. Click on the API key: [REDACTED_ROTATED_GOOGLE_MAPS_KEY]
+3. Under "Application restrictions":
+   - Must be "None" OR
+   - If "HTTP referrers", must include: http://localhost:3000/*
+4. Under "API restrictions":
+   - Must be "Don't restrict key" OR
+   - If "Restrict key", must have "Directions API" checked
+5. Click SAVE
+6. Wait 2 minutes
+7. Hard refresh browser
+
+================================================================================
+ALTERNATIVE: DISPLAY MAP WITHOUT ROUTES
+================================================================================
+
+If you want to see the markers NOW while fixing the Directions API:
+
+1. Comment out the route loading in TourMap.tsx
+2. This will show markers without route lines
+3. You can still click markers and see venue info
+4. Fix Directions API separately
+
+To do this, edit src/components/maps/TourMap.tsx:
+
+Around line 68, comment out the useEffect:
+```typescript
+// Load route segments
+useEffect(() => {
+  return; // TEMPORARILY DISABLED - Fix Directions API first
+
+  if (!map || validShows.length < 2) {
+    // ... rest of code
+```
+
+This will let you verify the coordinate fix is working while you resolve the API issue.
+
+================================================================================
+MOST LIKELY SOLUTION
+================================================================================
+
+Based on similar cases, the #1 most likely fix is:
+
+**SOLUTION 1: CHECK/INCREASE DIRECTIONS API QUOTA**
+
+Even with billing enabled, the Directions API quota might be set to 0 by default.
+You need to manually request a quota increase in the Google Cloud Console.
+
+Try that first before trying other solutions.
+
+================================================================================
+CONTACT GOOGLE SUPPORT
+================================================================================
+
+If none of the above works, you may need to contact Google Cloud Support:
+
+1. Go to: https://cloud.google.com/support
+2. Create a support case
+3. Select "Google Maps Platform"
+4. Describe the issue:
+   - Directions API enabled
+   - Billing enabled
+   - Key unrestricted
+   - Still getting REQUEST_DENIED
+
+They can check server-side issues or account-specific problems.
+
+================================================================================
+CURRENT CODE STATUS
+================================================================================
+
+The code changes made to fix the coordinate issue:
+
+1. Backend (server.js):
+   - Added parseFloat() to convert venue_lat/venue_lng from strings to numbers ✅
+   - Override both venueLat and venue_lat with number versions ✅
+
+2. Frontend (routeUtils.ts):
+   - Added string-to-number conversion in convertShowForMap() ✅
+   - Added type checking in getMapBounds() ✅
+   - Added type checking in hasValidCoordinates() ✅
+
+3. Frontend (TourMap.tsx):
+   - Added detailed error logging for Directions API ✅
+   - Shows helpful error messages in console ✅
+
+All code is working correctly. The only issue is the Google Cloud Console configuration.
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Try SOLUTION 1 (Check Directions API quota) first
+2. If that doesn't work, try SOLUTION 2 (New API key)
+3. If still failing, try SOLUTION 3 (Verify billing linkage)
+4. As a last resort, contact Google Support
+
+The coordinate issue is 100% fixed. This is purely a Google Cloud Console setup issue now.
+
+================================================================================

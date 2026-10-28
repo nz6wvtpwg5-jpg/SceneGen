@@ -1,0 +1,392 @@
+===========================================
+CURRENT MERCH ANALYTICS COMPONENT CODE
+===========================================
+File: src/components/merch/MerchAnalytics.tsx
+Last Updated: May 12, 2026
+===========================================
+
+'use client';
+
+import { useMemo, useState, useRef } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { TrendingUp, Trophy, Calendar, Package } from 'lucide-react';
+import { ShowMerchBreakdown } from './ShowMerchBreakdown';
+
+interface MerchItem {
+  id: string;
+  name: string;
+  quantity: number;
+  variation: string | null;
+  basePriceMoney: number;
+  totalMoney: number;
+  catalogObjectId: string | null;
+}
+
+interface MerchSale {
+  id: string;
+  squareOrderId: string;
+  totalMoney: number;
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+  state: string;
+  locationId?: string;
+  showId?: number;
+  showName?: string;
+  showDate?: string;
+  showCity?: string;
+  showState?: string;
+  matched: boolean;
+  itemCount: number;
+  items: MerchItem[];
+}
+
+interface Props {
+  sales: MerchSale[];
+  loading: boolean;
+}
+
+export default function MerchAnalytics({ sales, loading }: Props) {
+  const [hoveredShow, setHoveredShow] = useState<{ showId: number; position: { x: number; y: number } } | null>(null);
+
+  const analytics = useMemo(() => {
+    // Group sales by show
+    const salesByShow = sales.reduce((acc, sale) => {
+      if (!sale.showId || !sale.showName) return acc;
+
+      const key = `${sale.showId}`;
+      if (!acc[key]) {
+        acc[key] = {
+          showId: sale.showId,
+          showName: sale.showName,
+          showDate: sale.showDate || '',
+          showCity: sale.showCity || '',
+          showState: sale.showState || '',
+          totalRevenue: 0,
+          transactions: 0,
+          items: 0,
+        };
+      }
+
+      acc[key].totalRevenue += sale.totalMoney;
+      acc[key].transactions += 1;
+      acc[key].items += sale.itemCount;
+
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Convert to array and sort by revenue
+    const showData = Object.values(salesByShow)
+      .sort((a: any, b: any) => b.totalRevenue - a.totalRevenue)
+      .slice(0, 10); // Top 10 shows
+
+    // Calculate average sale
+    const avgSale = showData.length > 0
+      ? showData.reduce((sum: number, show: any) => sum + show.totalRevenue, 0) / showData.map((s: any) => s.transactions).reduce((sum: number, t: number) => sum + t, 0)
+      : 0;
+
+    // Find best show
+    const bestShow = showData.length > 0 ? showData[0] : null;
+
+    return {
+      showData,
+      avgSale,
+      bestShow,
+    };
+  }, [sales]);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount / 100);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Insights Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Best Performing Show</CardTitle>
+            <Trophy className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            {analytics.bestShow ? (
+              <div>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(analytics.bestShow.totalRevenue)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {analytics.bestShow.showName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {analytics.bestShow.transactions} orders • {analytics.bestShow.items} items
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {analytics.bestShow.showCity}, {analytics.bestShow.showState}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No data yet</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Sale Per Show</CardTitle>
+            <TrendingUp className="h-4 w-4 text-accent-cyan" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(analytics.avgSale)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Across {analytics.showData.length} shows
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Shows with Sales</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {analytics.showData.length}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              From matched transactions
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Sales by Show Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Sales by Show</CardTitle>
+          <CardDescription>
+            Top performing shows by merch revenue
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+              Loading analytics...
+            </div>
+          ) : analytics.showData.length === 0 ? (
+            <div className="h-[400px] flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-lg font-medium">No data available</p>
+                <p className="text-sm text-muted-foreground">
+                  Match transactions to shows to see analytics
+                </p>
+              </div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart
+                data={analytics.showData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                <XAxis
+                  dataKey="showName"
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  tick={{ fill: '#888', fontSize: 12 }}
+                />
+                <YAxis
+                  tick={{ fill: '#888' }}
+                  tickFormatter={(value: number) => `$${(value / 100).toFixed(0)}`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '8px',
+                  }}
+                  formatter={(value: any) => [formatCurrency(value), 'Revenue']}
+                  labelFormatter={(label: any) => `Show: ${label}`}
+                />
+                <Legend />
+                <Bar
+                  dataKey="totalRevenue"
+                  fill="#00C9FF"
+                  name="Total Revenue"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Top Shows Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Performing Shows</CardTitle>
+          <CardDescription>
+            Shows ranked by merch sales revenue
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {analytics.showData.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">
+              No data available
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {analytics.showData.map((show: any, index: number) => (
+                <div
+                  key={show.showId}
+                  className="flex items-center justify-between border-b pb-4 last:border-0 cursor-pointer hover:bg-accent-cyan/5 transition-colors rounded-lg p-3 -m-3 mb-1"
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoveredShow({
+                      showId: show.showId,
+                      position: {
+                        x: rect.left + rect.width / 2,
+                        y: rect.top,
+                      },
+                    });
+                  }}
+                  onMouseLeave={() => setHoveredShow(null)}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-accent-cyan/10 text-accent-cyan font-bold">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium">{show.showName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(show.showDate)} • {show.showCity}, {show.showState}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold">
+                      {formatCurrency(show.totalRevenue)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {show.transactions} {show.transactions === 1 ? 'order' : 'orders'} • {show.items} items
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Hover Breakdown Modal */}
+      {hoveredShow && (() => {
+        const show = analytics.showData.find((s: any) => s.showId === hoveredShow.showId);
+        const showSales = sales.filter(s => s.showId === hoveredShow.showId);
+        
+        return show ? (
+          <ShowMerchBreakdown
+            sales={showSales}
+            showName={show.showName}
+            position={hoveredShow.position}
+          />
+        ) : null;
+      })()}
+    </div>
+  );
+}
+
+===========================================
+CURRENT FEATURES
+===========================================
+
+1. INSIGHT CARDS (Top Row):
+   - Best Performing Show (revenue, venue, orders, items, location)
+   - Average Sale Per Show 
+   - Total Shows with Sales
+
+2. BAR CHART:
+   - Top 10 shows by revenue
+   - Visual comparison of performance
+   - Hover tooltips with details
+
+3. TOP SHOWS TABLE:
+   - Ranked list of shows
+   - Revenue, order count, item count
+   - Date and location info
+   - Hover shows item breakdown (via ShowMerchBreakdown component)
+
+===========================================
+DATA STRUCTURE
+===========================================
+
+Input: Array of MerchSale objects with:
+  - totalMoney (in cents)
+  - showId, showName, showDate, showCity, showState
+  - itemCount
+  - items (array of individual merch items)
+
+Computed Analytics:
+  - salesByShow: Groups by showId
+  - showData: Top 10 shows sorted by revenue
+  - avgSale: Average revenue per transaction
+  - bestShow: Highest revenue show
+
+===========================================
+AREAS FOR ENHANCEMENT
+===========================================
+
+Potential improvements you might want:
+
+1. TIME-BASED ANALYTICS:
+   - Revenue trends over time (line chart)
+   - Month-over-month comparison
+   - Day of week performance
+   - Peak sales hours
+
+2. PRODUCT ANALYTICS:
+   - Top selling items
+   - Item category breakdown
+   - Price point analysis
+   - Inventory insights
+
+3. COMPARATIVE METRICS:
+   - Revenue per capita (if you track attendance)
+   - Geographic performance (state/region)
+   - Venue type analysis
+   - Tour vs one-off shows
+
+4. ADVANCED INSIGHTS:
+   - Conversion rate (attendees to buyers)
+   - Average items per transaction
+   - Repeat customer tracking
+   - Bundle/combo analysis
+
+5. EXPORT & REPORTING:
+   - PDF reports
+   - CSV export
+   - Email summaries
+   - Print-friendly views
+
+6. FILTERS & SEGMENTATION:
+   - Date range selector
+   - Tour filter
+   - Venue filter
+   - Product category filter
+
+===========================================
+END OF FILE
+===========================================

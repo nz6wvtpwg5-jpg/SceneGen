@@ -1,0 +1,2429 @@
+================================================================================
+SCENEGEN MVP - COMPREHENSIVE APPLICATION OVERVIEW
+================================================================================
+Date: January 28, 2026
+Version: 1.0 (MVP Complete)
+Status: Frontend Complete, Backend Integration Pending
+
+This document provides a complete technical overview of how the SceneGen 
+application works, including architecture, features, user flows, and 
+implementation details.
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. Introduction & Purpose
+2. System Architecture
+3. Technology Stack
+4. Authentication & User Flow
+5. Core Entities & Data Models
+6. Feature-by-Feature Breakdown
+7. User Journeys
+8. API Integration Layer
+9. State Management
+10. UI/UX Components
+11. Error Handling & User Feedback
+12. File Structure
+13. Configuration & Environment
+14. Development Workflow
+15. Testing & Quality Assurance
+
+================================================================================
+1. INTRODUCTION & PURPOSE
+================================================================================
+
+WHAT IS SCENEGEN?
+SceneGen is a touring and show management platform that connects artists and 
+promoters. It facilitates collaboration on booking shows, organizing tours, 
+and managing contacts in the live music industry.
+
+TARGET USERS:
+- Artists: Musicians/bands who tour and perform live shows
+- Promoters: Venue operators/booking agents who host shows
+
+KEY PROBLEM SOLVED:
+Streamlines the complex process of booking tours, managing multiple shows, 
+coordinating between artists and promoters, and maintaining professional 
+relationships in the music industry.
+
+MVP SCOPE:
+The current implementation includes:
+✓ User authentication and entity ownership
+✓ Artist/Promoter profile management
+✓ Contact networking system
+✓ Show creation and management
+✓ Tour organization (artist-only)
+✓ Interactive touring map (artist-only)
+✓ Invite system for onboarding
+✓ Bulk operations on shows
+✓ Advanced filtering and search
+
+================================================================================
+2. SYSTEM ARCHITECTURE
+================================================================================
+
+ARCHITECTURE PATTERN:
+- Frontend: Next.js 14 (App Router) with React 18
+- API Layer: Next.js API Routes (Proxy Pattern)
+- Authentication: NextAuth.js with JWT tokens
+- State Management: Zustand (lightweight, hook-based)
+- Styling: Tailwind CSS + shadcn/ui components
+- Map Integration: Leaflet + react-leaflet
+
+ARCHITECTURAL DECISIONS:
+
+A) API PROXY PATTERN
+   All frontend API calls go through Next.js API routes in /app/api/
+   
+   Flow:
+   Frontend Component → API Route (src/app/api/*) → Backend API
+   
+   Benefits:
+   - Keeps backend URLs hidden from client
+   - Centralized auth token handling
+   - Easy to mock during development
+   - CORS management
+   - Request/response transformation
+
+B) SERVER-SIDE RENDERING (SSR)
+   Next.js App Router provides:
+   - Server components by default
+   - Client components marked with "use client"
+   - Automatic code splitting
+   - Optimized loading
+
+C) COMPONENT-DRIVEN ARCHITECTURE
+   - Atomic design principles
+   - Reusable UI components in /components/ui/
+   - Feature-specific components in /components/[feature]/
+   - Separation of concerns
+
+D) HOOK-BASED STATE MANAGEMENT
+   - Custom hooks for each feature (useShows, useTours, etc.)
+   - Zustand for global state (user profile)
+   - React hooks for local state
+   - No Redux complexity
+
+================================================================================
+3. TECHNOLOGY STACK
+================================================================================
+
+FRONTEND FRAMEWORK:
+- Next.js 14.2.24 (App Router, React Server Components)
+- React 18.3.1
+- TypeScript 5.x (Strict mode enabled)
+
+UI & STYLING:
+- Tailwind CSS 3.4.17
+- shadcn/ui components (customizable, accessible)
+- Lucide React (icons)
+- next-themes (dark/light mode)
+
+STATE MANAGEMENT:
+- Zustand 5.0.2 (global state)
+- React hooks (local state)
+- React Context (theme, session)
+
+AUTHENTICATION:
+- NextAuth.js 4.24.11
+- JWT token-based auth
+- Session management
+
+MAP & GEOLOCATION:
+- Leaflet 1.9.4
+- react-leaflet 5.0.0
+- react-leaflet-cluster 2.1.0
+
+NOTIFICATIONS & FEEDBACK:
+- sonner 2.0.7 (toast notifications)
+
+FORMS & VALIDATION:
+- Native HTML5 validation
+- Custom validation logic
+
+HTTP CLIENT:
+- Native fetch API
+- Async/await pattern
+
+BUILD & DEVELOPMENT:
+- pnpm 10.13.1 (package manager)
+- ESLint (linting)
+- PostCSS (CSS processing)
+
+================================================================================
+4. AUTHENTICATION & USER FLOW
+================================================================================
+
+AUTHENTICATION SYSTEM:
+
+A) SETUP (src/auth.ts)
+   - NextAuth.js configured with JWT strategy
+   - Session stored in secure HTTP-only cookies
+   - Token includes: user ID, email, access token
+
+B) AUTH FLOW:
+   1. User logs in (external auth provider or custom)
+   2. NextAuth creates session with JWT
+   3. Session stored in cookie
+   4. Access token passed to backend in API calls
+
+C) SESSION MANAGEMENT:
+   - SessionProviderWrapper wraps entire app
+   - useSession() hook provides session data anywhere
+   - Middleware checks auth on protected routes
+
+D) PROTECTED ROUTES:
+   Middleware (src/middleware.ts) protects:
+   - /dashboard
+   - /shows
+   - /contacts
+   - /tours
+   - /touring
+   - /profile
+   
+   Redirects to /api/auth/signin if not authenticated
+
+E) TOKEN HANDLING:
+   All API proxy routes extract token from session:
+   ```typescript
+   const session = await getServerSession(authOptions);
+   const token = session?.access_token;
+   
+   fetch(backendUrl, {
+     headers: {
+       'Authorization': `Bearer ${token}`
+     }
+   })
+   ```
+
+================================================================================
+5. CORE ENTITIES & DATA MODELS
+================================================================================
+
+A) USER
+   - id: string (UUID)
+   - email: string
+   - name: string
+   - Role: User can own ONE entity (artist OR promoter)
+
+B) ENTITY
+   - id: string (UUID)
+   - administratorId: string (user ID)
+   - entityType: 'artist' | 'promoter'
+   - name: string
+   - city: string
+   - state: string
+   - country: string
+   - latitude?: number
+   - longitude?: number
+   - bio?: string
+   - genres?: string[]
+   - memberNames?: string[]
+   - profileImageUrl?: string
+   - headerImageUrl?: string
+   - trialExpiry?: string (ISO date)
+   
+   Relationship: User 1:1 Entity (enforced)
+
+C) CONTACT
+   - id: string (UUID)
+   - entityId1: string (entity ID)
+   - entityId2: string (entity ID)
+   - status: 'pending' | 'accepted'
+   - initiatedBy: string (entity ID)
+   - createdAt: string (ISO date)
+   - acceptedAt?: string (ISO date)
+   
+   Relationship: Entity M:N Entity (through contacts)
+
+D) SHOW
+   - id: string (UUID)
+   - artistEntityId: string
+   - promoterEntityId: string
+   - tourId?: string (nullable)
+   - createdBy: string (entity ID)
+   - venueName: string
+   - venueCity: string
+   - venueState: string
+   - venueCountry: string
+   - showDate: string (ISO date)
+   - showTime: string (HH:MM)
+   - doorsTime: string (HH:MM)
+   - setLength: string
+   - guarantee?: number
+   - dealType: 'guarantee' | 'door_split' | 'guarantee_vs_percentage' | 
+               'flat_fee' | 'other'
+   - status: 'draft' | 'pending_invite' | 'pending_acceptance' | 
+             'confirmed' | 'cancelled'
+   - notes?: string
+   - createdAt: string
+   - updatedAt: string
+   
+   Relationships:
+   - Artist Entity 1:M Shows
+   - Promoter Entity 1:M Shows
+   - Tour 1:M Shows (optional)
+
+E) TOUR (Artist-Only)
+   - id: string (UUID)
+   - artistEntityId: string
+   - name: string
+   - notes?: string
+   - startDate: string (computed from shows)
+   - endDate: string (computed from shows)
+   - createdAt: string
+   - updatedAt: string
+   
+   Relationship: Artist Entity 1:M Tours
+
+F) INVITE
+   - id: string (UUID)
+   - token: string (unique)
+   - inviteType: 'general' | 'show_invite'
+   - inviterEntityId: string
+   - recipientEmail: string
+   - showId?: string (for show invites)
+   - status: 'pending' | 'accepted' | 'expired'
+   - expiresAt: string (ISO date)
+   - createdAt: string
+   
+   Purpose: Onboarding new users with context
+
+================================================================================
+6. FEATURE-BY-FEATURE BREAKDOWN
+================================================================================
+
+FEATURE 1: ONBOARDING
+--------------------------------------------------------------------------------
+Location: src/app/onboarding/page.tsx
+
+Purpose: 
+Create user's first entity (artist or promoter). Ensures one-entity-per-user.
+
+Flow:
+1. User completes auth and has no entity
+2. Redirected to /onboarding
+3. Choose entity type (artist or promoter)
+4. Fill in entity details (name, location, bio)
+5. Submit → Entity created
+6. Redirected to dashboard
+
+Special Cases:
+- If user has invite token in URL (?invite=xxx):
+  * Fetch invite details
+  * Enforce entity type (opposite of inviter)
+  * Auto-accept invite after entity creation
+  * Redirect to show or dashboard based on invite type
+
+API Routes:
+- POST /api/artist/add
+- POST /api/promoter/add
+- GET /api/invites/[token]
+- POST /api/invites/[token]/accept
+
+Components:
+- OnboardingContent (main form)
+- EntityType selector
+- Form fields for entity details
+
+Hooks:
+- useOnboardingRedirect (checks if user needs onboarding)
+
+Validation:
+- Required fields: name, city, state, country
+- Duplicate entity prevention (409 Conflict)
+
+
+FEATURE 2: DASHBOARD
+--------------------------------------------------------------------------------
+Location: src/app/dashboard/page.tsx
+
+Purpose:
+Landing page after login. Shows overview and quick actions.
+
+Content:
+- Welcome message with entity name
+- Trial status (if applicable)
+- Quick links to main features
+- Recent activity (future enhancement)
+
+Protected:
+- Requires authentication
+- Requires entity ownership (redirects to onboarding if none)
+
+
+FEATURE 3: CONTACTS & NETWORKING
+--------------------------------------------------------------------------------
+Location: src/app/contacts/page.tsx
+
+Purpose:
+Manage professional relationships between artists and promoters.
+
+Tabs:
+A) ACCEPTED CONTACTS
+   - Map view showing contact locations
+   - Table of accepted contacts
+   - Filter by role, country
+   - Search by name/location
+   - Click contact → center map on location
+
+B) PENDING REQUESTS
+   - Incoming requests (others sent to you)
+     * Accept button → creates contact
+     * Reject button → removes request
+   - Outgoing requests (you sent to others)
+     * Shows "Awaiting response" status
+
+Flow - Send Request:
+1. Click "Add Contact" button
+2. Search for entity (artist or promoter)
+3. Select entity
+4. Click "Send Request"
+5. Request created with status: 'pending'
+6. Recipient sees in "Incoming Requests"
+
+Flow - Accept Request:
+1. View incoming request in Pending tab
+2. Click "Accept"
+3. Status changed to 'accepted'
+4. Contact appears in both entities' contact lists
+5. Toast notification: "Contact request accepted!"
+
+API Routes:
+- GET /api/contacts?status=pending|accepted
+- POST /api/contacts/request (body: { recipientEntityId })
+- POST /api/contacts/accept/[contactId]
+- POST /api/contacts/reject/[contactId]
+
+Components:
+- ContactsTable (accepted contacts)
+- ConnectionsTable (contact requests)
+- ContactMap (map view with markers)
+- ContactSearch (search/add flow)
+
+Hooks:
+- useContacts (fetch, accept, reject)
+
+State:
+- Active tab (accepted/pending)
+- Contacts list
+- Map center
+
+Special Features:
+- Real-time contact count badges
+- Map integration with Leaflet
+- Skeleton loaders during fetch
+- Toast notifications for actions
+
+
+FEATURE 4: ENTITY SEARCH & DISCOVERY
+--------------------------------------------------------------------------------
+Location: src/components/search/EntitySearch.tsx
+
+Purpose:
+Find artists or promoters to connect with or collaborate.
+
+Features:
+- Search by name, city, or alias
+- Filter by type (artist, promoter, all)
+- Live search (debounced)
+- Results show: name, type, location
+- Click result → view profile or send contact request
+
+API Route:
+- GET /api/search?q={query}&type=artist|promoter|all
+
+Components:
+- EntitySearch (search input + results)
+
+Hooks:
+- useSearch (query, filter, results)
+
+Implementation:
+- Debounced input (500ms)
+- Excludes current user's entity from results
+- Shows "No results" empty state
+
+
+FEATURE 5: SHOW MANAGEMENT
+--------------------------------------------------------------------------------
+Location: src/app/shows/page.tsx
+
+Purpose:
+Create, view, and manage shows (performances/events).
+
+Views:
+A) SHOW LIST
+   - Card-based layout showing all shows
+   - Each card displays:
+     * Venue name and location
+     * Show date and time
+     * Status badge (draft, pending, confirmed, cancelled)
+     * Guarantee and deal type
+     * Notes
+   - Checkbox selection for bulk actions
+   - Cancel show button
+
+B) FILTERS
+   - Status filter: All, Confirmed, Pending, Draft
+   - Tour filter: All Tours, Standalone, [specific tour]
+   - Search: By venue name or city
+
+C) BULK ACTIONS
+   - Select multiple shows via checkboxes
+   - Fixed bottom toolbar appears when shows selected
+   - Actions:
+     * Add to Tour (opens modal)
+     * Remove from Tour
+     * Clear Selection
+
+D) CREATE SHOW MODAL
+   Fields:
+   - Venue details (name, city, state, country)
+   - Show date and time
+   - Doors time
+   - Set length
+   - Guarantee amount
+   - Deal type (guarantee, door split, etc.)
+   - Notes
+   - Tour selection (artist-only)
+   - Promoter selection (if artist creating)
+   - Artist selection (if promoter creating)
+   
+   Flow:
+   1. Click "Add a Show" button
+   2. Modal opens with form
+   3. Fill in details
+   4. Submit → Show created
+   5. Toast: "Show created successfully!"
+   6. Show appears in list
+
+Flow - Cancel Show:
+1. Click "Cancel Show" on show card
+2. Confirm dialog
+3. Show status → 'cancelled'
+4. Toast: "Show cancelled successfully"
+
+Flow - Bulk Add to Tour:
+1. Select shows via checkboxes
+2. Click "Add to Tour" in toolbar
+3. Modal opens:
+   - Choose existing tour OR
+   - Create new tour inline
+   - Shows already in tours show warning
+4. Confirm or cancel
+5. Shows added to selected tour
+6. Toast: "Shows added to tour successfully!"
+
+API Routes:
+- GET /api/shows (returns all shows for entity)
+- GET /api/shows?tourId={id} (filter by tour)
+- GET /api/shows?tourId=null (standalone shows only)
+- POST /api/shows (create new show)
+- PATCH /api/shows/[id] (update show)
+- DELETE /api/shows/[id] (cancel show)
+- POST /api/shows/bulk-update (update multiple shows)
+
+Components:
+- ShowsTable (list with checkboxes)
+- CreateShowForm (creation modal)
+- BulkActionsToolbar (fixed bottom toolbar)
+- AddToTourModal (bulk add to tour)
+
+Hooks:
+- useShows (CRUD operations + bulk)
+- useTours (for tour selection)
+
+State:
+- Shows list
+- Filtered shows (after applying filters)
+- Selected show IDs (for bulk actions)
+- Active filters (status, tour, search)
+- Modal states (create, add to tour)
+
+Special Features:
+- Pending show count badge
+- Status color-coding
+- Chronological sorting
+- Empty state: "No shows yet"
+- Skeleton loaders during fetch
+- Toast notifications for all actions
+
+
+FEATURE 6: TOUR MANAGEMENT (Artist-Only)
+--------------------------------------------------------------------------------
+Location: src/app/tours/page.tsx
+
+Purpose:
+Organize multiple shows into tours for better planning.
+
+Access:
+- Artists only
+- Promoters see: "Artist Feature Only" message
+
+Features:
+A) TOUR LIST
+   - Card-based layout
+   - Each card shows:
+     * Tour name
+     * Date range (computed from shows)
+     * Notes
+     * Actions: View Details, Delete
+   - Empty state: "No Tours Yet"
+
+B) CREATE TOUR
+   Modal with fields:
+   - Tour name (required)
+   - Notes (optional)
+   
+   Flow:
+   1. Click "+ Create Tour" button
+   2. Modal opens
+   3. Enter name and notes
+   4. Submit → Tour created
+   5. Toast: "Tour created successfully!"
+   6. Tour appears in list
+
+C) TOUR DETAILS PAGE
+   Location: src/app/tours/[id]/page.tsx
+   
+   Features:
+   - Editable tour name and notes
+   - Tour statistics (total shows, confirmed, pending)
+   - Chronological list of shows in tour
+   - Delete tour button
+   
+   Edit Flow:
+   1. Click "Edit Tour"
+   2. Inline editing mode
+   3. Update name/notes
+   4. Click "Save Changes"
+   5. Toast: "Tour updated successfully!"
+   
+   Delete Flow:
+   1. Click "Delete Tour"
+   2. Warning: "N shows will become standalone"
+   3. Confirm
+   4. Tour deleted, shows keep standalone status
+   5. Toast: "Tour deleted successfully"
+   6. Redirect to /tours
+
+API Routes:
+- GET /api/tours (list all tours for artist)
+- GET /api/tours/[id] (single tour details)
+- POST /api/tours (create tour)
+- PATCH /api/tours/[id] (update tour)
+- DELETE /api/tours/[id] (delete tour)
+
+Components:
+- CreateTourModal (creation)
+- TourCard (list item)
+- TourDetails (details page)
+
+Hooks:
+- useTours (CRUD operations)
+- useShows (fetch shows for tour)
+
+State:
+- Tours list
+- Selected tour (details page)
+- Edit mode (inline editing)
+
+Computed Values:
+- Tour dates: MIN(show.showDate) and MAX(show.showDate)
+- Show counts by status
+
+Special Features:
+- Empty state with CTA
+- Skeleton loaders
+- Toast notifications
+- Promoter guard (redirect)
+
+
+FEATURE 7: TOURING MAP (Artist-Only)
+--------------------------------------------------------------------------------
+Location: src/app/touring/page.tsx
+
+Purpose:
+Visualize promoter contacts on interactive map. Plan tours geographically.
+
+Access:
+- Artists only
+- Promoters see: "Artist Feature Only" message
+
+Layout:
+- Split view: Map (left 70%) + Contacts List (right 30%)
+- Toolbar at top with action buttons
+
+A) MAP VIEW (Leaflet)
+   Features:
+   - World map centered on artist location or US center
+   - Markers for each promoter contact
+   - Marker color/opacity based on show count
+   - Click marker → popup with promoter details
+   - Popup shows:
+     * Promoter name
+     * Location
+     * Show count
+     * List of shows
+     * "Create Show" button
+   
+   Tour Context:
+   - When tour selected in filter:
+     * Markers for promoters WITH shows in tour: Full opacity
+     * Markers for promoters WITHOUT shows in tour: 30% opacity
+     * Helps visualize tour routing
+
+B) CONTACTS LIST (Sidebar)
+   - List of all promoter contacts
+   - Each item shows:
+     * Promoter name
+     * Location
+     * Show count badge
+     * Click → centers map on promoter
+   
+   Empty State:
+   - "No Promoter Contacts"
+   - Link to contacts page
+
+C) TOUR FILTER
+   - Dropdown to select tour
+   - Options: All Tours, [Tour 1], [Tour 2], etc.
+   - Updates map markers and show data
+
+D) TOOLBAR ACTIONS
+   - "Create Show" button
+   - "Create Tour" button
+   - "Refresh" button
+
+Flow - Create Show from Map:
+1. Click marker on map
+2. Popup opens
+3. Click "Create Show" in popup
+4. CreateShowForm modal opens
+5. Promoter and tour (if selected) pre-filled
+6. Fill remaining details
+7. Submit → Show created
+8. Map refreshes with new show data
+
+Flow - Map Centering:
+1. Click promoter in contacts list
+2. Map centers on promoter's coordinates
+3. Marker popup opens automatically
+
+API Routes:
+- GET /api/contacts/promoters (get all promoter contacts)
+- GET /api/contacts/promoters?tourId={id} (filter by tour)
+
+Components:
+- TouringLayout (main layout)
+- TouringMap (Leaflet map)
+- PromoterContactsList (sidebar)
+- MarkerPopup (marker popup content)
+- TourFilter (tour dropdown)
+
+Hooks:
+- useState for map state
+- useSession for auth
+- useProfileStore for artist info
+- Leaflet hooks (useMap, useMapEvents)
+
+State:
+- Promoter contacts
+- Selected tour ID
+- Selected promoter ID (for centering)
+- Map center coordinates
+
+Special Features:
+- MapController component (handles centering)
+- Dynamic marker opacity based on tour context
+- Clustering for overlapping markers
+- Responsive layout
+- Empty state handling
+- Promoter guard
+
+
+FEATURE 8: INVITE SYSTEM
+--------------------------------------------------------------------------------
+Location: 
+- Generate: src/components/invites/GenerateInvite.tsx
+- Accept: src/app/onboarding/page.tsx
+
+Purpose:
+Onboard new users with context (show invite or general invite).
+
+Types:
+A) GENERAL INVITE
+   - Invite someone to join SceneGen
+   - No specific show attached
+   - Enforces opposite entity type:
+     * Artist invites → must create Promoter
+     * Promoter invites → must create Artist
+
+B) SHOW INVITE
+   - Invite to specific show
+   - Auto-accepts contact after onboarding
+   - Redirects to show details after signup
+
+Flow - Generate Invite:
+1. Click "Generate Invite" (in show details or contacts)
+2. Modal opens
+3. Select invite type (general or show)
+4. Enter recipient email
+5. If show invite: select show
+6. Submit → Invite created
+7. Copy invite link
+8. Share link with recipient
+
+Flow - Accept Invite:
+1. Recipient clicks invite link
+2. Redirected to /onboarding?invite={token}
+3. Invite details fetched
+4. Entity type enforced based on inviter
+5. User creates entity
+6. Invite auto-accepted
+7. Contact created between entities
+8. If show invite: redirect to /shows/{showId}
+9. If general invite: redirect to /dashboard
+10. Toast: "Welcome to SceneGen!"
+
+API Routes:
+- POST /api/invites (create invite)
+- GET /api/invites/[token] (fetch invite details)
+- POST /api/invites/[token]/accept (accept invite)
+
+Components:
+- GenerateInvite (generation modal)
+- OnboardingContent (handles invite context)
+
+Hooks:
+- useInvites (CRUD operations)
+
+State:
+- Invite details
+- Loading state
+- Error handling
+
+Validation:
+- Token expiry check
+- Already accepted check
+- Valid entity types
+
+
+FEATURE 9: PROFILE MANAGEMENT
+--------------------------------------------------------------------------------
+Location: src/app/profile/page.tsx (view), /profile/edit (edit)
+
+Purpose:
+View and edit entity profile information.
+
+View Mode:
+- Profile header with image
+- Entity details (name, type, location)
+- Bio
+- Genres (artists)
+- Members (artists)
+- Upcoming shows preview
+
+Edit Mode:
+- All fields editable
+- Image upload (profile + header)
+- Save/Cancel buttons
+- Validation
+
+API Routes:
+- GET /api/user/entities (fetch entity)
+- PATCH /api/artist/[id] or /api/promoter/[id] (update)
+
+Components:
+- ProfileHeader
+- ArtistBio, ArtistGenres, ArtistMembers
+- HeaderImageUpload
+- ProfileEdit forms
+
+Hooks:
+- useProfileStore (Zustand global state)
+
+State:
+- Profile data cached in Zustand
+- Edit mode toggle
+- Unsaved changes tracking
+
+
+FEATURE 10: TRIAL & SUBSCRIPTION STATUS
+--------------------------------------------------------------------------------
+Location: Throughout app (navbar, dashboard)
+
+Purpose:
+Display trial status. Block actions after expiry.
+
+Trial Logic:
+- trialExpiry field on Entity
+- Compare with current date
+- If expired: show warning banner
+- Middleware can block actions (future)
+
+UI Elements:
+- Trial expiry badge in navbar
+- Warning banner on dashboard
+- Toast notifications for expired actions
+
+Note: Full subscription/billing NOT in MVP scope
+
+
+FEATURE 11: BULK OPERATIONS
+--------------------------------------------------------------------------------
+Location: src/app/shows/page.tsx
+
+Purpose:
+Perform actions on multiple shows at once.
+
+Features:
+- Checkbox on each show card
+- "Select All" option
+- Bulk toolbar appears when selections made
+- Actions: Add to Tour, Remove from Tour
+
+Flow:
+1. Check boxes on shows
+2. Toolbar slides up from bottom
+3. Shows: "N shows selected"
+4. Click action button
+5. Modal opens (if needed)
+6. Confirm action
+7. Shows updated
+8. Toast notification
+9. Selections cleared
+
+Implementation:
+- selectedShowIds state array
+- BulkActionsToolbar component
+- Fixed positioning (z-index)
+
+User Experience:
+- Visual feedback (border highlight on selected)
+- Count badge on toolbar
+- Confirmation dialogs
+- Undo not implemented (future)
+
+================================================================================
+7. USER JOURNEYS
+================================================================================
+
+JOURNEY 1: ARTIST ONBOARDING & FIRST SHOW
+--------------------------------------------------------------------------------
+1. Artist signs up, completes auth
+2. No entity → redirected to /onboarding
+3. Selects "Artist" entity type
+4. Fills in band name, location, bio, genres, members
+5. Submits → Artist entity created
+6. Redirected to /dashboard
+7. Sees welcome message and trial status
+8. Clicks "Shows" in sidebar
+9. Empty state: "No shows yet"
+10. Clicks "Create Your First Show"
+11. Modal opens with CreateShowForm
+12. Fills in venue, date, promoter (searches)
+13. Submits → Show created (status: pending_invite)
+14. Toast: "Show created successfully!"
+15. Show appears in list
+16. Clicks "Generate Invite" on show
+17. Copies invite link
+18. Emails link to promoter
+[Promoter accepts, show status → confirmed]
+
+
+JOURNEY 2: PROMOTER ACCEPTS SHOW INVITE
+--------------------------------------------------------------------------------
+1. Promoter receives email with invite link
+2. Clicks link → /onboarding?invite={token}
+3. Invite details fetched (artist's name, show details)
+4. Entity type enforced to "Promoter"
+5. Fills in venue/business name, location
+6. Submits → Promoter entity created
+7. Invite auto-accepted
+8. Contact created with artist
+9. Redirected to show details page
+10. Sees show information
+11. Can accept/decline show
+12. Accepts → status changed to 'confirmed'
+13. Toast: "Show confirmed!"
+14. Redirected to /shows
+15. Show appears in confirmed list
+
+
+JOURNEY 3: ARTIST CREATES TOUR
+--------------------------------------------------------------------------------
+1. Artist logs in
+2. Has multiple shows booked
+3. Clicks "Tours" in sidebar
+4. Empty state: "No Tours Yet"
+5. Clicks "Create Your First Tour"
+6. Modal opens
+7. Enters tour name: "Summer 2026 Tour"
+8. Adds notes about tour
+9. Submits → Tour created
+10. Toast: "Tour created successfully!"
+11. Tour appears in list (empty, no shows yet)
+12. Navigates to /shows
+13. Selects 5 shows via checkboxes
+14. Toolbar appears: "5 shows selected"
+15. Clicks "Add to Tour"
+16. Modal opens
+17. Selects "Summer 2026 Tour"
+18. Confirms
+19. Shows updated with tourId
+20. Toast: "Shows added to tour successfully!"
+21. Navigates back to /tours
+22. Tour now shows date range and 5 shows
+
+
+JOURNEY 4: ARTIST USES TOURING MAP TO FIND GAPS
+--------------------------------------------------------------------------------
+1. Artist planning next tour
+2. Clicks "Touring" in sidebar
+3. Map loads with promoter contacts
+4. Sees clusters of markers in certain regions
+5. Notices gap between cities
+6. Uses tour filter to select "Summer 2026 Tour"
+7. Markers dim for promoters without shows in that tour
+8. Identifies promoter in gap city (bright marker)
+9. Clicks marker → popup opens
+10. Sees: "No shows in Summer 2026 Tour yet"
+11. Clicks "Create show as part of this tour"
+12. Modal opens with promoter and tour pre-filled
+13. Fills in date (between existing shows)
+14. Submits → Show created
+15. Map refreshes
+16. New marker now bright, tour dates updated
+17. Tour route becomes more logical
+
+
+JOURNEY 5: CONTACT NETWORKING
+--------------------------------------------------------------------------------
+1. Promoter wants to connect with artist
+2. Navigates to /contacts
+3. Clicks "Add Contact" button
+4. Search modal opens
+5. Types artist name
+6. Results appear
+7. Clicks artist
+8. Clicks "Send Contact Request"
+9. Request created (status: pending)
+10. Toast: "Contact request sent!"
+11. Artist receives notification (future: email)
+12. Artist logs in
+13. Navigates to /contacts → Pending tab
+14. Sees incoming request from promoter
+15. Reviews promoter's profile
+16. Clicks "Accept"
+17. Toast: "Contact request accepted!"
+18. Contact appears in both entities' contact lists
+19. Can now create shows together
+
+
+JOURNEY 6: BULK SHOW MANAGEMENT
+--------------------------------------------------------------------------------
+1. Artist has 20 shows, 10 need to move to new tour
+2. Navigates to /shows
+3. Applies filter: Status = Confirmed
+4. Narrows to 15 shows
+5. Checks boxes on 10 specific shows
+6. Toolbar appears: "10 shows selected"
+7. Clicks "Add to Tour"
+8. Modal opens
+9. Some shows already in old tour → warning appears
+10. Selects "Fall 2026 Tour"
+11. Clicks "Confirm Move"
+12. Shows updated
+13. Toast: "Shows added to tour successfully!"
+14. Selections cleared
+15. Can now filter by "Fall 2026 Tour" to see only those
+
+================================================================================
+8. API INTEGRATION LAYER
+================================================================================
+
+PROXY PATTERN ARCHITECTURE:
+
+All API calls from frontend go through Next.js API routes located in:
+src/app/api/
+
+Benefits:
+- Security: Backend URLs hidden from client
+- Authentication: Centralized token handling
+- CORS: Managed by Next.js
+- Transformation: Can modify requests/responses
+- Mocking: Easy to mock during development
+
+CURRENT STATE:
+All API routes currently return MOCK DATA. They are placeholders ready for 
+backend integration.
+
+API ROUTES STRUCTURE:
+
+/api/artist/
+  add/route.ts              POST   Create artist entity
+  [id]/route.ts             GET    Fetch artist details
+                            PATCH  Update artist
+
+/api/promoter/
+  add/route.ts              POST   Create promoter entity
+  [id]/route.ts             GET    Fetch promoter details
+                            PATCH  Update promoter
+
+/api/user/
+  entities/route.ts         GET    Fetch entities for current user
+
+/api/contacts/
+  route.ts                  GET    Fetch contacts (with status filter)
+  request/route.ts          POST   Send contact request
+  accept/[contactId]/route.ts POST Accept contact request
+  reject/[contactId]/route.ts POST Reject contact request
+  promoters/route.ts        GET    Fetch promoter contacts (for map)
+
+/api/search/
+  route.ts                  GET    Search entities
+
+/api/shows/
+  route.ts                  GET    Fetch shows (with filters)
+                            POST   Create show
+  [id]/route.ts             GET    Fetch show details
+                            PATCH  Update show
+                            DELETE Cancel show
+  bulk-update/route.ts      POST   Update multiple shows
+
+/api/tours/
+  route.ts                  GET    Fetch tours
+                            POST   Create tour
+  [id]/route.ts             GET    Fetch tour details
+                            PATCH  Update tour
+                            DELETE Delete tour
+
+/api/invites/
+  route.ts                  POST   Create invite
+  [token]/route.ts          GET    Fetch invite details
+  [token]/accept/route.ts   POST   Accept invite
+
+/api/notification/
+  route.ts                  GET    Fetch notifications (future)
+
+
+AUTHENTICATION FLOW IN API ROUTES:
+
+Every protected API route follows this pattern:
+
+```typescript
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/auth';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  // 1. Get session
+  const session = await getServerSession(authOptions);
+  
+  // 2. Check auth
+  if (!session?.access_token) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+  
+  // 3. Extract token
+  const token = session.access_token;
+  
+  // 4. Call backend
+  const response = await fetch('BACKEND_URL/endpoint', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  // 5. Handle response
+  if (!response.ok) {
+    return NextResponse.json(
+      { error: 'Backend error' },
+      { status: response.status }
+    );
+  }
+  
+  // 6. Return data
+  const data = await response.json();
+  return NextResponse.json(data);
+}
+```
+
+
+REQUEST/RESPONSE PATTERNS:
+
+CREATE (POST):
+Request:
+  - Body: JSON with entity data
+  - Headers: Authorization Bearer token
+Response:
+  - 201 Created: { id, ...entity }
+  - 400 Bad Request: { error: "message" }
+  - 401 Unauthorized: { error: "Unauthorized" }
+  - 409 Conflict: { error: "Already exists" }
+
+READ (GET):
+Request:
+  - Query params for filtering
+  - Headers: Authorization Bearer token
+Response:
+  - 200 OK: { data } or [array]
+  - 401 Unauthorized
+  - 404 Not Found
+
+UPDATE (PATCH):
+Request:
+  - Body: Partial entity data
+  - Headers: Authorization Bearer token
+Response:
+  - 200 OK: { ...updated entity }
+  - 400 Bad Request
+  - 401 Unauthorized
+  - 404 Not Found
+
+DELETE:
+Request:
+  - Headers: Authorization Bearer token
+Response:
+  - 200 OK: { success: true }
+  - 401 Unauthorized
+  - 404 Not Found
+
+
+MOCK DATA EXAMPLES:
+
+Shows mock response:
+```json
+{
+  "shows": [
+    {
+      "id": "show-1",
+      "artistEntityId": "artist-1",
+      "promoterEntityId": "promoter-1",
+      "venueName": "The Roxy",
+      "venueCity": "Los Angeles",
+      "venueState": "CA",
+      "venueCountry": "USA",
+      "showDate": "2026-06-15",
+      "showTime": "20:00",
+      "status": "confirmed",
+      ...
+    }
+  ]
+}
+```
+
+Contacts mock response:
+```json
+{
+  "contacts": [
+    {
+      "id": "contact-1",
+      "entityId1": "artist-1",
+      "entityId2": "promoter-1",
+      "status": "accepted",
+      "createdAt": "2026-01-15T10:00:00Z"
+    }
+  ]
+}
+```
+
+
+ERROR HANDLING IN API ROUTES:
+
+Standard error response format:
+```json
+{
+  "error": "Human-readable error message",
+  "code": "ERROR_CODE",
+  "details": { "field": "Additional info" }
+}
+```
+
+Common error codes:
+- 400: Bad Request (validation failed)
+- 401: Unauthorized (no token or invalid)
+- 403: Forbidden (no permission)
+- 404: Not Found (resource doesn't exist)
+- 409: Conflict (duplicate entity, constraint violation)
+- 500: Internal Server Error (backend failure)
+
+
+INTEGRATION CHECKLIST:
+
+To connect to real backend, for each API route:
+
+1. Replace mock data with actual fetch() call
+2. Update backend URL (from env variable)
+3. Ensure request format matches backend expectations
+4. Ensure response format matches frontend expectations
+5. Add error handling for network failures
+6. Add retry logic if needed
+7. Update TypeScript types if response differs
+8. Test with real data
+9. Update documentation
+
+Example transformation:
+
+BEFORE (mock):
+```typescript
+return NextResponse.json({
+  shows: [/* mock data */]
+});
+```
+
+AFTER (real backend):
+```typescript
+const backendUrl = process.env.BACKEND_API_URL;
+const response = await fetch(`${backendUrl}/shows`, {
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+
+if (!response.ok) {
+  return NextResponse.json(
+    { error: 'Failed to fetch shows' },
+    { status: response.status }
+  );
+}
+
+const data = await response.json();
+return NextResponse.json(data);
+```
+
+================================================================================
+9. STATE MANAGEMENT
+================================================================================
+
+ZUSTAND (GLOBAL STATE):
+
+Location: src/store/useProfileStore.ts
+
+Purpose: Store user's active entity profile globally
+
+State:
+```typescript
+{
+  activeProfile: Entity | null,
+  setActiveProfile: (profile: Entity | null) => void,
+  clearProfile: () => void
+}
+```
+
+Usage:
+```typescript
+import { useProfileStore } from '@/store/useProfileStore';
+
+const { activeProfile, setActiveProfile } = useProfileStore();
+
+// Check entity type
+if (activeProfile?.entityType === 'artist') {
+  // Artist-only feature
+}
+
+// Update profile
+setActiveProfile(updatedEntity);
+```
+
+Benefits:
+- Persist entity data across pages
+- Avoid refetching on every navigation
+- Single source of truth for active entity
+
+
+LOCAL STATE (REACT HOOKS):
+
+Most components use React hooks for local state:
+
+useState:
+- Form inputs
+- Modal open/close states
+- Filter selections
+- Selected items (checkboxes)
+- Loading states
+- Error messages
+
+useEffect:
+- Data fetching on mount
+- Side effects after state changes
+- Cleanup on unmount
+
+useCallback:
+- Memoized event handlers
+- Prevent unnecessary re-renders
+
+useMemo:
+- Computed values (filtered lists, sorted data)
+- Expensive calculations
+
+
+CUSTOM HOOKS:
+
+All feature-specific logic extracted into custom hooks:
+
+useContacts:
+- fetchContacts(status)
+- sendContactRequest(entityId)
+- acceptContact(contactId)
+- rejectContact(contactId)
+- isLoading, error
+
+useShows:
+- fetchShows(tourId?)
+- createShow(showData)
+- updateShow(showId, updates)
+- cancelShow(showId)
+- bulkUpdateShows(showIds, updates)
+- isLoading, error
+
+useTours:
+- fetchTours()
+- fetchTour(tourId)
+- createTour(tourData)
+- updateTour(tourId, updates)
+- deleteTour(tourId)
+- addShowsToTour(tourId, showIds)
+- removeShowsFromTour(showIds)
+- isLoading, error
+
+useInvites:
+- fetchInvite(token)
+- createInvite(inviteData)
+- acceptInvite(token)
+- isLoading, error
+
+useSearch:
+- search(query, type)
+- results
+- isLoading, error
+
+useOnboardingRedirect:
+- Checks if user needs onboarding
+- isChecking, redirect logic
+
+Benefits:
+- Reusable logic
+- Consistent patterns
+- Easier testing
+- Separation of concerns
+
+
+SESSION STATE (NextAuth):
+
+Location: Throughout app via useSession() hook
+
+Provides:
+- session.user: User info (email, name, id)
+- session.access_token: JWT for API calls
+- status: "loading" | "authenticated" | "unauthenticated"
+
+Usage:
+```typescript
+import { useSession } from 'next-auth/react';
+
+const { data: session, status } = useSession();
+
+if (status === 'loading') return <Loading />;
+if (status === 'unauthenticated') redirect('/signin');
+
+// Use token
+const token = session?.access_token;
+```
+
+
+FORM STATE:
+
+Most forms use controlled components with useState:
+
+```typescript
+const [formData, setFormData] = useState({
+  name: '',
+  email: '',
+  city: ''
+});
+
+const handleChange = (e) => {
+  setFormData(prev => ({
+    ...prev,
+    [e.target.name]: e.target.value
+  }));
+};
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  // Submit formData
+};
+```
+
+Validation:
+- HTML5 validation (required, pattern, etc.)
+- Custom validation in handleSubmit
+- Error display via error state
+
+================================================================================
+10. UI/UX COMPONENTS
+================================================================================
+
+COMPONENT LIBRARY:
+
+All UI components are in src/components/ui/
+
+BASE COMPONENTS (shadcn/ui inspired):
+
+button.tsx:
+- Variants: default, outline, destructive, ghost, link
+- Sizes: sm, default, lg, icon
+- States: default, hover, active, disabled
+- Usage: <Button variant="outline" size="lg">Click</Button>
+
+dropdown-menu.tsx:
+- Trigger + Menu items
+- Keyboard navigation
+- Nested menus support
+
+avatar.tsx:
+- Image with fallback initials
+- Sizes: sm, md, lg
+
+loading-spinner.tsx:
+- Animated spinner
+- Sizes and colors configurable
+
+skeleton.tsx:
+- Pulse animation loading state
+- Specialized variants:
+  * ShowCardSkeleton
+  * TourCardSkeleton
+  * ContactCardSkeleton
+  * TableRowSkeleton
+  * ListSkeleton
+
+toaster.tsx:
+- Toast notification container
+- Theme-aware
+- Positioned top-right
+- Auto-dismiss
+
+empty-state.tsx:
+- Reusable empty state component
+- Icon, title, description, action
+- Predefined variants:
+  * NoShowsYet
+  * NoContactsYet
+  * NoToursYet
+  * NoPromoterContacts
+  * NoConversationsYet
+
+loading-button.tsx:
+- Button with integrated spinner
+- Shows spinner during async operations
+- Disables automatically
+
+
+FEATURE COMPONENTS:
+
+Shows (src/components/shows/):
+- CreateShowForm: Modal form for show creation
+- ShowsTable: List with checkboxes and cards
+- BulkActionsToolbar: Fixed toolbar for selections
+- AddToTourModal: Bulk add shows to tour
+
+Tours (src/components/tours/):
+- CreateTourModal: Tour creation form
+
+Contacts (src/components/contacts/):
+- ContactsTable: Accepted contacts list
+- ConnectionsTable: Pending requests
+- ContactMap: Map view with markers
+- ContactSearch: Search and add flow
+
+Touring (src/components/touring/):
+- TouringLayout: Split layout (map + list)
+- TouringMap: Leaflet map with markers
+- MarkerPopup: Marker popup content
+- PromoterContactsList: Sidebar list
+- TourFilter: Tour filter dropdown
+
+Invites (src/components/invites/):
+- GenerateInvite: Invite generation modal
+
+Profile (src/components/profile/):
+- ProfileHeader: Header with images
+- ArtistBio, ArtistGenres, ArtistMembers
+- HeaderImageUpload
+- ProfileEdit forms
+
+Auth (src/components/auth/):
+- SigninButton: Auth button
+- SignoutButton: Logout button
+
+Header (src/components/header/):
+- AppHeader: Top navigation bar
+
+Sidenav (src/components/sidenav/):
+- SideNav: Left sidebar navigation
+- SidebarEntities: Entity switcher (future)
+
+
+STYLING PATTERNS:
+
+Tailwind Utility Classes:
+- Layout: flex, grid, absolute, relative
+- Spacing: p-4, m-2, gap-4, space-y-4
+- Typography: text-lg, font-bold, text-muted-foreground
+- Colors: bg-primary, text-primary-foreground
+- Borders: border, border-border, rounded-lg
+- Effects: hover:bg-muted, transition-colors
+
+CSS Modules:
+- Used sparingly for complex components
+- Example: chat-box.module.css
+
+Global Styles (src/app/globals.css):
+- CSS variables for theming
+- Base resets
+- Utility classes
+
+Theme Variables:
+```css
+--background: 0 0% 100%;
+--foreground: 240 10% 3.9%;
+--primary: 240 5.9% 10%;
+--muted: 240 4.8% 95.9%;
+--border: 240 5.9% 90%;
+/* etc. */
+```
+
+Dark Mode:
+- Automatic theme switching via next-themes
+- CSS variables update automatically
+- All components theme-aware
+
+
+ACCESSIBILITY:
+
+- Semantic HTML (nav, main, button, etc.)
+- ARIA labels where needed
+- Keyboard navigation supported
+- Focus indicators visible
+- Color contrast meets WCAG AA standards
+- Screen reader friendly
+
+
+RESPONSIVE DESIGN:
+
+Breakpoints (Tailwind defaults):
+- sm: 640px
+- md: 768px
+- lg: 1024px
+- xl: 1280px
+- 2xl: 1536px
+
+Patterns:
+- Mobile-first approach
+- Flexible layouts with flexbox/grid
+- Conditional rendering for small screens
+- Touch-friendly tap targets (min 44x44px)
+
+Example:
+```tsx
+<div className="flex flex-col lg:flex-row">
+  <div className="w-full lg:w-2/3">Map</div>
+  <div className="w-full lg:w-1/3">Sidebar</div>
+</div>
+```
+
+================================================================================
+11. ERROR HANDLING & USER FEEDBACK
+================================================================================
+
+ERROR HANDLING STRATEGY:
+
+LEVEL 1: API ROUTE ERRORS
+- Try/catch in every API route
+- Return appropriate HTTP status code
+- Return JSON with error message
+- Log errors to console (future: error tracking service)
+
+Example:
+```typescript
+try {
+  const data = await fetchFromBackend();
+  return NextResponse.json(data);
+} catch (error) {
+  console.error('API Error:', error);
+  return NextResponse.json(
+    { error: 'Failed to fetch data' },
+    { status: 500 }
+  );
+}
+```
+
+LEVEL 2: HOOK ERRORS
+- Try/catch in all async operations
+- Set error state
+- Return error to component
+
+Example:
+```typescript
+const [error, setError] = useState<string | null>(null);
+
+const fetchShows = async () => {
+  try {
+    setError(null);
+    const response = await fetch('/api/shows');
+    if (!response.ok) throw new Error('Failed to fetch');
+    return await response.json();
+  } catch (err: any) {
+    setError(err.message);
+    throw err;
+  }
+};
+```
+
+LEVEL 3: COMPONENT ERRORS
+- Try/catch around async operations
+- Display error via toast notification
+- Optionally display inline error
+
+Example:
+```typescript
+const handleSubmit = async () => {
+  try {
+    await createShow(formData);
+    toast.success('Show created successfully!');
+  } catch (err: any) {
+    toast.error(err.message || 'Failed to create show');
+  }
+};
+```
+
+
+TOAST NOTIFICATIONS:
+
+Library: Sonner (v2.0.7)
+
+Setup:
+- Toaster component in root layout
+- Import toast from 'sonner'
+
+Types:
+```typescript
+toast.success('Operation completed!');
+toast.error('Something went wrong');
+toast.info('Here is some information');
+toast.warning('Please be careful');
+```
+
+With options:
+```typescript
+toast.success('Show created!', {
+  description: 'You can view it in your shows list',
+  duration: 5000,
+  position: 'top-right'
+});
+```
+
+Benefits:
+- Non-intrusive
+- Auto-dismiss
+- Stackable
+- Theme-aware
+- Accessible
+
+
+LOADING STATES:
+
+Patterns:
+1. Skeleton loaders (preferred for content)
+2. Inline spinners (for small components)
+3. Loading buttons (during async actions)
+4. Full-page loader (rare, during initial load)
+
+Example - Skeleton:
+```tsx
+{isLoading ? (
+  <ListSkeleton count={3} ItemSkeleton={ShowCardSkeleton} />
+) : (
+  <ShowsList shows={shows} />
+)}
+```
+
+Example - Button:
+```tsx
+<LoadingButton 
+  isLoading={isSubmitting}
+  loadingText="Saving..."
+>
+  Save Changes
+</LoadingButton>
+```
+
+
+EMPTY STATES:
+
+Every list/collection has empty state:
+
+Pattern:
+```tsx
+{items.length === 0 ? (
+  <NoItemsYet onCreate={handleCreate} />
+) : (
+  <ItemsList items={items} />
+)}
+```
+
+Components:
+- NoShowsYet
+- NoContactsYet
+- NoToursYet
+- NoPromoterContacts
+- etc.
+
+Features:
+- Friendly icon (emoji)
+- Clear message
+- Helpful description
+- Action button (CTA)
+
+
+VALIDATION:
+
+Form Validation:
+- HTML5 validation (required, pattern, min, max)
+- Custom validation in submit handler
+- Display errors inline or via toast
+
+Example:
+```tsx
+<input
+  type="email"
+  required
+  pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+/>
+
+// Custom validation
+if (!formData.name.trim()) {
+  toast.error('Name is required');
+  return;
+}
+```
+
+API Validation:
+- Backend validates all inputs
+- Returns 400 Bad Request with details
+- Frontend displays error to user
+
+
+CONFIRMATION DIALOGS:
+
+For destructive actions:
+
+```typescript
+const handleDelete = async () => {
+  if (!confirm('Are you sure you want to delete this?')) {
+    return;
+  }
+  
+  try {
+    await deleteItem(itemId);
+    toast.success('Deleted successfully');
+  } catch (err) {
+    toast.error('Failed to delete');
+  }
+};
+```
+
+Used for:
+- Deleting tours
+- Cancelling shows
+- Rejecting contact requests
+- Moving shows between tours
+
+
+USER FEEDBACK SUMMARY:
+
+Action → Feedback:
+- Create → Success toast + item appears in list
+- Update → Success toast + item updates
+- Delete → Success toast + item removed
+- Error → Error toast with message
+- Loading → Skeleton or spinner
+- Empty → Empty state with action
+- Validation → Inline error or toast
+
+================================================================================
+12. FILE STRUCTURE
+================================================================================
+
+PROJECT ROOT:
+/Users/jon/Desktop/scenegen/SceneGenUIV2/
+
+├── public/                      # Static assets
+├── src/                         # Source code
+│   ├── app/                     # Next.js App Router
+│   │   ├── api/                 # API routes (proxy layer)
+│   │   │   ├── artist/
+│   │   │   │   ├── add/route.ts
+│   │   │   │   └── [id]/route.ts
+│   │   │   ├── promoter/
+│   │   │   ├── user/
+│   │   │   ├── contacts/
+│   │   │   ├── search/
+│   │   │   ├── shows/
+│   │   │   ├── tours/
+│   │   │   ├── invites/
+│   │   │   └── notification/
+│   │   ├── assets/              # App-level assets
+│   │   │   ├── fonts/
+│   │   │   └── images/
+│   │   ├── onboarding/
+│   │   │   └── page.tsx
+│   │   ├── dashboard/
+│   │   │   └── page.tsx
+│   │   ├── shows/
+│   │   │   └── page.tsx
+│   │   ├── contacts/
+│   │   │   ├── page.tsx
+│   │   │   └── add/
+│   │   ├── tours/
+│   │   │   ├── page.tsx
+│   │   │   └── [id]/page.tsx
+│   │   ├── touring/
+│   │   │   └── page.tsx
+│   │   ├── profile/
+│   │   │   ├── page.tsx
+│   │   │   └── edit/
+│   │   ├── conversations/
+│   │   │   └── page.tsx
+│   │   ├── bookkeeping/
+│   │   │   └── page.tsx
+│   │   ├── manage/
+│   │   │   └── page.tsx
+│   │   ├── config.tsx           # App configuration
+│   │   ├── globals.css          # Global styles
+│   │   ├── layout.tsx           # Root layout
+│   │   └── page.tsx             # Home page
+│   ├── components/              # React components
+│   │   ├── ui/                  # Base UI components
+│   │   │   ├── button.tsx
+│   │   │   ├── skeleton.tsx
+│   │   │   ├── toaster.tsx
+│   │   │   ├── empty-state.tsx
+│   │   │   ├── loading-button.tsx
+│   │   │   ├── avatar.tsx
+│   │   │   ├── dropdown-menu.tsx
+│   │   │   └── ...
+│   │   ├── auth/                # Auth components
+│   │   ├── header/              # Header/nav
+│   │   ├── sidenav/             # Sidebar nav
+│   │   ├── shows/               # Show components
+│   │   ├── tours/               # Tour components
+│   │   ├── touring/             # Touring map components
+│   │   ├── contacts/            # Contact components
+│   │   ├── invites/             # Invite components
+│   │   ├── profile/             # Profile components
+│   │   ├── chat/                # Chat components (future)
+│   │   ├── proposals/           # Proposal components (future)
+│   │   └── theme-provider.tsx   # Theme context
+│   ├── hooks/                   # Custom hooks
+│   │   ├── useContacts.ts
+│   │   ├── useShows.ts
+│   │   ├── useTours.ts
+│   │   ├── useInvites.ts
+│   │   ├── useSearch.ts
+│   │   ├── useOnboardingRedirect.ts
+│   │   ├── useApiError.ts
+│   │   └── use-signout-url.ts
+│   ├── lib/                     # Utility functions
+│   │   ├── utils.ts
+│   │   └── utils/
+│   │       └── sitemap.ts
+│   ├── services/                # Service layer (future)
+│   │   └── api/
+│   ├── store/                   # State management
+│   │   ├── store.ts
+│   │   └── useProfileStore.ts
+│   ├── types/                   # TypeScript types
+│   │   ├── show.ts
+│   │   ├── tour.ts
+│   │   ├── invite.ts
+│   │   └── ...
+│   ├── data/                    # Mock data
+│   │   └── mockShows.ts
+│   ├── auth.ts                  # NextAuth config
+│   ├── config.ts                # App config
+│   └── middleware.ts            # Next.js middleware
+├── types/                       # Global types
+│   └── next-auth.d.ts
+├── openapi/                     # OpenAPI specs (reference)
+├── components.json              # shadcn config
+├── next.config.mjs              # Next.js config
+├── tailwind.config.ts           # Tailwind config
+├── tsconfig.json                # TypeScript config
+├── package.json                 # Dependencies
+├── pnpm-lock.yaml               # Lock file
+├── postcss.config.js            # PostCSS config
+├── README.md                    # Project readme
+├── SETUP.md                     # Setup instructions
+├── BUILD_PLAN_8_WEEKS_CORRECTED.txt  # Build plan
+├── PROJECT_STATUS.md            # Project status
+├── WEEK1_PROGRESS.md            # Weekly progress docs
+├── WEEK2_PROGRESS.md
+├── ...
+└── WEEK8_COMPLETE_SUMMARY.md
+
+KEY DIRECTORIES EXPLAINED:
+
+/src/app/api/
+- All API proxy routes
+- Each route is a folder with route.ts
+- Dynamic routes use [param] syntax
+- Handle HTTP methods: GET, POST, PATCH, DELETE
+
+/src/components/
+- Feature-based organization
+- ui/ for reusable base components
+- [feature]/ for feature-specific components
+- Each major feature has its own folder
+
+/src/hooks/
+- Custom React hooks
+- One hook per file
+- Named use[Feature].ts
+- Encapsulate business logic
+
+/src/types/
+- TypeScript type definitions
+- Shared types across app
+- One file per domain (show.ts, tour.ts, etc.)
+
+/src/store/
+- Zustand state management
+- Currently only profile store
+- Can add more stores as needed
+
+/src/app/[route]/
+- Next.js file-based routing
+- page.tsx = page component
+- layout.tsx = shared layout
+- loading.tsx = loading state (optional)
+- error.tsx = error boundary (optional)
+
+================================================================================
+13. CONFIGURATION & ENVIRONMENT
+================================================================================
+
+ENVIRONMENT VARIABLES:
+
+Required for Production:
+- NEXTAUTH_URL: Full URL of app (https://app.scenegen.com)
+- NEXTAUTH_SECRET: Random secret for session encryption
+- BACKEND_API_URL: Backend API base URL
+- [AUTH_PROVIDER]_CLIENT_ID: OAuth client ID
+- [AUTH_PROVIDER]_CLIENT_SECRET: OAuth secret
+
+Development:
+- NEXTAUTH_URL: http://localhost:3000
+- NEXTAUTH_SECRET: Any random string
+- BACKEND_API_URL: http://localhost:8000 (or dev backend)
+
+.env.local (not committed):
+```
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-random-secret-here
+BACKEND_API_URL=http://localhost:8000
+```
+
+
+NEXT.JS CONFIG (next.config.mjs):
+
+```javascript
+const nextConfig = {
+  images: {
+    domains: ['backend.scenegen.com'], // For image optimization
+  },
+  experimental: {
+    serverActions: true,
+  },
+};
+```
+
+
+TAILWIND CONFIG (tailwind.config.ts):
+
+- Custom colors for theme
+- Extended spacing/sizing
+- Custom animations
+- Plugin configurations
+
+
+TYPESCRIPT CONFIG (tsconfig.json):
+
+- Strict mode enabled
+- Path aliases (@/ = src/)
+- Target: ES2022
+- JSX: preserve (for React)
+
+
+PACKAGE.JSON SCRIPTS:
+
+```json
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  }
+}
+```
+
+Run:
+- Development: pnpm dev
+- Build: pnpm build
+- Production: pnpm start
+- Lint: pnpm lint
+
+================================================================================
+14. DEVELOPMENT WORKFLOW
+================================================================================
+
+DEVELOPMENT PROCESS:
+
+1. SETUP
+   ```bash
+   git clone <repo>
+   cd SceneGenUIV2
+   pnpm install
+   cp .env.example .env.local
+   # Edit .env.local with your values
+   pnpm dev
+   ```
+
+2. CREATE FEATURE
+   - Plan feature (refer to BUILD_PLAN)
+   - Create types if needed
+   - Create hook for data operations
+   - Create components
+   - Create API routes
+   - Integrate into page
+
+3. TESTING
+   - Manual testing in browser
+   - Check TypeScript errors: pnpm build
+   - Check console for errors
+   - Test edge cases (empty states, errors)
+   - Test responsiveness
+
+4. COMMIT
+   ```bash
+   git add -A
+   git commit -m "Week X: Feature name
+   
+   Implements BUILD_PLAN Week X, Task X.X
+   - Bullet points of changes
+   - Components created/updated
+   - API routes added
+   "
+   git push origin branch
+   ```
+
+5. DOCUMENTATION
+   - Update WEEKx_PROGRESS.md
+   - Document decisions
+   - Note any deviations
+
+
+CODING STANDARDS:
+
+TypeScript:
+- Use strict mode
+- Define types for all props
+- Avoid 'any' type
+- Use interfaces for objects
+- Export types from separate files
+
+React:
+- Functional components only
+- Use hooks (no class components)
+- Props destructuring
+- Named exports for components
+- Default export for pages
+
+Naming:
+- Components: PascalCase (UserProfile.tsx)
+- Hooks: camelCase with 'use' prefix (useShows.ts)
+- Types: PascalCase (Show, Tour)
+- Files: Match component name
+- API routes: lowercase (route.ts)
+
+Imports:
+- React imports first
+- Next.js imports second
+- Third-party imports third
+- Local imports last
+- Group by type (types, hooks, components)
+
+Comments:
+- JSDoc for complex functions
+- Inline comments for tricky logic
+- Component purpose at top
+- BUILD_PLAN references
+
+Example:
+```typescript
+/**
+ * ShowsTable Component
+ * Implements BUILD_PLAN Week 7, Task 7.3
+ * 
+ * Displays list of shows with checkbox selection
+ * for bulk operations.
+ */
+export default function ShowsTable({
+  shows,
+  selectedIds,
+  onSelectionChange
+}: ShowsTableProps) {
+  // Component logic
+}
+```
+
+
+GIT WORKFLOW:
+
+Branches:
+- main: Production-ready code
+- Jon/Newstuff: Current development branch
+- feature/[name]: Feature branches (if needed)
+
+Commits:
+- Frequent, atomic commits
+- Descriptive messages
+- Reference BUILD_PLAN tasks
+- List key changes
+
+Commit Message Format:
+```
+Week X: Feature Title
+
+Implements BUILD_PLAN Week X, Tasks X.X-X.X
+
+✅ Task X.X: Description
+- Bullet point of what was done
+- Components created/modified
+- API routes added
+
+Files:
+- src/path/to/file.tsx (NEW)
+- src/path/to/other.tsx (UPDATED)
+
+All TypeScript validated with 0 errors.
+```
+
+================================================================================
+15. TESTING & QUALITY ASSURANCE
+================================================================================
+
+TESTING APPROACH:
+
+MANUAL TESTING:
+- Primary testing method during development
+- Test each feature as it's built
+- Follow user journeys
+- Test edge cases
+- Test error conditions
+
+Checklist per Feature:
+✓ Happy path works
+✓ Error handling works
+✓ Loading states display
+✓ Empty states display
+✓ Form validation works
+✓ Toast notifications appear
+✓ Responsive on mobile
+✓ Keyboard navigation works
+✓ No console errors
+✓ TypeScript compiles without errors
+
+
+TYPESCRIPT VALIDATION:
+
+Run before every commit:
+```bash
+pnpm build
+```
+
+If errors:
+- Fix TypeScript errors
+- Re-run build
+- Repeat until 0 errors
+
+Zero TypeScript errors maintained throughout entire project.
+
+
+BUILD_PLAN COMPLIANCE:
+
+Every feature checked against BUILD_PLAN:
+- Read task requirements
+- Implement exactly as specified
+- Document completion
+- Note any deviations
+
+Checklist format:
+```
+✅ Task 1.1: Description
+✅ Task 1.2: Description
+⏳ Task 1.3: Description (in progress)
+```
+
+
+BROWSER TESTING:
+
+Tested Browsers:
+✓ Chrome (latest) - Primary development browser
+⏳ Firefox (latest) - Pending
+⏳ Safari (latest) - Pending
+⏳ Edge (latest) - Pending
+
+Mobile:
+⏳ iOS Safari - Pending
+⏳ Android Chrome - Pending
+
+
+ACCESSIBILITY TESTING:
+
+Manual Checks:
+✓ Keyboard navigation works
+✓ Focus indicators visible
+✓ Color contrast meets WCAG AA
+✓ Semantic HTML used
+✓ ARIA labels where needed
+
+Tools (future):
+- Lighthouse audit
+- axe DevTools
+- Screen reader testing
+
+
+PERFORMANCE TESTING:
+
+Current Status:
+- No formal performance testing yet
+- Bundle size reasonable
+- Page load times acceptable in dev
+
+Future:
+- Lighthouse performance audit
+- Bundle size analysis
+- Lazy loading optimization
+- Image optimization
+
+
+ERROR TRACKING:
+
+Current:
+- Console logging
+- Toast notifications to user
+
+Future:
+- Sentry or similar error tracking
+- Analytics integration
+- User session replay
+
+
+QUALITY METRICS:
+
+Achieved:
+✓ 0 TypeScript errors
+✓ 100% BUILD_PLAN compliance
+✓ Comprehensive documentation
+✓ Consistent code style
+✓ Functional in Chrome
+✓ Toast notifications everywhere
+✓ Loading states everywhere
+✓ Empty states everywhere
+
+Pending:
+⏳ Cross-browser testing
+⏳ Mobile testing
+⏳ Performance optimization
+⏳ Unit tests (future)
+⏳ E2E tests (future)
+
+================================================================================
+CONCLUSION
+================================================================================
+
+CURRENT STATUS:
+
+The SceneGen MVP frontend is FEATURE COMPLETE according to the 8-week 
+BUILD_PLAN. All core functionality has been implemented, tested manually,
+and documented.
+
+READY FOR:
+✓ Backend integration
+✓ Deployment to staging
+✓ User acceptance testing
+
+PENDING:
+⏳ Backend API connection
+⏳ Production deployment
+⏳ Cross-browser testing
+⏳ Mobile optimization
+⏳ Performance tuning
+
+NEXT STEPS:
+
+1. Backend Integration
+   - Replace mock data in API routes
+   - Connect to real backend APIs
+   - Test with real data
+   - Handle edge cases
+
+2. Deployment
+   - Set up production environment
+   - Configure DNS and SSL
+   - Deploy frontend
+   - Set up monitoring
+
+3. Testing
+   - User acceptance testing
+   - Cross-browser testing
+   - Mobile testing
+   - Load testing
+
+4. Launch
+   - Marketing materials
+   - User onboarding docs
+   - Support system
+   - Analytics setup
+
+================================================================================
+DOCUMENT INFORMATION
+================================================================================
+
+Document: SCENEGEN_APP_OVERVIEW.txt
+Created: January 28, 2026
+Version: 1.0
+Status: Complete
+Last Updated: January 28, 2026
+
+For Questions:
+- Refer to BUILD_PLAN_8_WEEKS_CORRECTED.txt
+- Check WEEKx_PROGRESS.md files
+- Review PROJECT_STATUS.md
+
+Git Branch: Jon/Newstuff
+Latest Commit: 492ff24
+
+================================================================================
+END OF DOCUMENT
+================================================================================
