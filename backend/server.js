@@ -2218,7 +2218,7 @@ app.post('/api/invites', authMiddleware, async (req, res) => {
     expiresAt.setDate(expiresAt.getDate() + (expiresInDays || 7));
 
     // Generate unique token
-    const token = `invite-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const token = `invite-${crypto.randomBytes(32).toString('hex')}`;
 
     const result = await pool.query(
       `INSERT INTO invites (from_entity_id, to_email, message, permissions, expires_at, token)
