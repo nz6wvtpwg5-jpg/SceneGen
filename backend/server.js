@@ -2303,83 +2303,52 @@ app.get('/api/invites/:token', async (req, res) => {
 
 // POST /api/invites/:token/accept - Accept invite by token
 app.post('/api/invites/:token/accept', async (req, res) => {
+  // The signed SceneGen identity middleware validates the session before this route.
+  const userId = req.userId;
+  if (!userId) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+
+  const client = await pool.connect().catch((error) => {
+    console.error('Unable to start invite acceptance:', error);
+    return null;
+  });
+  if (!client) return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to accept invite' } });
   try {
-    // The signed SceneGen identity middleware validates the session before this route.
-    const userId = req.userId;
-
-    if (!userId) {
-      return res.status(401).json({
-        error: { code: 'UNAUTHORIZED', message: 'Authentication required' }
-      });
+    await client.query('BEGIN');
+    // Lock the invitation so simultaneous accept attempts cannot both proceed.
+    const inviteResult = await client.query('SELECT * FROM invites WHERE token = $1 FOR UPDATE', [req.params.token]);
+    if (!inviteResult.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Invite not found' } });
     }
-
-    // Get invite
-    const inviteResult = await pool.query(
-      'SELECT * FROM invites WHERE token = $1',
-      [req.params.token]
-    );
-
-    if (inviteResult.rows.length === 0) {
-      return res.status(404).json({
-        error: { code: 'NOT_FOUND', message: 'Invite not found' }
-      });
-    }
-
     const invite = inviteResult.rows[0];
-
-    // Check if expired
     if (new Date(invite.expires_at) < new Date()) {
-      return res.status(410).json({
-        error: { code: 'EXPIRED', message: 'This invite has expired' }
-      });
+      await client.query('ROLLBACK');
+      return res.status(410).json({ error: { code: 'EXPIRED', message: 'This invite has expired' } });
     }
-
-    // Check if already accepted
     if (invite.status === 'accepted') {
-      return res.status(409).json({
-        error: { code: 'ALREADY_ACCEPTED', message: 'Already accepted' }
-      });
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: { code: 'ALREADY_ACCEPTED', message: 'Already accepted' } });
     }
 
-    // Update invite status
-    await pool.query(
-      `UPDATE invites
-       SET status = 'accepted', accepted_at = NOW()
-       WHERE token = $1`,
-      [req.params.token]
-    );
-
-    // Get user's entity
-    const entityResult = await pool.query(
-      'SELECT id FROM entities WHERE administrator_id = $1',
-      [userId]
-    );
-
-    if (entityResult.rows.length > 0) {
-      // Create contact/connection between entities
-      const userEntityId = entityResult.rows[0].id;
-
-      await pool.query(
-        `INSERT INTO contacts (entity_a_id, entity_b_id, status, message, requested_by)
-         VALUES ($1, $2, 'accepted', $3, $1)
-         ON CONFLICT DO NOTHING`,
-        [invite.from_entity_id, userEntityId, 'Connected via invite']
-      );
+    const entityResult = await client.query('SELECT id FROM entities WHERE administrator_id = $1', [userId]);
+    if (!entityResult.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({ error: { code: 'ENTITY_REQUIRED', message: 'Create your SceneGen profile before accepting this invite' } });
     }
-
-    res.json({
-      success: true,
-      message: 'Invite accepted successfully'
-    });
+    await client.query(
+      `INSERT INTO contacts (entity_a_id, entity_b_id, status, message, requested_by)
+       VALUES ($1, $2, 'accepted', $3, $1) ON CONFLICT DO NOTHING`,
+      [invite.from_entity_id, entityResult.rows[0].id, 'Connected via invite']
+    );
+    await client.query(`UPDATE invites SET status = 'accepted', accepted_at = NOW() WHERE token = $1`, [req.params.token]);
+    await client.query('COMMIT');
+    return res.json({ success: true, message: 'Invite accepted successfully' });
   } catch (error) {
+    try { await client.query('ROLLBACK'); } catch (rollbackError) { console.error('Invite rollback failed:', rollbackError); }
     console.error('Error accepting invite:', error);
-    res.status(500).json({
-      error: {
-        code: 'SERVER_ERROR',
-        message: 'Failed to accept invite',
-        details: error.message
-      }
-    });
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to accept invite' } });
+  } finally {
+    client.release();
   }
 });
 
