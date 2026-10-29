@@ -310,8 +310,8 @@ export default function CreateShowForm({ show, onSuccess, onCancel, initialData,
         try {
             if (isEditing && show) {
                 // Update existing show
-                const updates: Partial<Show> = {
-                    showDate: formData.showDate!,
+                const updates: Record<string, unknown> = {
+                    date: formData.showDate!,
                     venueName: formData.venueName || '',
                     // Venue identity must only be resubmitted when intentionally changed.
                     ...(venueSelectionIntent ? {
@@ -321,25 +321,20 @@ export default function CreateShowForm({ show, onSuccess, onCancel, initialData,
                     } : {}),
                     latitude: formData.latitude,
                     longitude: formData.longitude,
-                    countryCode: formData.countryCode,
-                    postalCode: formData.postalCode,
                     venueAddress: formData.venueAddress || '',
-                    venueCity: formData.venueCity || '',
-                    venueState: formData.venueState || '',
-                    venueCountry: formData.venueCountry || '',
-                    venueCapacity: formData.venueCapacity,
-                    doorsTime: formData.doorsTime || '',
-                    showTime: formData.showTime || '',
-                    guarantee: formData.guarantee,
+                    city: formData.venueCity || '',
+                    state: formData.venueState || '',
+                    country: formData.venueCountry || '',
+                    capacity: formData.venueCapacity,
+                    doorTime: formData.doorsTime || '',
+                    startTime: formData.showTime || '',
+                    guaranteedFee: formData.guarantee,
                     currency: currency,
-                    dealType: formData.dealType!,
-                    doorSplitPercentage: formData.doorSplitPercentage,
-                    advanceTicketPrice: formData.advanceTicketPrice,
-                    doorTicketPrice: formData.doorTicketPrice,
+                    backendDeal: formData.dealType!,
                     notes: formData.notes,
-                    contactName: formData.contactName || '',
-                    contactPhone: formData.contactPhone || '',
-                    contactEmail: formData.contactEmail || ''
+                    promoterName: formData.contactName || '',
+                    promoterPhone: formData.contactPhone || '',
+                    promoterEmail: formData.contactEmail || ''
                 };
 
                 // Update tourId if it changed
@@ -351,7 +346,7 @@ export default function CreateShowForm({ show, onSuccess, onCancel, initialData,
                     showId: show.id,
                     updates
                 });
-                await updateShow(show.id, updates);
+                await updateShow(show.id, updates as Partial<Show>);
                 if (onSuccess) {
                     onSuccess(show.id);
                 }
