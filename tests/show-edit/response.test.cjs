@@ -1,0 +1,3 @@
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
+test('updateShow validates and unwraps the saved show',()=>{const s=fs.readFileSync('src/hooks/useShows.ts','utf8');const part=s.split('const updateShow = async')[1].split('const cancelShow = async')[0];assert.match(part,/data\.show\.id !== showId/);assert.match(part,/return data\.show as Show/);assert.doesNotMatch(part,/errorData\.error\?\.details/);});
+test('show patch errors do not expose raw backend exception details',()=>{const s=fs.readFileSync('backend/server.js','utf8').split("app.patch('/api/shows/:id'")[1].split('// DELETE /api/shows/:id')[0];assert.doesNotMatch(s,/details: error\.message/);});

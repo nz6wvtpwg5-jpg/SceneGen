@@ -92,9 +92,16 @@ export function useShows() {
           statusText: response.statusText,
           error: errorData
         });
-        throw new Error('Failed to update show: ' + (typeof errorData.error === 'string' ? errorData.error : errorData.error?.details || errorData.error?.message || response.statusText));
+        throw new Error('Failed to update show: ' + (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message || response.statusText));
       }
-      return await response.json();
+      const data = await response.json();
+      if (!data?.show?.id || data.show.id !== showId) {
+        throw new Error('The server did not confirm the saved show. Refresh the page before editing again.');
+      }
+      if (data.pendingApproval) {
+        throw new Error('These changes are awaiting approval and have not been applied yet.');
+      }
+      return data.show as Show;
     } catch (err: any) {
       setError(err.message);
       throw err;

@@ -1663,8 +1663,7 @@ app.patch('/api/shows/:id', authMiddleware, async (req, res) => {
     res.status(500).json({
       error: {
         code: 'SERVER_ERROR',
-        message: 'Failed to update show',
-        details: error.message
+        message: 'Failed to update show'
       }
     });
   } finally {
