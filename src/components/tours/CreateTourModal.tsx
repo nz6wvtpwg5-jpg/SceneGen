@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -37,6 +37,7 @@ export function CreateTourModal({
   const { data: session } = useSession();
   const { createTour, addShowsToTour, isLoading, error } = useTours();
   const [mode, setMode] = useState<CreationMode>('choose');
+  const pendingCreatedTour = useRef<Tour | null>(null);
 
   // Compute date range from selected shows
   const computedDates = selectedShows.length > 0 ? (() => {
@@ -66,16 +67,22 @@ export function CreateTourModal({
       return;
     }
     try {
-      const tour = await createTour({
-        name: formData.name,
-        notes: formData.notes || undefined,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-      });
+      if (!pendingCreatedTour.current) {
+        const created = await createTour({
+          name: formData.name,
+          notes: formData.notes || undefined,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+        });
+        if (!created?.id) throw new Error('Tour creation returned no tour ID. Please refresh your tours before retrying.');
+        pendingCreatedTour.current = created;
+      }
+      const tour = pendingCreatedTour.current;
 
       if (selectedShows.length) {
         await addShowsToTour(tour.id, selectedShows.map(show => show.id));
       }
+      pendingCreatedTour.current = null;
       onSuccess(tour);
 
       // Reset form
@@ -89,11 +96,13 @@ export function CreateTourModal({
       onClose();
     } catch (err) {
       console.error('Failed to create tour:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to create tour. Please try again.');
+      const reason = err instanceof Error ? err.message : 'Failed to create tour';
+      toast.error(pendingCreatedTour.current ? `Tour created, but shows could not be attached: ${reason}. Retry to attach them without creating another tour.` : reason);
     }
   };
 
   const handleCancel = () => {
+    pendingCreatedTour.current = null;
     setFormData({
       name: '',
       notes: '',

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useTours } from "@/hooks/useTours";
@@ -35,6 +35,8 @@ export default function AddToTourModal({
   const [newTourNotes, setNewTourNotes] = useState('');
   const [showWarning, setShowWarning] = useState(false);
   const [error, setError] = useState('');
+  // Retain a successfully created tour if attaching shows fails; retries must not duplicate it.
+  const pendingCreatedTourId = useRef<string | null>(null);
 
   // Load tours
   useEffect(() => {
@@ -85,13 +87,17 @@ export default function AddToTourModal({
           ? showDates[showDates.length - 1].toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0];
 
-        const tour = await createTour({
-          name: newTourName,
-          notes: newTourNotes,
-          startDate,
-          endDate
-        });
-        tourId = tour.id;
+        if (!pendingCreatedTourId.current) {
+          const tour = await createTour({
+            name: newTourName,
+            notes: newTourNotes,
+            startDate,
+            endDate
+          });
+          if (!tour?.id) throw new Error('Tour creation returned no tour ID. Please refresh your tours before retrying.');
+          pendingCreatedTourId.current = tour.id;
+        }
+        tourId = pendingCreatedTourId.current;
       } else if (!selectedTourId) {
         setError('Please select a tour or create a new one');
         return;
@@ -99,12 +105,14 @@ export default function AddToTourModal({
 
       // Add shows to tour
       await addShowsToTour(tourId, selectedShows.map(s => s.id));
+      pendingCreatedTourId.current = null;
       onSuccess();
       onClose();
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to add shows to tour';
-      setError(errorMsg);
-      toast.error(errorMsg);
+      const safeMessage = pendingCreatedTourId.current ? `Tour created, but the shows could not be attached: ${errorMsg}. Retry to attach them to the existing tour.` : errorMsg;
+      setError(safeMessage);
+      toast.error(safeMessage);
     }
   };
 
