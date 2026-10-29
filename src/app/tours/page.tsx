@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
@@ -46,6 +46,7 @@ export default function ToursPage() {
   const [tourStats, setTourStats] = useState<Record<string, TourStats>>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadGeneration = useRef(0);
 
   // Check if user is an artist
   // Handle both camelCase (entityType) and snake_case (entity_type) from backend
@@ -56,43 +57,47 @@ export default function ToursPage() {
   const isLoadingAuth = status === 'loading' || (!activeProfile && status === 'authenticated');
 
   useEffect(() => {
-    // Only fetch tours if we're an artist AND session is authenticated with access token
-    if (isArtist && status === 'authenticated' && session?.user?.id) {
-      loadTours();
+    // A workspace switch must invalidate any request from the previous workspace.
+    ++loadGeneration.current;
+    setTours([]);
+    setTourStats({});
+    setError(null);
+    if (isArtist && activeProfile?.id && status === 'authenticated' && session?.user?.id) {
+      void loadTours();
     }
-  }, [isArtist, status, session?.user?.id]);
+    return () => { ++loadGeneration.current; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isArtist, activeProfile?.id, status, session?.user?.id]);
 
   const loadTours = async () => {
+    const generation = ++loadGeneration.current;
     try {
       const data = await fetchTours();
-      console.log('🎯 Loaded tours:', data);
+      if (generation !== loadGeneration.current) return;
       setTours(data);
       setError(null);
-
-      // Fetch stats for each tour
-      if (data.length > 0) {
-        fetchTourStats(data);
-      }
+      if (data.length > 0) void fetchTourStats(data, generation, activeProfile?.id || '');
     } catch (err) {
+      if (generation !== loadGeneration.current) return;
       const errorMsg = err instanceof Error ? err.message : 'Failed to load tours';
       setError(errorMsg);
       toast.error(errorMsg);
     }
   };
 
-  const fetchTourStats = async (tours: Tour[]) => {
+  const fetchTourStats = async (tours: Tour[], generation: number, workspaceId: string) => {
     try {
       const stats: Record<string, TourStats> = {};
 
       for (const tour of tours) {
         // Fetch shows for this tour
         const showsResponse = await fetch(
-          `/api/shows?tourId=${tour.id}&entityId=${activeProfile?.id}`,
+          `/api/shows?tourId=${tour.id}&entityId=${workspaceId}`,
           {
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
-              'X-Entity-Id': activeProfile?.id || '',
+              'X-Entity-Id': workspaceId,
             }
           }
         );
@@ -107,12 +112,12 @@ export default function ToursPage() {
 
         // Fetch budgets for shows in this tour
         const budgetsResponse = await fetch(
-          `/api/budgets?tourId=${tour.id}&entityId=${activeProfile?.id}`,
+          `/api/budgets?tourId=${tour.id}&entityId=${workspaceId}`,
           {
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
-              'X-Entity-Id': activeProfile?.id || '',
+              'X-Entity-Id': workspaceId,
             }
           }
         );
@@ -168,7 +173,7 @@ export default function ToursPage() {
         let totalMiles: number | null = hasBudgetMileage ? legacyBudgetMiles : null;
         const tourResponse = await fetch(`/api/tours/${tour.id}`, {
           credentials: 'include',
-          headers: { 'X-Entity-Id': activeProfile?.id || '' },
+          headers: { 'X-Entity-Id': workspaceId },
           cache: 'no-store',
         });
         if (tourResponse.ok) {
@@ -191,6 +196,7 @@ export default function ToursPage() {
       }
 
       console.log('✅ Final tour stats object:', stats);
+      if (generation !== loadGeneration.current) return;
       setTourStats(stats);
       console.log('✅ setTourStats called with', Object.keys(stats).length, 'tours');
     } catch (err) {
