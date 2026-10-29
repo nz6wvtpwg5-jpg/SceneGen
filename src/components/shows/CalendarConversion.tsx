@@ -38,6 +38,7 @@ export default function CalendarConversion({events,onClose,onSaved,existingDates
  const [tourId,setTourId]=useState('');
  const [tours,setTours]=useState<Tour[]>([]);
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState('');
+ const [existingImport,setExistingImport]=useState<{showId?:string;tourId?:string}|null>(null);
  const chosen=rows.filter(row=>row.selected&&!existingDates.some(s=>datePart(s.showDate)===row.date&&(s.notes?.includes('[Google Calendar event: '+row.sourceId+']')||(row.venueName&&row.city&&s.venueName?.trim().toLowerCase()===row.venueName.toLowerCase()&&s.venueCity?.trim().toLowerCase()===row.city.toLowerCase()))));
  useEffect(()=>{let mounted=true;(async()=>{try{
   const id=getEntityId();if(!id)throw new Error('Select a SceneGen workspace first.');
@@ -59,13 +60,18 @@ export default function CalendarConversion({events,onClose,onSaved,existingDates
   const duplicate=chosen.find(matches);
   if(duplicate){setError('A matching '+duplicate.date+' entry is already in SceneGen. Open that show instead of importing twice.');return;}
   const id=getEntityId();if(!id){setError('Select a SceneGen workspace first.');return;}
-  setBusy(true);setError('');
+  setBusy(true);setError('');setExistingImport(null);
   try{
    const response=await fetch('/api/tours/import-calendar',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','X-Entity-Id':id},
     body:JSON.stringify({mode,...(mode==='new'?{name:name.trim()}:mode==='existing'?{tourId}:{}),
      events:chosen.map(({selected,...event})=>event)})});
    const result=(await response.json()) as Saved&ErrorResponse;
-   if(!response.ok)throw new Error(result.error?.message||'Could not save these dates.');
+   if(!response.ok){
+    if(response.status===409&&result.error?.code==='ALREADY_IMPORTED'&&(result.error.showId||result.error.tourId)){
+     setExistingImport({showId:result.error.showId,tourId:result.error.tourId});
+    }
+    throw new Error(result.error?.message||'Could not save these dates.');
+   }
    if(result.showCount!==chosen.length || (mode!=='standalone'&&!result.tour?.id)) {
     throw new Error('The server did not confirm the complete calendar import. Refresh your tours and shows before retrying.');
    }
@@ -89,7 +95,7 @@ export default function CalendarConversion({events,onClose,onSaved,existingDates
      <label className="block text-xs font-bold">Calendar description<input className="mt-1 w-full rounded-lg border p-2" value={row.summary} onChange={e=>update(i,{summary:e.target.value})}/></label>
     </div>}
    </section>;})}</div>
-   {error&&<p role="alert" className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</p>}
+   {error&&<div role="alert" className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800"><p>{error}</p>{existingImport&&(existingImport.tourId||existingImport.showId)&&<a className="mt-2 inline-block font-bold underline" href={existingImport.tourId?`/tours/${existingImport.tourId}`:`/shows/${existingImport.showId}`}>Open the already imported {existingImport.tourId?'tour':'show'}</a>}</div>}
    <div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" className="rounded-full border px-5 py-3" onClick={onClose} disabled={busy}>Cancel</button><button type="button" disabled={busy||chosen.length===0} onClick={save} className="rounded-full bg-[#ff5a36] px-6 py-3 font-bold text-white disabled:opacity-50">{busy?'Saving…':'Save '+chosen.length+' date'+(chosen.length===1?'':'s')+' to SceneGen'}</button></div>
   </div>
  </div>;

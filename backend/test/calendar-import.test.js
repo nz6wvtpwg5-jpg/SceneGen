@@ -87,3 +87,11 @@ test('active calendar dialog verifies saved shows and tour before success', () =
   assert.match(source, /result\.showCount!==chosen\.length/);
   assert.match(source, /mode!==\x27standalone\x27&&!result\.tour\?\.id/);
 });
+
+
+test('calendar dialog offers recovery link when already-imported response identifies saved records', () => {
+ const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../src/components/shows/CalendarConversion.tsx'), 'utf8');
+ assert.match(source, /response\.status===409&&result\.error\?\.code===\x27ALREADY_IMPORTED\x27/);
+ assert.match(source, /Open the already imported/);
+ assert.match(source, /existingImport\.tourId\?`\/tours\/\$\{existingImport\.tourId\}`:`\/shows\/\$\{existingImport\.showId\}`/);
+});
