@@ -66,6 +66,9 @@ export default function CalendarConversion({events,onClose,onSaved,existingDates
      events:chosen.map(({selected,...event})=>event)})});
    const result=(await response.json()) as Saved&ErrorResponse;
    if(!response.ok)throw new Error(result.error?.message||'Could not save these dates.');
+   if(result.showCount!==chosen.length || (mode!=='standalone'&&!result.tour?.id)) {
+    throw new Error('The server did not confirm the complete calendar import. Refresh your tours and shows before retrying.');
+   }
    onSaved(result);
   }catch(e){setError(e instanceof Error?e.message:'Could not save these dates.');}finally{setBusy(false);}
  }

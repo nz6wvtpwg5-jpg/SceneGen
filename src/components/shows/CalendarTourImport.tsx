@@ -63,8 +63,8 @@ export default function CalendarTourImport({events,onClose,onSaved}:{events:Even
    if(!id)throw new Error('Choose your SceneGen workspace before importing.');
    const response=await fetch('/api/tours/import-calendar',{method:'POST',credentials:'include',
     headers:{'Content-Type':'application/json','X-Entity-Id':id},
-    body:JSON.stringify({...(mode==='existing'?{tourId}:{name:name.trim()}),
-      events:chosen.map(({selected,summary,...rest})=>rest)})});
+    body:JSON.stringify({mode,...(mode==='existing'?{tourId}:{name:name.trim()}),
+      events:chosen.map(({selected,...event})=>event)})});
    const data:Result=await response.json();
    if(!response.ok||!data.tour?.id)throw new Error(data.error?.message||'Unable to save tour and shows.');
    onSaved({tourId:data.tour.id,name:data.tour.name,showCount:data.showCount||chosen.length});

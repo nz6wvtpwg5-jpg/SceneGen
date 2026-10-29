@@ -72,3 +72,18 @@ test('failed read-back must roll back',async()=>{
  await handler(pool)(request({mode:'new',name:'December',events:[event]}),res);
  assert.equal(res.statusCode,500);assert.equal(state.rolledBack,true);
 });
+
+
+test('calendar-to-tour dialog preserves summary and explicitly sends import mode', () => {
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../src/components/shows/CalendarTourImport.tsx'), 'utf8');
+  assert.match(source, /JSON\.stringify\(\{mode,/);
+  assert.match(source, /events:chosen\.map\(\(\{selected,\.\.\.event\}\)=>event\)/);
+  assert.doesNotMatch(source, /\{selected,summary,\.\.\.rest\}/);
+});
+
+
+test('active calendar dialog verifies saved shows and tour before success', () => {
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../src/components/shows/CalendarConversion.tsx'), 'utf8');
+  assert.match(source, /result\.showCount!==chosen\.length/);
+  assert.match(source, /mode!==\x27standalone\x27&&!result\.tour\?\.id/);
+});
