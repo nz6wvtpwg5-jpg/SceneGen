@@ -65,6 +65,7 @@ export default function Shows() {
   const { fetchTours, removeShowsFromTour } = useTours();
   const { budgets } = useBudgets({ search: '' });
   const refreshShows = useCountRefreshStore((state) => state.refreshShows);
+  const refreshTours = useCountRefreshStore((state) => state.refreshTours);
 
   const [shows, setShows] = useState<Show[]>([]);
   const [tours, setTours] = useState<Tour[]>([]);
@@ -1471,6 +1472,7 @@ export default function Shows() {
           setImportCalendarTour(false);
           setEventToConvertToShow(null);
           refreshShows();
+          if (result.tour?.id) refreshTours();
           toast.success(result.showCount+' calendar date'+(result.showCount===1?'':'s')+' saved to SceneGen.');
           if(result.tour?.id)router.push('/tours/'+result.tour.id);
           else if(result.showId)router.push('/shows/'+result.showId);

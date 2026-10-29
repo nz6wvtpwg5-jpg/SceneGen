@@ -41,6 +41,7 @@ export default function ToursPage() {
   const { activeProfile } = useProfileStore();
   const { fetchTours, deleteTour, isLoading } = useTours();
   const refreshTours = useCountRefreshStore((state) => state.refreshTours);
+  const tourRefreshTrigger = useCountRefreshStore((state) => state.tourRefreshTrigger);
   const refreshShows = useCountRefreshStore((state) => state.refreshShows);
   const [tours, setTours] = useState<Tour[]>([]);
   const [tourStats, setTourStats] = useState<Record<string, TourStats>>({});
@@ -67,7 +68,7 @@ export default function ToursPage() {
     }
     return () => { ++loadGeneration.current; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isArtist, activeProfile?.id, status, session?.user?.id]);
+  }, [isArtist, activeProfile?.id, status, session?.user?.id, tourRefreshTrigger]);
 
   const loadTours = async () => {
     const generation = ++loadGeneration.current;
@@ -207,6 +208,7 @@ export default function ToursPage() {
   const handleCreateSuccess = async (tour: Tour) => {
     await loadTours();
     setShowCreateModal(false);
+    refreshTours();
     toast.success('Tour created successfully!');
   };
 
