@@ -1850,7 +1850,7 @@ app.post('/api/tours/import-calendar', authMiddleware,
 // POST /api/tours - Create a new tour
 app.post('/api/tours', authMiddleware, async (req, res) => {
   try {
-    const { name, description, startDate, endDate, status, currency } = req.body;
+    const { name, description, startDate, endDate, status, currency, showIds } = req.body;
     const normalizedCurrency = currency ? normalizeCurrencyCode(currency) : null;
     if (currency && !normalizedCurrency) return res.status(422).json({ error: { code: 'VALIDATION_ERROR', message: 'Currency must be a three-letter ISO code' } });
 
@@ -1888,21 +1888,44 @@ app.post('/api/tours', authMiddleware, async (req, res) => {
       });
     }
 
-    const result = await pool.query(
+    const ids = showIds === undefined ? [] : showIds;
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!Array.isArray(ids) || ids.length > 500 || ids.some(id => !uuidPattern.test(String(id))) || new Set(ids).size !== ids.length) {
+      return res.status(422).json({ error: { code: 'VALIDATION_ERROR', message: 'showIds must contain at most 500 distinct valid show IDs' } });
+    }
+
+    const client = await pool.connect();
+    let result;
+    try {
+      await client.query('BEGIN');
+      if (ids.length) {
+        const owned = await client.query('SELECT id FROM shows WHERE id = ANY($1::uuid[]) AND entity_id = $2 FOR UPDATE', [ids, req.entityId]);
+        if (owned.rows.length !== ids.length) {
+          await client.query('ROLLBACK');
+          return res.status(422).json({ error: { code: 'SHOWS_UNAVAILABLE', message: 'One or more selected shows are unavailable in this workspace' } });
+        }
+      }
+      result = await client.query(
       `INSERT INTO tours (entity_id, name, description, start_date, end_date, status, currency)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *`,
       [req.entityId, name, description, startDate, endDate, status || 'planning', normalizedCurrency]
     );
 
-    // Verify the tour was created correctly (safety check)
-    const tour = result.rows[0];
-    if (tour.id === tour.entity_id) {
-      console.error('🚨 CRITICAL: Tour created with id === entity_id!', tour);
-      // Delete the bad tour and try again
-      await pool.query('DELETE FROM tours WHERE id = $1', [tour.id]);
-      throw new Error('Tour creation failed - database constraint violation');
+      if (!result.rows[0]?.id || result.rows[0].id === result.rows[0].entity_id) throw new Error('Tour creation returned invalid record');
+      if (ids.length) {
+        const assigned = await client.query('UPDATE shows SET tour_id = $1 WHERE id = ANY($2::uuid[]) AND entity_id = $3 RETURNING id', [result.rows[0].id, ids, req.entityId]);
+        if (assigned.rows.length !== ids.length) throw new Error('Show assignment count mismatch');
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
+
+    const tour = result.rows[0];
 
     // Transform to camelCase for frontend
     const tourData = toCamelCase(tour);

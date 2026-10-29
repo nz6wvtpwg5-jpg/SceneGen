@@ -73,15 +73,13 @@ export function CreateTourModal({
           notes: formData.notes || undefined,
           startDate: formData.startDate,
           endDate: formData.endDate,
+          showIds: selectedShows.map(show => show.id),
         });
         if (!created?.id) throw new Error('Tour creation returned no tour ID. Please refresh your tours before retrying.');
         pendingCreatedTour.current = created;
       }
       const tour = pendingCreatedTour.current;
 
-      if (selectedShows.length) {
-        await addShowsToTour(tour.id, selectedShows.map(show => show.id));
-      }
       pendingCreatedTour.current = null;
       onSuccess(tour);
 

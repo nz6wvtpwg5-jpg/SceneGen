@@ -92,7 +92,8 @@ export default function AddToTourModal({
             name: newTourName,
             notes: newTourNotes,
             startDate,
-            endDate
+            endDate,
+            showIds: selectedShows.map(show => show.id)
           });
           if (!tour?.id) throw new Error('Tour creation returned no tour ID. Please refresh your tours before retrying.');
           pendingCreatedTourId.current = tour.id;
@@ -104,7 +105,7 @@ export default function AddToTourModal({
       }
 
       // Add shows to tour
-      await addShowsToTour(tourId, selectedShows.map(s => s.id));
+      if (!createNew) await addShowsToTour(tourId, selectedShows.map(s => s.id));
       pendingCreatedTourId.current = null;
       onSuccess();
       onClose();

@@ -68,6 +68,7 @@ export function useTours() {
     notes?: string;
     startDate: string;
     endDate: string;
+    showIds?: string[];
   }): Promise<Tour> => {
     setIsLoading(true);
     setError(null);
