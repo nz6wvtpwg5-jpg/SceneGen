@@ -153,3 +153,15 @@ test('does not let an explicit entity header disguise another entity record', as
   await createEntityAuthorizationMiddleware(pool)(req, res, () => assert.fail('must not continue'));
   assert.equal(res.statusCode, 403);
 });
+
+
+test('invite acceptance reads only verified req.userId', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const route = source.split("app.post('/api/invites/:token/accept',")[1]?.split('// =====================')[0];
+  assert.ok(route);
+  assert.match(route, /const userId = req\.userId;/);
+  assert.doesNotMatch(route, /req\.headers\[['"]x-user-id['"]\]/);
+  assert.match(source, /app\.use\('\/api', createPrivateIdentityMiddleware\(pool\)\)/);
+});

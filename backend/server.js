@@ -2304,10 +2304,10 @@ app.get('/api/invites/:token', async (req, res) => {
 // POST /api/invites/:token/accept - Accept invite by token
 app.post('/api/invites/:token/accept', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    const userId = req.headers['x-user-id'];
+    // The signed SceneGen identity middleware validates the session before this route.
+    const userId = req.userId;
 
-    if (!authHeader || !userId) {
+    if (!userId) {
       return res.status(401).json({
         error: { code: 'UNAUTHORIZED', message: 'Authentication required' }
       });
