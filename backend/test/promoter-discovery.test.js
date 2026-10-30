@@ -225,3 +225,42 @@ test('discovery, shortlist save and read use real band profile genres for anonym
   assert.match(section,/communityGenres:suggestedGenres/);
   assert.equal((section.match(/communityGenres:normalizeGenres\(workspace\.rows\[0\]\.tags\)/g)||[]).length,2);
 });
+
+test('excluded verified promoter cannot reappear as an anonymous booking-history duplicate', () => {
+  const profileId='55555555-5555-4555-8555-555555555555';
+  const record={internal_email_key:'verified-private@example.test',promoter_name:'Promoter',
+    verified_profile_ids:[profileId],band_tag_groups:[['#doommetal']],
+    known_locations:[{city:'Liverpool',country:'United Kingdom'}]};
+  const profile={id:profileId,name:'Public Promoter',tags:['#doommetal']};
+  const options={genres:['#doommetal'],communityGenres:['#doommetal']};
+  assert.equal(discoverPromoters([profile],[record],options).length,1);
+  assert.equal(discoverPromoters([profile],[record],{...options,excludedProfileIds:[profileId]}).length,0);
+  assert.equal(discoverPromoters([],[record],options).length,0);
+});
+
+test('ambiguous verified links never merge unrelated identities or become anonymous cards', () => {
+  const first='55555555-5555-4555-8555-555555555555';
+  const second='66666666-6666-4666-8666-666666666666';
+  const profiles=[{id:first,name:'First Promoter',tags:['#jazz']},{id:second,name:'Second Promoter',tags:['#jazz']}];
+  const evidence=[{internal_email_key:'unresolved@example.test',promoter_name:'Promoter',
+    verified_profile_ids:[first,second],band_tag_groups:[['#doommetal']]}];
+  const results=discoverPromoters(profiles,evidence,{genres:['#doommetal']});
+  assert.equal(results.length,0);
+  assert.equal(discoverPromoters(profiles,evidence,{genres:['#jazz']}).length,2);
+});
+
+test('different private identities stay distinct even when city, genres and names match',()=>{
+  const entries=['one@different.test','two@different.test'].map(email=>({
+    internal_email_key:email,promoter_name:'Identical Promoter',contact_only:true,
+    source_entity_id:'11111111-1111-4111-8111-111111111111',listed_genres:['#doommetal'],
+    known_locations:[{city:'Bristol',country:'United Kingdom'}],
+  }));
+  const found=discoverPromoters([],entries,{
+    genres:['#doommetal'],communityGenres:['#doommetal'],
+    viewerEntityId:'22222222-2222-4222-8222-222222222222',signingSecret:'test-secret',
+  });
+  assert.equal(found.length,2);
+  assert.notEqual(found[0].discoveryKey,found[1].discoveryKey);
+  assert.ok(found.every(item=>item.name==='Promoter'));
+  assert.doesNotMatch(JSON.stringify(found),/one@different|two@different/);
+});

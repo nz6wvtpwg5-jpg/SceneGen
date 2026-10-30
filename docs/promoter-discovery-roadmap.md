@@ -35,7 +35,8 @@
 - [x] Suppress anonymous duplicates for verified promoter claims, using private emails only for server-side matching
 - [x] Add per-user/workspace database-backed rate limits for promoter searches and shortlist saves
 - [x] Require band-profile genre authorization for anonymous community results, including shortlist lifecycle checks
-- [ ] Add broader multi-account duplicate management; never merge different private-email identities solely by similar location or genre
+- [x] Preserve verified identity exclusions and reject ambiguous verified links; distinct private emails never merge by city, genre or name alone
+- [ ] Review further duplicate scenarios using two live accounts and actual data
 - [ ] Live browser QA using separate artist test accounts and production API visibility checks
 
 ## Release criteria

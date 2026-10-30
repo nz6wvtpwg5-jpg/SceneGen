@@ -128,11 +128,14 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
     if (!name) continue;
     const verifiedIds = [...new Set(
       (Array.isArray(record.verified_profile_ids) ? record.verified_profile_ids : [])
-        .filter(id => typeof id === 'string' && claimed.has(id))
+        .filter(id => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id))
     )];
+    // A verified identity must never fall back to an anonymous card simply
+    // because its profile was excluded, missing, or returned ambiguously.
+    // Do not infer a second identity from its genre, name or location.
+    if (verifiedIds.length > 1 || verifiedIds.some(id => !claimed.has(id))) continue;
     let entry;
     if (verifiedIds.length === 1) {
-      // A promoter profile is linked only after reciprocal verification.
       entry = claimed.get(verifiedIds[0]);
     } else {
       entry = unclaimed.get(key);
