@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Search, Music2, MapPin, Building2, ArrowUpRight, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { getEntityId } from '@/lib/entity';
@@ -32,6 +32,7 @@ export default function PromoterDiscovery() {
   const [cityInput,setCityInput] = useState('');
   const [selectedCity,setSelectedCity] = useState('');
   const [selectedCountry,setSelectedCountry] = useState('');
+  const countrySource = useRef<'manual' | 'city' | null>(null);
   const [results, setResults] = useState<Promoter[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -42,7 +43,7 @@ export default function PromoterDiscovery() {
     setGenres([]);
     setDefaultGenresFound(false);
     setResults([]);
-    setCityInput('');setSelectedCity('');setSelectedCountry('');
+    setCityInput('');setSelectedCity('');setSelectedCountry('');countrySource.current=null;
     if (!artist || !activeProfile?.id) return;
     const controller = new AbortController();
     const headers = { 'X-Entity-Id': activeProfile.id };
@@ -112,22 +113,34 @@ export default function PromoterDiscovery() {
     <div className="grid gap-3 sm:grid-cols-2">
       <div>
         <label className="mb-2 block text-sm font-bold">Country</label>
-        <CountryFilter value={selectedCountry} onChange={country => { setSelectedCountry(country); setSelectedCity(''); setCityInput(''); }} />
+        <CountryFilter value={selectedCountry} onChange={country => { countrySource.current=country ? 'manual' : null; setSelectedCountry(country); setSelectedCity(''); setCityInput(''); }} />
       </div>
       <div>
         <label className="mb-2 block text-sm font-bold">City</label>
         <PlacesAutocomplete value={cityInput} types={['(cities)']}
           placeholder="Search city with Google Places"
-          onChange={value=>{setCityInput(value);setSelectedCity('');}}
+          onChange={value=>{
+            setCityInput(value);
+            setSelectedCity('');
+            if (countrySource.current === 'city') {
+              countrySource.current = null;
+              setSelectedCountry('');
+            }
+          }}
           onPlaceSelect={place=>{
             const parts=place.address_components || [];
             const city=parts.find(part=>part.types.includes('locality') || part.types.includes('postal_town'))?.long_name || place.name || '';
             const country=parts.find(part=>part.types.includes('country'))?.long_name || '';
             if (city && country && (place.types?.includes('locality') || place.types?.includes('postal_town'))) {
+              const explicitlySelectedSameCountry = countrySource.current === 'manual' && selectedCountry === country;
+              countrySource.current = explicitlySelectedSameCountry ? 'manual' : 'city';
               setCityInput([city,country].join(', '));setSelectedCity(city);setSelectedCountry(country);
             }
           }} />
-        {selectedCity && <button type="button" onClick={()=>{setSelectedCity('');setCityInput('');}} className="mt-1 text-xs underline">Clear city</button>}
+        {selectedCity && <button type="button" onClick={()=>{
+          setSelectedCity('');setCityInput('');
+          if (countrySource.current === 'city') { countrySource.current = null; setSelectedCountry(''); }
+        }} className="mt-1 text-xs underline">Clear city</button>}
       </div>
     </div>
     <label className="relative block">
