@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
 import { LatLngBounds, type LatLngTuple } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { publicCityMatch } from '@/lib/publicCityMatch';
 
 type City = { city: string; country: string; count: number };
 type ResolvedCity = City & {position:LatLngTuple};
@@ -43,6 +44,8 @@ export default function PromoterDiscoveryMap({ locations }: {locations:City[]}) 
       const positions:Record<string,LatLngTuple> = {};
       for (const point of Array.isArray(data.results) ? data.results : []) {
         if (point.status !== 'resolved' || point.partialMatch) continue;
+        const requested = cities.find(place => key(place) === point.key);
+        if (!requested || !publicCityMatch(requested, {city:point.city,country:point.country})) continue;
         const lat=Number(point.lat), lng=Number(point.lng);
         if (Number.isFinite(lat) && Math.abs(lat)<=90 && Number.isFinite(lng) && Math.abs(lng)<=180) positions[point.key]=[lat,lng];
       }

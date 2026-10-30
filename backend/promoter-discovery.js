@@ -57,6 +57,11 @@ const CONTACT_ONLY_PROMOTERS_SQL = [
   "FROM private_contacts pc",
   "JOIN entities owner ON owner.id=pc.entity_id AND owner.entity_type='artist'",
   "WHERE pc.linked_entity_id IS NULL",
+  // A verified promoter is discoverable through their public profile. Do not
+  // show a second anonymous card from an unlinked private address-book entry.
+  "  AND NOT EXISTS (SELECT 1 FROM promoter_claims claim",
+  "    JOIN entities verified ON verified.id=claim.entity_id AND verified.entity_type='promoter'",
+  "    WHERE claim.email=lower(trim(pc.email)))",
   "  AND pc.city IS NOT NULL AND trim(pc.city)<>''",
   "  AND pc.country IS NOT NULL AND trim(pc.country)<>''",
   "  AND (EXISTS (SELECT 1 FROM jsonb_array_elements_text(pc.roles) role WHERE lower(trim(role))='promoter')",
@@ -179,10 +184,9 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
         matchBasis: declaredMatch && associatedMatch ? 'both'
           : declaredMatch ? 'promoter_selected' : associatedMatch ? 'past_bookings'
           : listedMatch ? 'contact_listing' : null,
-        // Contacts without historical shows can match explicitly listed genre hashtags.
-        // With no genre evidence, an explicit location search remains possible.
-        _accepted: locationMatch && nameMatch && (!filters.length || matchingGenres.length > 0
-          || (entry.contactOnly && (requestedCity || requestedCountry))),
+        // Location narrows an explicit genre search; it must never override it.
+        // A location-only search (without selected genres) may include community listings.
+        _accepted: locationMatch && nameMatch && (!filters.length || matchingGenres.length > 0),
       };
     })
     .filter(result => result._accepted)

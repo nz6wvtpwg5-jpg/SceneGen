@@ -128,8 +128,7 @@ test('unregistered promoters become discoverable by location without a show, wit
     source_entity_id:'11111111-1111-4111-8111-111111111111',contact_only:true,
     known_locations:[{city:'Liverpool',country:'United Kingdom'}],
   }], {city:'Liverpool',genres:['#doommetal'],viewerEntityId:'22222222-2222-4222-8222-222222222222'});
-  assert.equal(withUnmatchedDefaultGenre.length,1);
-  assert.deepEqual(withUnmatchedDefaultGenre[0].matchingGenres,[]);
+  assert.equal(withUnmatchedDefaultGenre.length,0); // A city filter must not defeat an active genre filter.
   assert.deepEqual(rows[0].knownLocations,[{city:'Liverpool',country:'United Kingdom'}]);
   assert.deepEqual(rows[0].bandsWorkedWith,[]);
   assert.doesNotMatch(JSON.stringify(rows),/private-location|example.test|organization|notes|phone|source_entity_id/);
@@ -162,4 +161,30 @@ test('fixture migration selects a real Conan hashtag and touches only synthetic 
   assert.match(migration, /bandtest@scenegen.io/);
   assert.match(migration, /scenegen-isolation/);
   assert.match(migration, /pc.tags \? fixture.genre/);
+});
+
+
+test('city search cannot bypass a band genre filter for community-listed promoters', () => {
+  const {discoverPromoters} = require('../promoter-discovery');
+  const anonymous = [{
+    internal_email_key:'not-public@isolation.example',
+    promoter_name:'Promoter',
+    source_entity_id:'11111111-1111-4111-8111-111111111111',
+    contact_only:true,
+    listed_genres:['#jazz'],
+    known_locations:[{city:'Bristol',country:'United Kingdom'}],
+  }];
+  const options = {viewerEntityId:'22222222-2222-4222-8222-222222222222',city:'Bristol',country:'United Kingdom'};
+  assert.equal(discoverPromoters([],anonymous,{...options,genres:['#doom']}).length,0);
+  assert.equal(discoverPromoters([],anonymous,{...options,genres:['#jazz']}).length,1);
+  assert.equal(discoverPromoters([],anonymous,{...options,genres:[]}).length,1);
+});
+
+
+test('claimed public promoter profiles suppress duplicate anonymous contact-only listings', () => {
+  const { CONTACT_ONLY_PROMOTERS_SQL } = require('../promoter-discovery');
+  assert.match(CONTACT_ONLY_PROMOTERS_SQL,/NOT EXISTS \(SELECT 1 FROM promoter_claims claim/);
+  assert.match(CONTACT_ONLY_PROMOTERS_SQL,/verified\.entity_type='promoter'/);
+  assert.match(CONTACT_ONLY_PROMOTERS_SQL,/claim\.email=lower\(trim\(pc\.email\)\)/);
+  assert.doesNotMatch(CONTACT_ONLY_PROMOTERS_SQL,/pc\.(?:given_name|surname|organization|phone|notes)\b/);
 });

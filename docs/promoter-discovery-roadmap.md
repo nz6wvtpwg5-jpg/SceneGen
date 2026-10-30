@@ -29,7 +29,8 @@
 
 ## Phase 4 — Outreach and quality
 - [ ] Messaging only for registered opt-in promoters, after authentication/permissions/rate-limit/anti-spam review
-- [ ] Dedupe community listings without exposing internal identity keys, and guard against re-identification through rare combinations of filters
+- [x] Suppress anonymous duplicates for verified promoter claims, using private emails only for server-side matching
+- [ ] Add broader multi-account duplicate management and rate-limit/anti-enumeration safeguards
 - [ ] Live browser QA using separate artist test accounts and production API visibility checks
 
 ## Release criteria
