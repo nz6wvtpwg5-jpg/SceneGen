@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "migrate": "npm run migrate:base && npm run migrate:deploy",
+    "migrate": "npm run migrate:base && npm run migrate:deploy && node seed-isolation-test.js",
     "migrate:base": "node migrate.js",
     "migrate:deploy": "node migrate-deploy.js",
     "seed:app-review": "node seed-app-review.js",
