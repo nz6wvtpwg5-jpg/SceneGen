@@ -107,3 +107,35 @@ test('city and country filters match recorded promoter show locations', () => {
   assert.equal(discoverPromoters([],evidence,{city:'Paris'}).length,0);
   assert.equal(discoverPromoters([],evidence,{country:'United Kingdom'}).length,1);
 });
+
+test('unregistered promoters become discoverable by location without a show, without exposing private identity', () => {
+  const { CONTACT_ONLY_PROMOTERS_SQL } = require('../promoter-discovery');
+  assert.match(CONTACT_ONLY_PROMOTERS_SQL, /FROM private_contacts pc/);
+  assert.match(CONTACT_ONLY_PROMOTERS_SQL, /owner.entity_type='artist'/);
+  assert.match(CONTACT_ONLY_PROMOTERS_SQL, /pc.linked_entity_id IS NULL/);
+  assert.doesNotMatch(CONTACT_ONLY_PROMOTERS_SQL, /pc\.(?:given_name|surname|organization|phone|notes)\b/);
+  const rows = discoverPromoters([], [{
+    internal_email_key:'private-location@example.test',
+    promoter_name:'Promoter', source_entity_id:'11111111-1111-4111-8111-111111111111',
+    contact_only:true, verified_profile_ids:[], band_tag_groups:[], bands_worked_with:[],
+    known_locations:[{city:'Liverpool',country:'United Kingdom'}]
+  }], {city:'Liverpool',viewerEntityId:'22222222-2222-4222-8222-222222222222'});
+  assert.equal(rows.length,1);
+  assert.equal(rows[0].name,'Promoter');
+  assert.equal(rows[0].discoverySource,'contact_only');
+  const withUnmatchedDefaultGenre = discoverPromoters([], [{
+    internal_email_key:'private-location@example.test',promoter_name:'Promoter',
+    source_entity_id:'11111111-1111-4111-8111-111111111111',contact_only:true,
+    known_locations:[{city:'Liverpool',country:'United Kingdom'}],
+  }], {city:'Liverpool',genres:['#doommetal'],viewerEntityId:'22222222-2222-4222-8222-222222222222'});
+  assert.equal(withUnmatchedDefaultGenre.length,1);
+  assert.deepEqual(withUnmatchedDefaultGenre[0].matchingGenres,[]);
+  assert.deepEqual(rows[0].knownLocations,[{city:'Liverpool',country:'United Kingdom'}]);
+  assert.deepEqual(rows[0].bandsWorkedWith,[]);
+  assert.doesNotMatch(JSON.stringify(rows),/private-location|example.test|organization|notes|phone|source_entity_id/);
+  assert.equal(discoverPromoters([], [{
+    internal_email_key:'private-location@example.test',promoter_name:'Promoter',contact_only:true,
+    source_entity_id:'11111111-1111-4111-8111-111111111111',
+    known_locations:[{city:'Liverpool',country:'United Kingdom'}]
+  }],{city:'Liverpool',viewerEntityId:'11111111-1111-4111-8111-111111111111'}).length,0);
+});

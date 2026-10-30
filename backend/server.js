@@ -2653,7 +2653,7 @@ app.get('/api/contacts', authMiddleware, async (req, res) => {
 // separate from the private address book: only names and genre hashtags leave
 // the server. Email is used internally to de-duplicate evidence, never returned.
 const {
-  PROFILE_SQL, HISTORICAL_PROMOTERS_SQL,
+  PROFILE_SQL, HISTORICAL_PROMOTERS_SQL, CONTACT_ONLY_PROMOTERS_SQL,
   normalizeGenres, discoverPromoters,
 } = require('./promoter-discovery');
 
@@ -2706,15 +2706,16 @@ app.get('/api/contacts/discover-promoters', authMiddleware, async (req, res) => 
     const country = typeof req.query.country === 'string' ? req.query.country.trim().slice(0,120) : '';
     if (!query && !genres.length && !city && !country) return res.json({ promoters: [], suggestedGenres });
 
-    const [profiles, history] = await Promise.all([
+    const [profiles, history, contactOnly] = await Promise.all([
       pool.query(PROFILE_SQL),
       pool.query(HISTORICAL_PROMOTERS_SQL),
+      pool.query(CONTACT_ONLY_PROMOTERS_SQL),
     ]);
     const ownContacts = await pool.query(
       `SELECT DISTINCT lower(trim(email)) AS email, linked_entity_id::text AS profile_id
        FROM private_contacts WHERE entity_id=$1::uuid`, [req.entityId]);
-    const promoters = discoverPromoters(profiles.rows, history.rows, {
-      genres, query, city, country,
+    const promoters = discoverPromoters(profiles.rows, [...history.rows, ...contactOnly.rows], {
+      genres, query, city, country, viewerEntityId: req.entityId,
       excludedEmails: ownContacts.rows.map(row => row.email).filter(Boolean),
       excludedProfileIds: ownContacts.rows.map(row => row.profile_id).filter(Boolean),
     });

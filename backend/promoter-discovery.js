@@ -41,6 +41,25 @@ const HISTORICAL_PROMOTERS_SQL = [
   "ORDER BY internal_email_key LIMIT 5000",
 ].join('\n');
 
+// Contacts without shows contribute only a generic promoter classification and
+// city/country. Names, organizations, addresses and private fields never leave SQL.
+const CONTACT_ONLY_PROMOTERS_SQL = [
+  "SELECT COALESCE(NULLIF(lower(trim(pc.email)),''), 'contact:' || pc.id::text) AS internal_email_key,",
+  "  'Promoter'::text AS promoter_name,",
+  "  '[]'::jsonb AS band_tag_groups, '[]'::jsonb AS bands_worked_with,",
+  "  jsonb_build_array(jsonb_build_object('city',pc.city,'country',pc.country)) AS known_locations,",
+  "  ARRAY[]::text[] AS verified_profile_ids,",
+  "  pc.entity_id::text AS source_entity_id, TRUE AS contact_only",
+  "FROM private_contacts pc",
+  "JOIN entities owner ON owner.id=pc.entity_id AND owner.entity_type='artist'",
+  "WHERE pc.linked_entity_id IS NULL",
+  "  AND pc.city IS NOT NULL AND trim(pc.city)<>''",
+  "  AND pc.country IS NOT NULL AND trim(pc.country)<>''",
+  "  AND (EXISTS (SELECT 1 FROM jsonb_array_elements_text(pc.roles) role WHERE lower(trim(role))='promoter')",
+  "       OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(pc.tags) tag WHERE lower(trim(tag))='promoter'))",
+  "ORDER BY pc.created_at DESC LIMIT 5000",
+].join('\n');
+
 function normalizeGenre(value) {
   if (typeof value !== 'string') return '';
   const slug = value.trim().toLowerCase().normalize('NFKD')
@@ -68,7 +87,7 @@ function bandTagsFromGroups(value) {
   return normalizeGenres(value.flatMap(group => Array.isArray(group) ? group : []));
 }
 
-function discoverPromoters(profiles, evidence, { genres = [], query = '', excludedEmails = [], excludedProfileIds = [], city = '', country = '' } = {}) {
+function discoverPromoters(profiles, evidence, { genres = [], query = '', excludedEmails = [], excludedProfileIds = [], city = '', country = '', viewerEntityId = '' } = {}) {
   const excluded = new Set(excludedEmails.map(value => String(value).trim().toLowerCase()));
   const excludedProfiles = new Set(excludedProfileIds.map(String));
   const filters = normalizeGenres(genres);
@@ -93,7 +112,8 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
   for (const record of evidence || []) {
     // The key is used strictly for deduplication on the server. Never return it.
     const key = String(record?.internal_email_key || '').trim().toLocaleLowerCase();
-    if (!key || excluded.has(key) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) continue;
+    if (record?.source_entity_id && String(record.source_entity_id) === String(viewerEntityId)) continue;
+    if (!key || excluded.has(key) || (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key) && !/^contact:[0-9a-f-]{36}$/i.test(key))) continue;
     const name = publicPromoterName(record.promoter_name);
     if (!name) continue;
     const verifiedIds = [...new Set(
@@ -107,10 +127,11 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
     } else {
       entry = unclaimed.get(key);
       if (!entry) {
-        entry = { profileId: null, name: 'Promoter', own: new Set(), fromBands: new Set(), bands: new Map(), locations: new Map() };
+        entry = { profileId: null, name: 'Promoter', own: new Set(), fromBands: new Set(), bands: new Map(), locations: new Map(), contactOnly: true };
         unclaimed.set(key, entry);
       }
     }
+    if (!record.contact_only) entry.contactOnly = false;
     for (const tag of bandTagsFromGroups(record.band_tag_groups)) entry.fromBands.add(tag);
     for (const item of Array.isArray(record.bands_worked_with) ? record.bands_worked_with : []) {
       const band = typeof item?.name === 'string' ? item.name.trim().slice(0,140) : '';
@@ -145,10 +166,14 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
         knownLocations: [...entry.locations.values()].sort((a,b)=>a.city.localeCompare(b.city)).slice(0,20),
         bandsWorkedWith: [...entry.bands.values()].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10).map(item=>item.name),
         registrationStatus: entry.profileId ? 'registered' : 'not_registered',
+        discoverySource: entry.profileId ? 'profile' : entry.contactOnly ? 'contact_only' : 'past_bookings',
         declaredGenres, associatedBandGenres, matchingGenres,
         matchBasis: declaredMatch && associatedMatch ? 'both'
           : declaredMatch ? 'promoter_selected' : associatedMatch ? 'past_bookings' : null,
-        _accepted: locationMatch && nameMatch && (!filters.length || matchingGenres.length > 0),
+        // A contact with no shows has no genre evidence yet. Location search
+        // may still include it without falsely claiming a genre match.
+        _accepted: locationMatch && nameMatch && (!filters.length || matchingGenres.length > 0
+          || (entry.contactOnly && (requestedCity || requestedCountry))),
       };
     })
     .filter(result => result._accepted)
@@ -163,6 +188,6 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
 }
 
 module.exports = {
-  PROFILE_SQL, HISTORICAL_PROMOTERS_SQL, normalizeGenre, normalizeGenres,
+  PROFILE_SQL, HISTORICAL_PROMOTERS_SQL, CONTACT_ONLY_PROMOTERS_SQL, normalizeGenre, normalizeGenres,
   publicPromoterName, discoverPromoters,
 };

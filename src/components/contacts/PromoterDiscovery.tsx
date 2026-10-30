@@ -12,6 +12,7 @@ type Promoter = {
   name: string;
   profileId: string | null;
   registrationStatus: 'registered' | 'not_registered';
+  discoverySource?: 'profile' | 'past_bookings' | 'contact_only';
   declaredGenres: string[];
   associatedBandGenres: string[];
   matchingGenres: string[];
@@ -152,7 +153,7 @@ export default function PromoterDiscovery() {
             <div>
               <h3 className="text-base font-black">{promoter.name}</h3>
               <p className="mt-1 text-xs text-[#686258]">
-                {promoter.profileId ? 'Registered SceneGen promoter' : 'Discovered from historical bookings · Unclaimed'}
+                {promoter.profileId ? 'Registered SceneGen promoter' : promoter.discoverySource === 'contact_only' ? 'Known promoter location · Unregistered' : 'Discovered from historical bookings · Unclaimed'}
               </p>
             </div>
             {promoter.profileId && <Link href={'/profile/' + encodeURIComponent(promoter.profileId)}
@@ -163,7 +164,7 @@ export default function PromoterDiscovery() {
               className="inline-flex items-center gap-1 rounded-full bg-[#eee6da] px-3 py-1 text-xs font-bold">
               <Music2 size={12} />{tag}</span>)}
           </div>
-          {Boolean(promoter.knownLocations?.length) && <p className="mt-3 text-sm text-[#504b43]">Known show locations: {promoter.knownLocations?.map(place=>[place.city,place.country].filter(Boolean).join(', ')).join(' · ')}</p>}
+          {Boolean(promoter.knownLocations?.length) && <p className="mt-3 text-sm text-[#504b43]">{promoter.discoverySource === 'contact_only' ? 'Location' : 'Known show locations'}: {promoter.knownLocations?.map(place=>[place.city,place.country].filter(Boolean).join(', ')).join(' · ')}</p>}
           {Boolean(promoter.bandsWorkedWith?.length) && <p className="mt-2 text-sm text-[#504b43]">Bands worked with recently include {promoter.bandsWorkedWith?.join(', ')}</p>}
           <p className="mt-3 text-xs text-[#686258]">
             {promoter.matchBasis === 'both' ? 'Matches promoter-selected genres and previous bookings'
