@@ -16,6 +16,7 @@ function publicSnapshot(result) {
   return {
     name: result.name,
     profileId: result.profileId,
+    acceptingIntroductions: result.acceptingIntroductions === true,
     registrationStatus: result.registrationStatus,
     discoverySource: result.discoverySource,
     knownLocations: result.knownLocations,

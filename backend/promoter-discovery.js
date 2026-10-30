@@ -6,9 +6,10 @@ const crypto = require('node:crypto');
  * profiles are searchable. Private contact details never leave this module.
  */
 const PROFILE_SQL = [
-  "SELECT e.id::text AS id, e.name,",
+  "SELECT e.id::text AS id, e.name, COALESCE(outreach.accepting_introductions,FALSE) AS accepting_introductions,",
   "  CASE WHEN jsonb_typeof(e.tags)='array' THEN e.tags ELSE '[]'::jsonb END AS tags",
-  "FROM entities e WHERE e.entity_type='promoter'",
+  "FROM entities e LEFT JOIN promoter_outreach_preferences outreach ON outreach.promoter_entity_id=e.id",
+  "WHERE e.entity_type='promoter'",
   "ORDER BY e.name, e.id LIMIT 5000",
 ].join('\n');
 
@@ -113,7 +114,8 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
     const profileId = String(profile?.id || '');
     if (!name || !/^[0-9a-f-]{36}$/i.test(profileId) || excludedProfiles.has(profileId)) continue;
     claimed.set(profileId, {
-      profileId, name, own: new Set(normalizeGenres(profile.tags)),
+      profileId, name, acceptingIntroductions:profile.accepting_introductions === true,
+      own: new Set(normalizeGenres(profile.tags)),
       fromBands: new Set(), listed: new Set(), locations: new Map(),
     });
   }
@@ -175,6 +177,7 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
       const eligibleCommunityMatch = matchingGenres.some(tag => eligibleCommunityGenres.has(tag));
       return {
         name: entry.profileId ? entry.name : 'Promoter', profileId: entry.profileId,
+        acceptingIntroductions: Boolean(entry.profileId && entry.acceptingIntroductions),
         discoveryKey: entry.profileId ? `profile:${entry.profileId}` : entry.discoveryKey || null,
         // Multiple location hints from someone else's private address book can
         // identify an unclaimed contact by triangulation. Show one city only.

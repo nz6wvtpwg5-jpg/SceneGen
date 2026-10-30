@@ -33,7 +33,8 @@
 - [ ] Complete live privacy review of combined booking-history and location signals
 
 ## Phase 4 — Outreach and quality
-- [ ] Messaging only for registered opt-in promoters, after authentication/permissions/rate-limit/anti-spam review
+- [x] Add opt-in, owner/admin-authorized, rate-limited in-app introductions for registered promoters, with accept/decline and sender status
+- [ ] Add threaded replies only after a separate mutual-permission and anti-spam review
 - [x] Suppress anonymous duplicates for verified promoter claims, using private emails only for server-side matching
 - [x] Add per-user/workspace database-backed rate limits for promoter searches and shortlist saves
 - [x] Require band-profile genre authorization for anonymous community results, including shortlist lifecycle checks

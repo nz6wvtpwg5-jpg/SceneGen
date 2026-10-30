@@ -11,6 +11,8 @@ import CountryFilter from '@/components/contacts/CountryFilter';
 import { discoverySummary, sortDiscoveryResults, type DiscoverySort } from '@/lib/promoterDiscoveryView';
 import { publicDiscoveryCities } from '@/lib/promoterDiscoveryLocations';
 import { upcomingShowCities } from '@/lib/promoterTourCities';
+import { PromoterIntroductionComposer } from '@/components/contacts/PromoterIntroductionComposer';
+import { SentPromoterIntroductions } from '@/components/contacts/SentPromoterIntroductions';
 const PromoterDiscoveryMap = dynamic(() => import('@/components/contacts/PromoterDiscoveryMap'), {ssr:false,loading:()=> <p className="text-sm text-[#686258]">Loading map…</p>});
 
 type Promoter = {
@@ -18,6 +20,7 @@ type Promoter = {
   profileId: string | null;
   discoveryKey?: string | null;
   availability?: 'available' | 'unavailable';
+  acceptingIntroductions?: boolean;
   registrationStatus: 'registered' | 'not_registered';
   discoverySource?: 'profile' | 'past_bookings' | 'contact_only';
   declaredGenres: string[];
@@ -38,10 +41,11 @@ export default function PromoterDiscovery() {
   const [defaultGenresFound, setDefaultGenresFound] = useState(false);
   const [bandGenres, setBandGenres] = useState<string[]>([]);
   const [sort, setSort] = useState<DiscoverySort>('relevance');
-  const [viewMode,setViewMode] = useState<'discover'|'saved'>('discover');
+  const [viewMode,setViewMode] = useState<'discover'|'saved'|'sent'>('discover');
   const [resultView,setResultView] = useState<'list'|'map'>('list');
   const [saved,setSaved] = useState<SavedPromoter[]>([]);
   const [savingKey,setSavingKey] = useState<string | null>(null);
+  const [contactPromoter,setContactPromoter] = useState<{id:string;name:string}|null>(null);
   const [saveError,setSaveError] = useState('');
   const [tourCities,setTourCities] = useState<Array<{city:string;country:string;date:string}>>([]);
   const [text, setText] = useState('');
@@ -64,6 +68,7 @@ export default function PromoterDiscovery() {
     setViewMode('discover');
     setResultView('list');
     setSaved([]);
+    setContactPromoter(null);
     setSaveError('');
     setDefaultGenresFound(false);
     setResults([]);
@@ -202,6 +207,8 @@ export default function PromoterDiscovery() {
         className={`min-h-11 rounded-full px-5 text-sm font-bold ${viewMode === 'discover' ? 'bg-[#171713] text-white' : 'bg-[#eee6da] text-[#504b43]'}`}>Explore promoters</button>
       <button type="button" role="tab" aria-selected={viewMode === 'saved'} onClick={() => setViewMode('saved')}
         className={`inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-bold ${viewMode === 'saved' ? 'bg-[#171713] text-white' : 'bg-[#eee6da] text-[#504b43]'}`}><Bookmark size={15}/> My shortlist ({saved.length})</button>
+      <button type="button" role="tab" aria-selected={viewMode === 'sent'} onClick={() => setViewMode('sent')}
+        className={`min-h-11 rounded-full px-5 text-sm font-bold ${viewMode === 'sent' ? 'bg-[#171713] text-white' : 'bg-[#eee6da] text-[#504b43]'}`}>Sent enquiries</button>
     </div>
     {viewMode === 'discover' && <>
     <div>
@@ -306,7 +313,8 @@ export default function PromoterDiscovery() {
     {saveError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
     {viewMode === 'saved' && <div className="rounded-lg bg-[#f2e9dd] px-4 py-3 text-sm font-semibold text-[#504b43]">{saved.length ? `${saved.length} saved ${saved.length === 1 ? 'promoter' : 'promoters'} for this band. Private contact details remain hidden.` : 'No promoters saved yet. Explore matches and use Save to shortlist them.'}</div>}
     {viewMode === 'discover' && resultView === 'map' && <PromoterDiscoveryMap locations={publicDiscoveryCities(sortedResults)} />}
-    {(viewMode === 'saved' || resultView === 'list') && <div className="grid gap-4 md:grid-cols-2">
+    {viewMode === 'sent' && activeProfile?.id && <SentPromoterIntroductions key={activeProfile.id} entityId={activeProfile.id}/> }
+    {(viewMode === 'saved' || (viewMode === 'discover' && resultView === 'list')) && <div className="grid gap-4 md:grid-cols-2">
       {displayResults.map((promoter, index) => {
         const mainLocation = promoter.knownLocations?.[0];
         const locationLabel = mainLocation ? [mainLocation.city, mainLocation.country].filter(Boolean).join(', ') : 'Location not supplied';
@@ -348,6 +356,8 @@ export default function PromoterDiscovery() {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/10 bg-[#faf6ef] px-4 py-2 sm:px-6">
             {!unavailable && promoter.profileId ? <Link href={'/profile/' + encodeURIComponent(promoter.profileId)} className="inline-flex min-h-11 items-center gap-1 text-sm font-black text-[#171713]">View public profile <ArrowUpRight size={17}/></Link> : <span className="text-xs text-[#756d61]">{unavailable ? 'Old listing information hidden' : 'Private identity protected'}</span>}
+            {!unavailable && isRegistered && promoter.acceptingIntroductions && promoter.profileId && <button type="button" onClick={()=>setContactPromoter({id:promoter.profileId!,name:promoter.name})}
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#171713] px-4 text-sm font-bold text-white">Request introduction</button>}
             {promoter.discoveryKey && <button type="button" disabled={Boolean(savingKey)} onClick={() => void toggleSave(promoter)}
               className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-sm font-bold text-[#171713] disabled:opacity-50">
               {unavailable ? <><BookmarkCheck size={16}/> Remove from shortlist</> : saved.some(item => item.discoveryKey === promoter.discoveryKey) ? <><BookmarkCheck size={16}/> Saved</> : <><Bookmark size={16}/> Save</>}
@@ -356,6 +366,7 @@ export default function PromoterDiscovery() {
         </article>;
       })}
     </div>}
+    {artist && activeProfile?.id && <PromoterIntroductionComposer key={activeProfile.id} entityId={activeProfile.id} selected={contactPromoter} onClose={()=>setContactPromoter(null)}/>}
     <p className="text-xs text-[#686258]">
       Unclaimed listings do not reveal private contact information. Connect through a registered profile when available.
     </p>

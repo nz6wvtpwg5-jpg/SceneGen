@@ -549,6 +549,7 @@ app.use('/api', async (req, res, next) => {
 app.use('/api', require('./show-proposals').createShowProposalRouter(pool, createEntityNotification));
 app.use('/api', require('./promoter-claims').createPromoterClaimRouter(pool));
 app.use('/api', createEntityAuthorizationMiddleware(pool));
+app.use('/api/promoter-outreach', require('./promoter-outreach').createPromoterOutreachRouter(pool, createEntityNotification));
 app.use('/api', require('./day-sheet-collaborators').createDaySheetCollaboratorRouter(pool, serializeShow));
 app.use('/api', require('./day-sheet-changes').createDaySheetChangeRouter(pool, serializeShow));
 app.use('/api', require('./show-advance').createShowAdvanceRouter(pool));
