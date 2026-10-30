@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
-import { BarChart3, ChevronDown, List, Map as MapIcon, Search, SlidersHorizontal, UserPlus, Users, X } from "lucide-react";
+import { BarChart3, ChevronDown, Compass, List, Map as MapIcon, Search, SlidersHorizontal, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useOnboardingRedirect } from "@/hooks/useOnboardingRedirect";
 import { useContacts, type Contact } from "@/hooks/useContacts";
@@ -147,7 +147,10 @@ export default function Contacts() {
   return <div className="scene-page min-h-[calc(100dvh-5rem)] overflow-y-auto pb-28 md:h-[calc(100vh-5rem)] md:pb-8">
     <header className="flex flex-col gap-5 border-b border-black/10 pb-6 sm:pb-8 lg:flex-row lg:items-end lg:justify-between">
       <div><p className="scene-kicker">Working network</p><h1 className="scene-title">Contacts</h1><p className="scene-copy">Find the people and organisations that move the work forward.</p></div>
-      <Link className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#ff5a36] px-6 text-sm font-bold text-white shadow-[0_10px_24px_rgba(255,90,54,.2)] transition hover:bg-[#e54525] sm:w-fit" href="/contacts/add"><UserPlus size={17} />Add contact</Link>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Link className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#171713] bg-[#fffaf2] px-6 text-sm font-bold text-[#171713] transition hover:bg-[#e9e1d5] sm:w-fit" href="/contacts/discover"><Compass size={17} />Discover promoters</Link>
+        <Link className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#ff5a36] px-6 text-sm font-bold text-white shadow-[0_10px_24px_rgba(255,90,54,.2)] transition hover:bg-[#e54525] sm:w-fit" href="/contacts/add"><UserPlus size={17} />Add contact</Link>
+      </div>
     </header>
 
     <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 sm:grid-cols-3">
