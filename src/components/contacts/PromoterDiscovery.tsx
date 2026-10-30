@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, Music2 } from 'lucide-react';
+import { Search, Music2, MapPin, Building2, ArrowUpRight, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { getEntityId } from '@/lib/entity';
 import { useProfileStore } from '@/store/useProfileStore';
 import { GenreTagPicker } from '@/components/settings/genre-tag-picker';
@@ -151,36 +151,55 @@ export default function PromoterDiscovery() {
         {genres.length || text.trim() || selectedCity || selectedCountry ? 'No matching promoters were found.' : 'Choose a genre or search for a promoter.'}
       </p>
     )}
-    <div className="grid gap-3">
-      {results.map((promoter, index) => (
-        <article key={promoter.profileId || promoter.name + ':' + index}
-          className="rounded-lg border border-black/10 bg-white p-4 sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-base font-black">{promoter.name}</h3>
-              <p className="mt-1 text-xs text-[#686258]">
-                {promoter.profileId ? 'Registered SceneGen promoter' : promoter.discoverySource === 'contact_only' ? 'Known promoter location · Unregistered' : 'Discovered from historical bookings · Unclaimed'}
-              </p>
+    {!busy && !error && results.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 pb-4 pt-2">
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#777168]">Your promoter matches</p>
+        <p className="mt-1 text-xl font-black text-[#171713]">{results.length} {results.length === 1 ? 'promoter' : 'promoters'} found</p>
+      </div>
+      <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-[#eee6da] px-3 py-2 text-xs font-bold text-[#504b43]"><SlidersHorizontal size={14} />Matched to your search</span>
+    </div>}
+    <div className="grid gap-4 md:grid-cols-2">
+      {results.map((promoter, index) => {
+        const mainLocation = promoter.knownLocations?.[0];
+        const locationLabel = mainLocation ? [mainLocation.city, mainLocation.country].filter(Boolean).join(', ') : 'Location not supplied';
+        const isRegistered = Boolean(promoter.profileId);
+        const headline = isRegistered ? promoter.name : mainLocation?.city ? `Promoter in ${mainLocation.city}` : 'Unregistered promoter';
+        const evidence = promoter.matchBasis === 'both' ? 'Promoter genres and previous bookings'
+          : promoter.matchBasis === 'promoter_selected' ? 'Promoter-selected genre'
+          : promoter.matchBasis === 'past_bookings' ? 'Genres from previous bookings'
+          : promoter.matchBasis === 'contact_listing' ? 'Genre listed by another band'
+          : 'Location-based discovery';
+        return <article key={promoter.profileId || `listing-${index}-${locationLabel}`}
+          className="group flex h-full flex-col overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm transition-shadow hover:shadow-md">
+          <div className="flex flex-1 flex-col p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#f3e6d9] text-[#b64f31]"><Building2 size={22} strokeWidth={1.8}/></span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#a05b41]">{isRegistered ? 'SceneGen promoter' : 'Promoter discovery'}</p>
+                  <h3 className="mt-1 text-lg font-black leading-snug text-[#171713]">{headline}</h3>
+                </div>
+              </div>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${isRegistered ? 'bg-[#e7f0e4] text-[#355a3b]' : 'bg-[#eeeae4] text-[#756d61]'}`}>{isRegistered ? 'Registered' : 'Unclaimed'}</span>
             </div>
-            {promoter.profileId && <Link href={'/profile/' + encodeURIComponent(promoter.profileId)}
-              className="rounded-full bg-[#171713] px-4 py-2 text-sm font-bold text-white">View profile</Link>}
+            <div className="mt-5 flex items-start gap-2 text-sm text-[#504b43]"><MapPin size={17} className="mt-0.5 shrink-0 text-[#ff5a36]"/><span>{locationLabel}</span></div>
+            {promoter.knownLocations && promoter.knownLocations.length > 1 && <p className="mt-1 pl-[25px] text-xs text-[#777168]">+{promoter.knownLocations.length - 1} other known locations</p>}
+            {promoter.matchingGenres.length > 0 && <div className="mt-5 flex flex-wrap gap-2">
+              {promoter.matchingGenres.map(tag => <span key={tag} className="inline-flex items-center gap-1.5 rounded-full bg-[#171713] px-3 py-1.5 text-xs font-bold text-white"><Music2 size={13}/>{tag}</span>)}
+            </div>}
+            {Boolean(promoter.bandsWorkedWith?.length) && <div className="mt-5 rounded-lg bg-[#f7f2ea] p-3">
+              <p className="text-[10px] font-black uppercase tracking-[.14em] text-[#777168]">Public booking history</p>
+              <p className="mt-1 text-sm text-[#504b43]">{promoter.bandsWorkedWith?.slice(0,3).join(' · ')}</p>
+            </div>}
+            <div className="mt-auto pt-5">
+              <div className="border-t border-black/10 pt-4">
+                <p className="flex items-start gap-2 text-xs leading-relaxed text-[#756d61]"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#6c8067]"/>{evidence}. {isRegistered ? 'View the public promoter profile.' : 'Contact details stay private until shared.'}</p>
+              </div>
+            </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {promoter.matchingGenres.map(tag => <span key={tag}
-              className="inline-flex items-center gap-1 rounded-full bg-[#eee6da] px-3 py-1 text-xs font-bold">
-              <Music2 size={12} />{tag}</span>)}
-          </div>
-          {Boolean(promoter.knownLocations?.length) && <p className="mt-3 text-sm text-[#504b43]">{promoter.discoverySource === 'contact_only' ? 'Location' : 'Known show locations'}: {promoter.knownLocations?.map(place=>[place.city,place.country].filter(Boolean).join(', ')).join(' · ')}</p>}
-          {Boolean(promoter.bandsWorkedWith?.length) && <p className="mt-2 text-sm text-[#504b43]">Bands worked with recently include {promoter.bandsWorkedWith?.join(', ')}</p>}
-          <p className="mt-3 text-xs text-[#686258]">
-            {promoter.matchBasis === 'both' ? 'Matches promoter-selected genres and previous bookings'
-              : promoter.matchBasis === 'promoter_selected' ? 'Matches the promoter’s selected genres'
-              : promoter.matchBasis === 'past_bookings' ? 'Matches genres of bands from previous bookings'
-              : promoter.matchBasis === 'contact_listing' ? 'Matches a genre supplied in a band’s promoter listing'
-              : 'Search result'}
-          </p>
-        </article>
-      ))}
+          {promoter.profileId && <Link href={'/profile/' + encodeURIComponent(promoter.profileId)} className="flex min-h-12 items-center justify-between border-t border-black/10 bg-[#faf6ef] px-6 text-sm font-black text-[#171713] hover:bg-[#f1e8dc]">View public profile <ArrowUpRight size={17}/></Link>}
+        </article>;
+      })}
     </div>
     <p className="text-xs text-[#686258]">
       Unclaimed listings do not reveal private contact information. Connect through a registered profile when available.
