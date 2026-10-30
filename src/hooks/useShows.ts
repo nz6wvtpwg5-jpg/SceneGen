@@ -53,13 +53,44 @@ export function useShows() {
         method: 'POST',
         credentials: 'include',
         headers,
-        body: JSON.stringify(showData),
+        body: JSON.stringify({
+          tourId: showData.tourId,
+          festivalName: showData.festivalName,
+          date: showData.showDate,
+          startTime: showData.showTime,
+          doorTime: showData.doorsTime,
+          endTime: showData.endTime,
+          loadInTime: showData.loadInTime,
+          soundCheckTime: showData.soundCheckTime,
+          venueName: showData.venueName,
+          venueId: showData.venueId,
+          venuePlaceId: showData.venuePlaceId,
+          venueAddress: showData.venueAddress,
+          city: showData.venueCity,
+          state: showData.venueState,
+          country: showData.venueCountry,
+          latitude: showData.latitude,
+          longitude: showData.longitude,
+          capacity: showData.venueCapacity,
+          guaranteedFee: showData.guarantee,
+          currency: showData.currency,
+          backendDeal: showData.dealType,
+          ticketPrice: showData.ticketPrice,
+          notes: showData.notes,
+          promoterName: showData.contactName,
+          promoterPhone: showData.contactPhone,
+          promoterEmail: showData.contactEmail,
+        }),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(typeof errorData.error === 'string' ? errorData.error : errorData.error?.message || errorData.error?.details || 'Failed to create show');
       }
-      return await response.json();
+      const data = await response.json();
+      if (!data?.show?.id) {
+        throw new Error('The server did not confirm the created show. Refresh your shows before trying again.');
+      }
+      return data.show as Show;
     } catch (err: any) {
       setError(err.message);
       throw err;

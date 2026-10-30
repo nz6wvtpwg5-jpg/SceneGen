@@ -108,6 +108,9 @@ export interface CreateShowInput {
     venueCapacity?: number;
     doorsTime: string;
     showTime: string;
+    endTime?: string;
+    loadInTime?: string;
+    soundCheckTime?: string;
     setLength?: string; // Optional for progressive data entry
     guarantee?: number;
     currency?: string;  // ISO currency code
@@ -115,6 +118,7 @@ export interface CreateShowInput {
     doorSplitPercentage?: number;
     advanceTicketPrice?: number;
     doorTicketPrice?: number;
+    ticketPrice?: number;
     notes?: string;
     contactName: string;
     contactPhone: string;
