@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Search, Music2, MapPin, Building2, ArrowUpRight, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { Search, Music2, MapPin, Building2, ArrowUpRight, ShieldCheck, SlidersHorizontal, RotateCcw } from 'lucide-react';
 import { getEntityId } from '@/lib/entity';
 import { useProfileStore } from '@/store/useProfileStore';
 import { GenreTagPicker } from '@/components/settings/genre-tag-picker';
 import PlacesAutocomplete from '@/components/ui/PlacesAutocomplete';
 import CountryFilter from '@/components/contacts/CountryFilter';
+import { discoverySummary, sortDiscoveryResults, type DiscoverySort } from '@/lib/promoterDiscoveryView';
 
 type Promoter = {
   name: string;
@@ -28,6 +29,8 @@ export default function PromoterDiscovery() {
   const [genres, setGenres] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [defaultGenresFound, setDefaultGenresFound] = useState(false);
+  const [bandGenres, setBandGenres] = useState<string[]>([]);
+  const [sort, setSort] = useState<DiscoverySort>('relevance');
   const [text, setText] = useState('');
   const [cityInput,setCityInput] = useState('');
   const [selectedCity,setSelectedCity] = useState('');
@@ -41,6 +44,8 @@ export default function PromoterDiscovery() {
   useEffect(() => {
     setLoaded(false);
     setGenres([]);
+    setBandGenres([]);
+    setSort('relevance');
     setDefaultGenresFound(false);
     setResults([]);
     setCityInput('');setSelectedCity('');setSelectedCountry('');countrySource.current=null;
@@ -56,6 +61,7 @@ export default function PromoterDiscovery() {
         if (!controller.signal.aborted) {
           const suggestedGenres = Array.isArray(data.suggestedGenres) ? data.suggestedGenres : [];
           setGenres(suggestedGenres);
+          setBandGenres(suggestedGenres);
           setDefaultGenresFound(suggestedGenres.length > 0);
           setLoaded(true);
         }
@@ -95,6 +101,10 @@ export default function PromoterDiscovery() {
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [genres, text, selectedCity, selectedCountry, loaded, artist, activeProfile?.id]);
 
+  const summary = discoverySummary(results);
+  const sortedResults = sortDiscoveryResults(results, sort);
+  const genresModified = genres.length !== bandGenres.length || genres.some(tag => !bandGenres.includes(tag));
+
   if (!artist) return <p className="text-sm text-[#686258]">Switch to an artist workspace to discover promoters by genre.</p>;
   return <div className="space-y-5">
     <div>
@@ -108,6 +118,7 @@ export default function PromoterDiscovery() {
     <div>
       <label className="mb-2 block text-sm font-bold">Music genres</label>
       <GenreTagPicker tags={genres} onChange={setGenres} />
+      {loaded && genresModified && <button type="button" onClick={() => setGenres([...bandGenres])} className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#b64f31] hover:underline"><RotateCcw size={13} /> Reset to my band's genres</button>}
       {loaded && !defaultGenresFound && !genres.length && <p className="mt-2 text-xs text-[#686258]">This workspace has no saved music genre hashtags. Add genres to your band profile to see automatic matches, or search by location.</p>}
     </div>
     <div className="grid gap-3 sm:grid-cols-2">
@@ -157,15 +168,34 @@ export default function PromoterDiscovery() {
         {genres.length || text.trim() || selectedCity || selectedCountry ? 'No matching promoters were found.' : 'Choose a genre or search for a promoter.'}
       </p>
     )}
-    {!busy && !error && results.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 pb-4 pt-2">
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#777168]">Your promoter matches</p>
-        <p className="mt-1 text-xl font-black text-[#171713]">{results.length} {results.length === 1 ? 'promoter' : 'promoters'} found</p>
+    {!error && loaded && (results.length > 0 || busy) && <div className="space-y-4 border-b border-black/10 pb-5 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#777168]">Your promoter matches</p>
+          <p aria-live="polite" className="mt-1 text-xl font-black text-[#171713]">{busy ? 'Updating matches…' : `${summary.matches} ${summary.matches === 1 ? 'promoter' : 'promoters'} found`}</p>
+        </div>
+        <label className="flex items-center gap-2 text-xs font-bold text-[#504b43]">
+          Sort by
+          <select value={sort} onChange={event => setSort(event.target.value as DiscoverySort)} className="min-h-11 rounded-md border border-black/15 bg-white px-3 text-sm font-bold text-[#171713]" aria-label="Sort promoters">
+            <option value="relevance">Best match</option>
+            <option value="location">Location</option>
+            <option value="name">Name</option>
+          </select>
+        </label>
       </div>
-      <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-[#eee6da] px-3 py-2 text-xs font-bold text-[#504b43]"><SlidersHorizontal size={14} />Matched to your search</span>
+      <div className="grid grid-cols-3 gap-2 sm:gap-3" aria-label="Discovery summary">
+        <div className="rounded-lg bg-[#f2e9dd] p-3"><p className="text-2xl font-black text-[#171713]">{summary.matches}</p><p className="text-[11px] font-bold text-[#756d61]">Promoters</p></div>
+        <div className="rounded-lg bg-[#f2e9dd] p-3"><p className="text-2xl font-black text-[#171713]">{summary.registered}</p><p className="text-[11px] font-bold text-[#756d61]">Registered</p></div>
+        <div className="rounded-lg bg-[#f2e9dd] p-3"><p className="text-2xl font-black text-[#171713]">{summary.locations}</p><p className="text-[11px] font-bold text-[#756d61]">Known cities</p></div>
+      </div>
+      <div className="flex flex-wrap gap-3 text-[11px] text-[#686258]">
+        <span><strong className="text-[#171713]">Registered:</strong> claimed SceneGen profile</span>
+        <span><strong className="text-[#171713]">Booking evidence:</strong> confirmed historical shows</span>
+        <span><strong className="text-[#171713]">Community-listed:</strong> an unverified band's genre listing</span>
+      </div>
     </div>}
     <div className="grid gap-4 md:grid-cols-2">
-      {results.map((promoter, index) => {
+      {sortedResults.map((promoter, index) => {
         const mainLocation = promoter.knownLocations?.[0];
         const locationLabel = mainLocation ? [mainLocation.city, mainLocation.country].filter(Boolean).join(', ') : 'Location not supplied';
         const isRegistered = Boolean(promoter.profileId);
@@ -186,7 +216,7 @@ export default function PromoterDiscovery() {
                   <h3 className="mt-1 text-lg font-black leading-snug text-[#171713]">{headline}</h3>
                 </div>
               </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${isRegistered ? 'bg-[#e7f0e4] text-[#355a3b]' : 'bg-[#eeeae4] text-[#756d61]'}`}>{isRegistered ? 'Registered' : 'Unclaimed'}</span>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${isRegistered ? 'bg-[#e7f0e4] text-[#355a3b]' : 'bg-[#eeeae4] text-[#756d61]'}`}>{isRegistered ? 'Registered' : 'Community-listed'}</span>
             </div>
             <div className="mt-5 flex items-start gap-2 text-sm text-[#504b43]"><MapPin size={17} className="mt-0.5 shrink-0 text-[#ff5a36]"/><span>{locationLabel}</span></div>
             {promoter.knownLocations && promoter.knownLocations.length > 1 && <p className="mt-1 pl-[25px] text-xs text-[#777168]">+{promoter.knownLocations.length - 1} other known locations</p>}
