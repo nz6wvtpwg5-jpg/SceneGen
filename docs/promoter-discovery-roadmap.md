@@ -20,7 +20,8 @@
 - [x] Create a separate workspace-scoped shortlist with its own migration and authorized API
 - [x] Add Save/Unsave and My shortlist on the discovery UI
 - [x] Test signed middleware denies cross-workspace shortlist access using two isolated simulated users
-- [ ] Live authenticated two-account verification of actual shortlist rows and actions
+- [ ] Live authenticated two-account verification of actual shortlist rows and actions (isolated band production login verified; direct cross-workspace request not executable through current remote tool)
+- [x] Discovery UI binds all requests to active artist workspace and rejects late responses from previous workspace
 - [x] Revalidate saved listings on read and suppress stale promoter details after removal, genre change or claim
 
 ## Phase 3 — Map and touring relevance

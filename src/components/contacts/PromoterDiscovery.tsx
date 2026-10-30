@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Search, Music2, MapPin, Building2, ArrowUpRight, ShieldCheck, SlidersHorizontal, RotateCcw, Bookmark, BookmarkCheck } from 'lucide-react';
-import { getEntityId } from '@/lib/entity';
 import { useProfileStore } from '@/store/useProfileStore';
 import { GenreTagPicker } from '@/components/settings/genre-tag-picker';
 import PlacesAutocomplete from '@/components/ui/PlacesAutocomplete';
@@ -145,7 +144,8 @@ export default function PromoterDiscovery() {
   }
 
   useEffect(() => {
-    if (!artist || !loaded) return;
+    if (!artist || !loaded || !activeProfile?.id) return;
+    const workspaceId = activeProfile.id;
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       if (!genres.length && !text.trim() && !selectedCity && !selectedCountry) { setResults([]); setBusy(false); return; }
@@ -160,7 +160,7 @@ export default function PromoterDiscovery() {
         if (!genres.length) params.set('genre', '');
         else genres.forEach(tag => params.append('genre', tag));
         const response = await fetch('/api/contacts/discover-promoters?' + params.toString(), {
-          headers: { 'X-Entity-Id': getEntityId() || activeProfile?.id || '' },
+          headers: { 'X-Entity-Id': workspaceId },
           signal: controller.signal, cache: 'no-store',
         });
         if (!response.ok) {
@@ -170,11 +170,11 @@ export default function PromoterDiscovery() {
             : payload?.error?.message || 'Could not search promoter directory');
         }
         const data = await response.json();
-        if (!controller.signal.aborted) setResults(Array.isArray(data.promoters) ? data.promoters : []);
+        if (!controller.signal.aborted && currentWorkspaceRef.current === workspaceId) setResults(Array.isArray(data.promoters) ? data.promoters : []);
       } catch (caught) {
-        if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : 'Search unavailable');
+        if (!controller.signal.aborted && currentWorkspaceRef.current === workspaceId) setError(caught instanceof Error ? caught.message : 'Search unavailable');
       } finally {
-        if (!controller.signal.aborted) setBusy(false);
+        if (!controller.signal.aborted && currentWorkspaceRef.current === workspaceId) setBusy(false);
       }
     }, 350);
     return () => { controller.abort(); window.clearTimeout(timer); };
