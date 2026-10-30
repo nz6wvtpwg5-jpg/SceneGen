@@ -15,16 +15,18 @@ type Promoter = {
   discoverySource?: 'profile' | 'past_bookings' | 'contact_only';
   declaredGenres: string[];
   associatedBandGenres: string[];
+  listedGenres?: string[];
   matchingGenres: string[];
   knownLocations?: Array<{city:string;country:string}>;
   bandsWorkedWith?: string[];
-  matchBasis: 'promoter_selected' | 'past_bookings' | 'both' | null;
+  matchBasis: 'promoter_selected' | 'past_bookings' | 'both' | 'contact_listing' | null;
 };
 
 export default function PromoterDiscovery() {
   const { activeProfile } = useProfileStore();
   const [genres, setGenres] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [defaultGenresFound, setDefaultGenresFound] = useState(false);
   const [text, setText] = useState('');
   const [cityInput,setCityInput] = useState('');
   const [countryInput,setCountryInput] = useState('');
@@ -38,6 +40,7 @@ export default function PromoterDiscovery() {
   useEffect(() => {
     setLoaded(false);
     setGenres([]);
+    setDefaultGenresFound(false);
     setResults([]);
     setCityInput('');setCountryInput('');setSelectedCity('');setSelectedCountry('');
     if (!artist || !activeProfile?.id) return;
@@ -50,7 +53,9 @@ export default function PromoterDiscovery() {
       })
       .then(data => {
         if (!controller.signal.aborted) {
-          setGenres(Array.isArray(data.suggestedGenres) ? data.suggestedGenres : []);
+          const suggestedGenres = Array.isArray(data.suggestedGenres) ? data.suggestedGenres : [];
+          setGenres(suggestedGenres);
+          setDefaultGenresFound(suggestedGenres.length > 0);
           setLoaded(true);
         }
       })
@@ -94,14 +99,15 @@ export default function PromoterDiscovery() {
     <div>
       <h2 className="text-xl font-black">Discover promoters</h2>
       <p className="mt-2 max-w-2xl text-sm text-[#686258]">
-        Find promoters by your band's genres, genres promoters have selected themselves,
-        or the music played by bands they've worked with. A booking association is not
-        a promoter's personal endorsement.
+        Automatically showing promoters who share at least one of your band's genre hashtags.
+        You can change the genres or narrow results by country and city. Genres added by
+        other bands to unregistered contact listings are not endorsements by those promoters.
       </p>
     </div>
     <div>
       <label className="mb-2 block text-sm font-bold">Music genres</label>
       <GenreTagPicker tags={genres} onChange={setGenres} />
+      {loaded && !defaultGenresFound && !genres.length && <p className="mt-2 text-xs text-[#686258]">This workspace has no saved music genre hashtags. Add genres to your band profile to see automatic matches, or search by location.</p>}
     </div>
     <div className="grid gap-3 sm:grid-cols-2">
       <div>
@@ -170,6 +176,7 @@ export default function PromoterDiscovery() {
             {promoter.matchBasis === 'both' ? 'Matches promoter-selected genres and previous bookings'
               : promoter.matchBasis === 'promoter_selected' ? 'Matches the promoter’s selected genres'
               : promoter.matchBasis === 'past_bookings' ? 'Matches genres of bands from previous bookings'
+              : promoter.matchBasis === 'contact_listing' ? 'Matches a genre supplied in a band’s promoter listing'
               : 'Search result'}
           </p>
         </article>

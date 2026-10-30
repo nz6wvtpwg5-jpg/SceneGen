@@ -139,3 +139,27 @@ test('unregistered promoters become discoverable by location without a show, wit
     known_locations:[{city:'Liverpool',country:'United Kingdom'}]
   }],{city:'Liverpool',viewerEntityId:'11111111-1111-4111-8111-111111111111'}).length,0);
 });
+
+test('contact-only promoter matches another band by explicitly listed music hashtag, without any shows', () => {
+  const { CONTACT_ONLY_PROMOTERS_SQL } = require('../promoter-discovery');
+  assert.match(CONTACT_ONLY_PROMOTERS_SQL, /jsonb_array_elements_text\(pc.tags\)/);
+  assert.match(CONTACT_ONLY_PROMOTERS_SQL, /listed_genres/);
+  const records = [{ internal_email_key: 'not-public@example.test', promoter_name: 'Promoter',
+    source_entity_id: '11111111-1111-4111-8111-111111111111', contact_only: true,
+    listed_genres: ['#doommetal'], known_locations: [{city:'Liverpool',country:'United Kingdom'}] }];
+  const matching = discoverPromoters([], records, {genres:['#doommetal'],viewerEntityId:'22222222-2222-4222-8222-222222222222'});
+  assert.equal(matching.length, 1);
+  assert.deepEqual(matching[0].matchingGenres, ['#doommetal']);
+  assert.equal(matching[0].matchBasis, 'contact_listing');
+  assert.equal(matching[0].discoverySource, 'contact_only');
+  assert.doesNotMatch(JSON.stringify(matching), /not-public@example.test|11111111-1111/);
+  assert.equal(discoverPromoters([], records, {genres:['#jazz'],viewerEntityId:'22222222-2222-4222-8222-222222222222'}).length, 0);
+});
+
+test('fixture migration selects a real Conan hashtag and touches only synthetic promoters', () => {
+  const migration = fs.readFileSync(path.join(__dirname,'../migrations/071_genre_tag_isolation_fixture.sql'),'utf8');
+  assert.match(migration, /lower\(trim\(e.name\)\)='conan'/);
+  assert.match(migration, /bandtest@scenegen.io/);
+  assert.match(migration, /scenegen-isolation/);
+  assert.match(migration, /pc.tags \? fixture.genre/);
+});

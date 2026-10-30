@@ -47,6 +47,9 @@ const CONTACT_ONLY_PROMOTERS_SQL = [
   "SELECT COALESCE(NULLIF(lower(trim(pc.email)),''), 'contact:' || pc.id::text) AS internal_email_key,",
   "  'Promoter'::text AS promoter_name,",
   "  '[]'::jsonb AS band_tag_groups, '[]'::jsonb AS bands_worked_with,",
+  "  (SELECT COALESCE(jsonb_agg(lower(tag)), '[]'::jsonb)",
+  "     FROM jsonb_array_elements_text(pc.tags) AS tag",
+  "     WHERE lower(tag) ~ '^#[a-z0-9]{2,40}$') AS listed_genres,",
   "  jsonb_build_array(jsonb_build_object('city',pc.city,'country',pc.country)) AS known_locations,",
   "  ARRAY[]::text[] AS verified_profile_ids,",
   "  pc.entity_id::text AS source_entity_id, TRUE AS contact_only",
@@ -104,7 +107,7 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
     if (!name || !/^[0-9a-f-]{36}$/i.test(profileId) || excludedProfiles.has(profileId)) continue;
     claimed.set(profileId, {
       profileId, name, own: new Set(normalizeGenres(profile.tags)),
-      fromBands: new Set(), bands: new Map(), locations: new Map(),
+      fromBands: new Set(), listed: new Set(), bands: new Map(), locations: new Map(),
     });
   }
 
@@ -127,12 +130,13 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
     } else {
       entry = unclaimed.get(key);
       if (!entry) {
-        entry = { profileId: null, name: 'Promoter', own: new Set(), fromBands: new Set(), bands: new Map(), locations: new Map(), contactOnly: true };
+        entry = { profileId: null, name: 'Promoter', own: new Set(), fromBands: new Set(), listed: new Set(), bands: new Map(), locations: new Map(), contactOnly: true };
         unclaimed.set(key, entry);
       }
     }
     if (!record.contact_only) entry.contactOnly = false;
     for (const tag of bandTagsFromGroups(record.band_tag_groups)) entry.fromBands.add(tag);
+    for (const tag of normalizeGenres(record.listed_genres)) entry.listed.add(tag);
     for (const item of Array.isArray(record.bands_worked_with) ? record.bands_worked_with : []) {
       const band = typeof item?.name === 'string' ? item.name.trim().slice(0,140) : '';
       const date = typeof item?.date === 'string' ? item.date.slice(0,10) : '';
@@ -155,23 +159,26 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
           (['usa','united states','united states of america'].includes(requestedCountry) && ['usa','united states','united states of america'].includes(place.country.toLowerCase()))));
       const declaredGenres = [...entry.own].sort();
       const associatedBandGenres = [...entry.fromBands].sort();
-      const all = new Set([...declaredGenres, ...associatedBandGenres]);
+      const listedGenres = [...entry.listed].sort();
+      const all = new Set([...declaredGenres, ...associatedBandGenres, ...listedGenres]);
       const matchingGenres = filters.filter(tag => all.has(tag));
       const nameMatch = !search || (entry.profileId && entry.name.toLocaleLowerCase().includes(search))
         || (searchGenre && [...all].some(tag => tag.includes(searchGenre.slice(1))));
       const declaredMatch = matchingGenres.some(tag => entry.own.has(tag));
       const associatedMatch = matchingGenres.some(tag => entry.fromBands.has(tag));
+      const listedMatch = matchingGenres.some(tag => entry.listed.has(tag));
       return {
         name: entry.profileId ? entry.name : 'Promoter', profileId: entry.profileId,
         knownLocations: [...entry.locations.values()].sort((a,b)=>a.city.localeCompare(b.city)).slice(0,20),
         bandsWorkedWith: [...entry.bands.values()].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10).map(item=>item.name),
         registrationStatus: entry.profileId ? 'registered' : 'not_registered',
         discoverySource: entry.profileId ? 'profile' : entry.contactOnly ? 'contact_only' : 'past_bookings',
-        declaredGenres, associatedBandGenres, matchingGenres,
+        declaredGenres, associatedBandGenres, listedGenres, matchingGenres,
         matchBasis: declaredMatch && associatedMatch ? 'both'
-          : declaredMatch ? 'promoter_selected' : associatedMatch ? 'past_bookings' : null,
-        // A contact with no shows has no genre evidence yet. Location search
-        // may still include it without falsely claiming a genre match.
+          : declaredMatch ? 'promoter_selected' : associatedMatch ? 'past_bookings'
+          : listedMatch ? 'contact_listing' : null,
+        // Contacts without historical shows can match explicitly listed genre hashtags.
+        // With no genre evidence, an explicit location search remains possible.
         _accepted: locationMatch && nameMatch && (!filters.length || matchingGenres.length > 0
           || (entry.contactOnly && (requestedCity || requestedCountry))),
       };
