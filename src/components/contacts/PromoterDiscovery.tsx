@@ -7,6 +7,7 @@ import { getEntityId } from '@/lib/entity';
 import { useProfileStore } from '@/store/useProfileStore';
 import { GenreTagPicker } from '@/components/settings/genre-tag-picker';
 import PlacesAutocomplete from '@/components/ui/PlacesAutocomplete';
+import { selectedCountryName } from '@/lib/promoterLocationSelection';
 
 type Promoter = {
   name: string;
@@ -32,6 +33,7 @@ export default function PromoterDiscovery() {
   const [countryInput,setCountryInput] = useState('');
   const [selectedCity,setSelectedCity] = useState('');
   const [selectedCountry,setSelectedCountry] = useState('');
+  const [countrySelectionError,setCountrySelectionError] = useState('');
   const [results, setResults] = useState<Promoter[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -42,7 +44,7 @@ export default function PromoterDiscovery() {
     setGenres([]);
     setDefaultGenresFound(false);
     setResults([]);
-    setCityInput('');setCountryInput('');setSelectedCity('');setSelectedCountry('');
+    setCityInput('');setCountryInput('');setSelectedCity('');setSelectedCountry('');setCountrySelectionError('');
     if (!artist || !activeProfile?.id) return;
     const controller = new AbortController();
     const headers = { 'X-Entity-Id': activeProfile.id };
@@ -114,12 +116,22 @@ export default function PromoterDiscovery() {
         <label className="mb-2 block text-sm font-bold">Country</label>
         <PlacesAutocomplete value={countryInput} types={['(regions)']}
           placeholder="Search country with Google Places"
-          onChange={value=>{setCountryInput(value);setSelectedCountry('');setSelectedCity('');setCityInput('');}}
+          onChange={value=>{setCountryInput(value);setSelectedCountry('');setSelectedCity('');setCityInput('');setCountrySelectionError('');}}
           onPlaceSelect={place=>{
-            const country=place.address_components?.find(part=>part.types.includes('country'))?.long_name || '';
-            if (country && place.types?.includes('country')) {setCountryInput(country);setSelectedCountry(country);}
+            const country = selectedCountryName(place);
+            if (!country) {
+              setCountryInput('');
+              setSelectedCountry('');
+              setCountrySelectionError('That is not a country. Please choose a country, such as United Kingdom, from the suggestions.');
+              return;
+            }
+            setCountryInput(country);
+            setSelectedCountry(country);
+            setCountrySelectionError('');
           }} />
-        {selectedCountry && <button type="button" onClick={()=>{setSelectedCountry('');setCountryInput('');setSelectedCity('');setCityInput('');}} className="mt-1 text-xs underline">Clear country</button>}
+        {countrySelectionError && <p role="alert" className="mt-2 text-xs font-semibold text-red-700">{countrySelectionError}</p>}
+        {!countrySelectionError && countryInput && !selectedCountry && <p className="mt-2 text-xs text-[#756d61]">Select a country from the suggestions to apply the filter.</p>}
+        {selectedCountry && <button type="button" onClick={()=>{setSelectedCountry('');setCountryInput('');setSelectedCity('');setCityInput('');setCountrySelectionError('');}} className="mt-1 text-xs underline">Clear country</button>}
       </div>
       <div>
         <label className="mb-2 block text-sm font-bold">City</label>
