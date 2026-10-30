@@ -24,7 +24,7 @@ test('shortlist storage is uniquely scoped to workspace, without private contact
  assert.match(section,/WHERE entity_id=\$1::uuid/);
  assert.match(section,/WHERE id=\$1::uuid AND entity_id=\$2::uuid/);
  assert.match(section,/public_snapshot/);
- assert.match(section,/const snapshot = \{/);
+ assert.match(section,/const snapshot = publicSnapshot\(chosen\)/);
  assert.doesNotMatch(section,/snapshot = req\.body/);
  assert.match(section,/signingSecret:process\.env\.BACKEND_SERVICE_TOKEN/);
 });

@@ -21,6 +21,7 @@
 - [x] Add Save/Unsave and My shortlist on the discovery UI
 - [x] Test signed middleware denies cross-workspace shortlist access using two isolated simulated users
 - [ ] Live authenticated two-account verification of actual shortlist rows and actions
+- [x] Revalidate saved listings on read and suppress stale promoter details after removal, genre change or claim
 
 ## Phase 3 — Map and touring relevance
 - [x] Introduce approximate city-only map coordinates, resolved from public city labels; never use private contact coordinates

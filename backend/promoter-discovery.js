@@ -96,7 +96,7 @@ function bandTagsFromGroups(value) {
   return normalizeGenres(value.flatMap(group => Array.isArray(group) ? group : []));
 }
 
-function discoverPromoters(profiles, evidence, { genres = [], query = '', excludedEmails = [], excludedProfileIds = [], city = '', country = '', viewerEntityId = '', signingSecret = '' } = {}) {
+function discoverPromoters(profiles, evidence, { genres = [], query = '', excludedEmails = [], excludedProfileIds = [], city = '', country = '', viewerEntityId = '', signingSecret = '', targetKeys = null } = {}) {
   const excluded = new Set(excludedEmails.map(value => String(value).trim().toLowerCase()));
   const excludedProfiles = new Set(excludedProfileIds.map(String));
   const filters = normalizeGenres(genres);
@@ -104,7 +104,7 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
   const searchGenre = normalizeGenre(search);
   const requestedCity = String(city).trim().toLowerCase();
   const requestedCountry = String(country).trim().toLowerCase();
-  if (!search && !filters.length && !requestedCity && !requestedCountry) return [];
+  if (!search && !filters.length && !requestedCity && !requestedCountry && !targetKeys?.size) return [];
 
   const claimed = new Map();
   for (const profile of profiles || []) {
@@ -201,14 +201,14 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
           && (Boolean(entry.profileId) || matchingGenres.length > 0),
       };
     })
-    .filter(result => result._accepted)
+    .filter(result => result._accepted && (!targetKeys || targetKeys.has(result.discoveryKey)))
     .sort((a, b) =>
       b.matchingGenres.length - a.matchingGenres.length
       || Number(b.matchBasis === 'promoter_selected' || b.matchBasis === 'both')
           - Number(a.matchBasis === 'promoter_selected' || a.matchBasis === 'both')
       || a.name.localeCompare(b.name)
     )
-    .slice(0, 60)
+    .slice(0, targetKeys ? 5000 : 60)
     .map(({ _accepted, ...publicRecord }) => publicRecord);
 }
 

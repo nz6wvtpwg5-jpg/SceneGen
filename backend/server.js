@@ -2657,6 +2657,7 @@ const {
   normalizeGenres, discoverPromoters,
 } = require('./promoter-discovery');
 const { consumeDiscoveryAllowance } = require('./promoter-discovery-rate-limit');
+const { revalidateShortlist, publicSnapshot } = require('./promoter-shortlist-lifecycle');
 
 // Registered SceneGen profiles: same search filters as promoter discovery,
 // but no private contact data or unclaimed promoters.
@@ -2741,10 +2742,18 @@ app.get('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) => 
       `SELECT id,discovery_key,public_snapshot,created_at FROM promoter_discovery_shortlists
        WHERE entity_id=$1::uuid ORDER BY created_at DESC LIMIT 500`, [req.entityId]);
     res.setHeader('Cache-Control', 'private, no-store');
-    res.json({ saved: result.rows.map(row => ({
-      id: row.id, discoveryKey: row.discovery_key,
-      promoter: row.public_snapshot, createdAt: row.created_at,
-    })) });
+    if (!result.rows.length) return res.json({saved:[]});
+    const [profiles, history, community, ownContacts] = await Promise.all([
+      pool.query(PROFILE_SQL),pool.query(HISTORICAL_PROMOTERS_SQL),
+      pool.query(CONTACT_ONLY_PROMOTERS_SQL),
+      pool.query('SELECT lower(trim(email)) AS email,linked_entity_id::text AS profile_id FROM private_contacts WHERE entity_id=$1::uuid', [req.entityId]),
+    ]);
+    const saved = revalidateShortlist(result.rows, profiles.rows, [...history.rows,...community.rows], {
+      viewerEntityId:req.entityId,signingSecret:process.env.BACKEND_SERVICE_TOKEN,
+      excludedEmails:ownContacts.rows.map(row=>row.email).filter(Boolean),
+      excludedProfileIds:ownContacts.rows.map(row=>row.profile_id).filter(Boolean),
+    });
+    return res.json({saved});
   } catch (error) {
     console.error('Promoter shortlist fetch failed:', error.message);
     res.status(500).json({ error: { message: 'Could not load saved promoters' } });
@@ -2782,12 +2791,7 @@ app.post('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) =>
     const chosen = eligible.find(item=>item.discoveryKey === discoveryKey);
     if (!chosen) return res.status(404).json({error:{message:'Promoter is no longer available in this discovery search'}});
     // Whitelist only public discovery fields from server-generated results.
-    const snapshot = {
-      name:chosen.name,profileId:chosen.profileId,
-      registrationStatus:chosen.registrationStatus,discoverySource:chosen.discoverySource,
-      knownLocations:chosen.knownLocations,matchingGenres:chosen.matchingGenres,
-      matchBasis:chosen.matchBasis,bandsWorkedWith:chosen.bandsWorkedWith,
-    };
+    const snapshot = publicSnapshot(chosen);
     const inserted = await pool.query(
       `INSERT INTO promoter_discovery_shortlists(entity_id,discovery_key,public_snapshot,created_by)
        VALUES($1::uuid,$2,$3::jsonb,$4::uuid)

@@ -18,6 +18,7 @@ type Promoter = {
   name: string;
   profileId: string | null;
   discoveryKey?: string | null;
+  availability?: 'available' | 'unavailable';
   registrationStatus: 'registered' | 'not_registered';
   discoverySource?: 'profile' | 'past_bookings' | 'contact_only';
   declaredGenres: string[];
@@ -29,7 +30,7 @@ type Promoter = {
   matchBasis: 'promoter_selected' | 'past_bookings' | 'both' | 'contact_listing' | null;
 };
 
-type SavedPromoter = { id: string; discoveryKey: string; promoter: Promoter; createdAt: string };
+type SavedPromoter = { id: string; discoveryKey: string; promoter: Promoter; status: 'available' | 'unavailable'; createdAt: string };
 
 export default function PromoterDiscovery() {
   const { activeProfile } = useProfileStore();
@@ -134,7 +135,7 @@ export default function PromoterDiscovery() {
       if (currentWorkspaceRef.current !== workspaceId) return;
       if (prior) setSaved(items => items.filter(item => item.id !== prior.id));
       else setSaved(items => [...items.filter(item => item.discoveryKey !== body.discoveryKey),{
-        id:body.id,discoveryKey:body.discoveryKey,promoter:body.promoter,createdAt:new Date().toISOString(),
+        id:body.id,discoveryKey:body.discoveryKey,promoter:body.promoter,status:'available',createdAt:new Date().toISOString(),
       }]);
     } catch (caught) {
       if (currentWorkspaceRef.current === workspaceId) setSaveError(caught instanceof Error ? caught.message : 'Could not update shortlist');
@@ -182,7 +183,7 @@ export default function PromoterDiscovery() {
   const summary = discoverySummary(results);
   const sortedResults = sortDiscoveryResults(results, sort);
   const displayResults = viewMode === 'saved'
-    ? saved.map(item => ({...item.promoter,discoveryKey:item.discoveryKey}))
+    ? saved.map(item => ({...item.promoter,discoveryKey:item.discoveryKey,availability:item.status}))
     : sortedResults;
   const genresModified = genres.length !== bandGenres.length || genres.some(tag => !bandGenres.includes(tag));
 
@@ -309,9 +310,10 @@ export default function PromoterDiscovery() {
       {displayResults.map((promoter, index) => {
         const mainLocation = promoter.knownLocations?.[0];
         const locationLabel = mainLocation ? [mainLocation.city, mainLocation.country].filter(Boolean).join(', ') : 'Location not supplied';
-        const isRegistered = Boolean(promoter.profileId);
-        const headline = isRegistered ? promoter.name : mainLocation?.city ? `Promoter in ${mainLocation.city}` : 'Unregistered promoter';
-        const evidence = promoter.matchBasis === 'both' ? 'Promoter genres and previous bookings'
+        const unavailable = promoter.availability === 'unavailable';
+        const isRegistered = Boolean(promoter.profileId) && !unavailable;
+        const headline = unavailable ? 'No longer available' : isRegistered ? promoter.name : mainLocation?.city ? `Promoter in ${mainLocation.city}` : 'Unregistered promoter';
+        const evidence = unavailable ? 'This saved listing can no longer be verified in the directory.' : promoter.matchBasis === 'both' ? 'Promoter genres and previous bookings'
           : promoter.matchBasis === 'promoter_selected' ? 'Promoter-selected genre'
           : promoter.matchBasis === 'past_bookings' ? 'Genres from previous bookings'
           : promoter.matchBasis === 'contact_listing' ? 'Genre listed by another band'
@@ -327,7 +329,7 @@ export default function PromoterDiscovery() {
                   <h3 className="mt-1 text-lg font-black leading-snug text-[#171713]">{headline}</h3>
                 </div>
               </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${isRegistered ? 'bg-[#e7f0e4] text-[#355a3b]' : 'bg-[#eeeae4] text-[#756d61]'}`}>{isRegistered ? 'Registered' : 'Community-listed'}</span>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${isRegistered ? 'bg-[#e7f0e4] text-[#355a3b]' : 'bg-[#eeeae4] text-[#756d61]'}`}>{unavailable ? 'Unavailable' : isRegistered ? 'Registered' : 'Community-listed'}</span>
             </div>
             <div className="mt-5 flex items-start gap-2 text-sm text-[#504b43]"><MapPin size={17} className="mt-0.5 shrink-0 text-[#ff5a36]"/><span>{locationLabel}</span></div>
             {promoter.knownLocations && promoter.knownLocations.length > 1 && <p className="mt-1 pl-[25px] text-xs text-[#777168]">+{promoter.knownLocations.length - 1} other known locations</p>}
@@ -340,15 +342,15 @@ export default function PromoterDiscovery() {
             </div>}
             <div className="mt-auto pt-5">
               <div className="border-t border-black/10 pt-4">
-                <p className="flex items-start gap-2 text-xs leading-relaxed text-[#756d61]"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#6c8067]"/>{evidence}. {isRegistered ? 'View the public promoter profile.' : 'Contact details stay private until shared.'}</p>
+                <p className="flex items-start gap-2 text-xs leading-relaxed text-[#756d61]"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#6c8067]"/>{evidence}. {unavailable ? 'Its previous location, genres and booking details are hidden.' : isRegistered ? 'View the public promoter profile.' : 'Contact details stay private until shared.'}</p>
               </div>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/10 bg-[#faf6ef] px-4 py-2 sm:px-6">
-            {promoter.profileId ? <Link href={'/profile/' + encodeURIComponent(promoter.profileId)} className="inline-flex min-h-11 items-center gap-1 text-sm font-black text-[#171713]">View public profile <ArrowUpRight size={17}/></Link> : <span className="text-xs text-[#756d61]">Private identity protected</span>}
+            {!unavailable && promoter.profileId ? <Link href={'/profile/' + encodeURIComponent(promoter.profileId)} className="inline-flex min-h-11 items-center gap-1 text-sm font-black text-[#171713]">View public profile <ArrowUpRight size={17}/></Link> : <span className="text-xs text-[#756d61]">{unavailable ? 'Old listing information hidden' : 'Private identity protected'}</span>}
             {promoter.discoveryKey && <button type="button" disabled={Boolean(savingKey)} onClick={() => void toggleSave(promoter)}
               className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-sm font-bold text-[#171713] disabled:opacity-50">
-              {saved.some(item => item.discoveryKey === promoter.discoveryKey) ? <><BookmarkCheck size={16}/> Saved</> : <><Bookmark size={16}/> Save</>}
+              {unavailable ? <><BookmarkCheck size={16}/> Remove from shortlist</> : saved.some(item => item.discoveryKey === promoter.discoveryKey) ? <><BookmarkCheck size={16}/> Saved</> : <><Bookmark size={16}/> Save</>}
             </button>}
           </div>
         </article>;
