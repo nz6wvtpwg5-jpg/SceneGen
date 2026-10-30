@@ -6,7 +6,7 @@ const {discoverPromoters}=require('../promoter-discovery');
 const {revalidateShortlist}=require('../promoter-shortlist-lifecycle');
 const viewer='22222222-2222-4222-8222-222222222222';
 const owner='11111111-1111-4111-8111-111111111111';
-const opts={viewerEntityId:viewer,signingSecret:'local-test-key'};
+const opts={viewerEntityId:viewer,signingSecret:'local-test-key',communityGenres:['#doommetal']};
 const contact=(genres=['#doommetal'],location='Bristol')=>({
  internal_email_key:'private@example.test',promoter_name:'Private Promoter',
  source_entity_id:owner,contact_only:true,listed_genres:genres,

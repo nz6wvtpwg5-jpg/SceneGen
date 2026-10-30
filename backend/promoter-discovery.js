@@ -96,10 +96,11 @@ function bandTagsFromGroups(value) {
   return normalizeGenres(value.flatMap(group => Array.isArray(group) ? group : []));
 }
 
-function discoverPromoters(profiles, evidence, { genres = [], query = '', excludedEmails = [], excludedProfileIds = [], city = '', country = '', viewerEntityId = '', signingSecret = '', targetKeys = null } = {}) {
+function discoverPromoters(profiles, evidence, { genres = [], query = '', excludedEmails = [], excludedProfileIds = [], city = '', country = '', viewerEntityId = '', signingSecret = '', targetKeys = null, communityGenres = null } = {}) {
   const excluded = new Set(excludedEmails.map(value => String(value).trim().toLowerCase()));
   const excludedProfiles = new Set(excludedProfileIds.map(String));
   const filters = normalizeGenres(genres);
+  const eligibleCommunityGenres = new Set(normalizeGenres(communityGenres === null ? filters : communityGenres));
   const search = String(query || '').trim().toLocaleLowerCase().slice(0, 80);
   const searchGenre = normalizeGenre(search);
   const requestedCity = String(city).trim().toLowerCase();
@@ -167,13 +168,14 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
       const associatedBandGenres = [...entry.fromBands].sort();
       const listedGenres = [...entry.listed].sort();
       const all = new Set([...declaredGenres, ...associatedBandGenres, ...listedGenres]);
-      const matchingGenres = filters.filter(tag => all.has(tag));
+      const matchingGenres = filters.filter(tag => all.has(tag) && (Boolean(entry.profileId) || eligibleCommunityGenres.has(tag)));
       const searchGenreMatch = Boolean(search && searchGenre && all.has(searchGenre));
       const nameMatch = !search || (entry.profileId && entry.name.toLocaleLowerCase().includes(search))
         || searchGenreMatch;
       const declaredMatch = matchingGenres.some(tag => entry.own.has(tag));
       const associatedMatch = matchingGenres.some(tag => entry.fromBands.has(tag));
       const listedMatch = matchingGenres.some(tag => entry.listed.has(tag));
+      const eligibleCommunityMatch = matchingGenres.some(tag => eligibleCommunityGenres.has(tag));
       return {
         name: entry.profileId ? entry.name : 'Promoter', profileId: entry.profileId,
         discoveryKey: entry.profileId ? `profile:${entry.profileId}` : entry.discoveryKey || null,
@@ -198,7 +200,7 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
         // An unclaimed listing requires positive genre evidence, even when the
         // user provides a location but no genre filters.
         _accepted: locationMatch && nameMatch && (!filters.length || matchingGenres.length > 0)
-          && (Boolean(entry.profileId) || matchingGenres.length > 0),
+          && (Boolean(entry.profileId) || eligibleCommunityMatch),
       };
     })
     .filter(result => result._accepted && (!targetKeys || targetKeys.has(result.discoveryKey)))

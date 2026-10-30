@@ -34,6 +34,7 @@
 - [ ] Messaging only for registered opt-in promoters, after authentication/permissions/rate-limit/anti-spam review
 - [x] Suppress anonymous duplicates for verified promoter claims, using private emails only for server-side matching
 - [x] Add per-user/workspace database-backed rate limits for promoter searches and shortlist saves
+- [x] Require band-profile genre authorization for anonymous community results, including shortlist lifecycle checks
 - [ ] Add broader multi-account duplicate management; never merge different private-email identities solely by similar location or genre
 - [ ] Live browser QA using separate artist test accounts and production API visibility checks
 

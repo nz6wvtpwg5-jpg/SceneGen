@@ -204,3 +204,24 @@ test('unclaimed listings cannot be enumerated by city-only search or partial gen
   assert.equal(discoverPromoters([],[entry],{viewerEntityId,query:'#doommetal'}).length,0);
   assert.equal(discoverPromoters([],[entry],{viewerEntityId,query:'#doommetal',genres:['#doommetal']}).length,1);
 });
+
+
+test('only saved band genres authorize private community listings, not user-injected search hashtags', () => {
+  const entry={internal_email_key:'contact@test.example',promoter_name:'Promoter',contact_only:true,
+    source_entity_id:'11111111-1111-4111-8111-111111111111',listed_genres:['#jazz','#doommetal'],
+    known_locations:[{city:'Bristol',country:'United Kingdom'}]};
+  const viewerEntityId='22222222-2222-4222-8222-222222222222';
+  assert.equal(discoverPromoters([],[entry],{viewerEntityId,genres:['#jazz'],communityGenres:['#doommetal']}).length,0);
+  const rows=discoverPromoters([],[entry],{viewerEntityId,genres:['#doommetal','#jazz'],communityGenres:['#doommetal']});
+  assert.equal(rows.length,1);
+  assert.deepEqual(rows[0].matchingGenres,['#doommetal']);
+  assert.equal(discoverPromoters([],[entry],{viewerEntityId,genres:['#doommetal'],communityGenres:[]}).length,0);
+});
+
+test('discovery, shortlist save and read use real band profile genres for anonymous listings', () => {
+  const server=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
+  const section=server.split("app.get('/api/contacts/discover-promoters'")[1]
+    .split("app.delete('/api/contacts/promoter-shortlist/:id'")[0];
+  assert.match(section,/communityGenres:suggestedGenres/);
+  assert.equal((section.match(/communityGenres:normalizeGenres\(workspace\.rows\[0\]\.tags\)/g)||[]).length,2);
+});

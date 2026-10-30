@@ -25,7 +25,7 @@ function publicSnapshot(result) {
   };
 }
 
-function revalidateShortlist(rows, profiles, evidence, {viewerEntityId, signingSecret, excludedEmails=[],excludedProfileIds=[]}) {
+function revalidateShortlist(rows, profiles, evidence, {viewerEntityId, signingSecret, excludedEmails=[],excludedProfileIds=[],communityGenres=[]}) {
   const saved = Array.isArray(rows) ? rows : [];
   const groups = new Map();
   for (const item of saved) {
@@ -42,7 +42,7 @@ function revalidateShortlist(rows, profiles, evidence, {viewerEntityId, signingS
   const current = new Map();
   for (const { genres, keys } of groups.values()) {
     const found = discoverPromoters(profiles, evidence, {
-      genres, viewerEntityId, signingSecret,
+      genres, viewerEntityId, signingSecret, communityGenres,
       excludedEmails,excludedProfileIds,targetKeys:keys,
     });
     for (const result of found) current.set(result.discoveryKey, publicSnapshot(result));

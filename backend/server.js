@@ -2722,6 +2722,7 @@ app.get('/api/contacts/discover-promoters', authMiddleware, async (req, res) => 
        FROM private_contacts WHERE entity_id=$1::uuid`, [req.entityId]);
     const promoters = discoverPromoters(profiles.rows, [...history.rows, ...contactOnly.rows], {
       genres, query, city, country, viewerEntityId: req.entityId, signingSecret: process.env.BACKEND_SERVICE_TOKEN,
+      communityGenres:suggestedGenres,
       excludedEmails: ownContacts.rows.map(row => row.email).filter(Boolean),
       excludedProfileIds: ownContacts.rows.map(row => row.profile_id).filter(Boolean),
     });
@@ -2736,7 +2737,7 @@ app.get('/api/contacts/discover-promoters', authMiddleware, async (req, res) => 
 // Never persist private-contact identifiers, email or user-supplied snapshots.
 app.get('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) => {
   try {
-    const workspace = await pool.query('SELECT entity_type FROM entities WHERE id=$1::uuid', [req.entityId]);
+    const workspace = await pool.query('SELECT entity_type,tags FROM entities WHERE id=$1::uuid', [req.entityId]);
     if (workspace.rows[0]?.entity_type !== 'artist') return res.status(403).json({error:{message:'An artist workspace is required'}});
     const result = await pool.query(
       `SELECT id,discovery_key,public_snapshot,created_at FROM promoter_discovery_shortlists
@@ -2750,6 +2751,7 @@ app.get('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) => 
     ]);
     const saved = revalidateShortlist(result.rows, profiles.rows, [...history.rows,...community.rows], {
       viewerEntityId:req.entityId,signingSecret:process.env.BACKEND_SERVICE_TOKEN,
+      communityGenres:normalizeGenres(workspace.rows[0].tags),
       excludedEmails:ownContacts.rows.map(row=>row.email).filter(Boolean),
       excludedProfileIds:ownContacts.rows.map(row=>row.profile_id).filter(Boolean),
     });
@@ -2766,7 +2768,7 @@ app.post('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) =>
     if (!/^(?:profile:[0-9a-f-]{36}|anonymous:[0-9a-f]{64})$/i.test(discoveryKey)) {
       return res.status(422).json({error:{message:'Choose a valid discovered promoter'}});
     }
-    const workspace = await pool.query('SELECT entity_type FROM entities WHERE id=$1::uuid', [req.entityId]);
+    const workspace = await pool.query('SELECT entity_type,tags FROM entities WHERE id=$1::uuid', [req.entityId]);
     if (workspace.rows[0]?.entity_type !== 'artist') return res.status(403).json({error:{message:'An artist workspace is required'}});
     const genres = normalizeGenres(req.body?.genres);
     const city = String(req.body?.city || '').slice(0, 120);
@@ -2785,6 +2787,7 @@ app.post('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) =>
     const eligible = discoverPromoters(profiles.rows, [...historical.rows, ...community.rows], {
       genres, city, country, query, viewerEntityId:req.entityId,
       signingSecret:process.env.BACKEND_SERVICE_TOKEN,
+      communityGenres:normalizeGenres(workspace.rows[0].tags),
       excludedEmails:ownContacts.rows.map(row=>row.email).filter(Boolean),
       excludedProfileIds:ownContacts.rows.map(row=>row.profile_id).filter(Boolean),
     });
