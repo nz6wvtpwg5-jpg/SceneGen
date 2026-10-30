@@ -16,15 +16,15 @@
 - [x] Add targeted tests for sorting, resets, and workspace changes (additional browser coverage required)
 
 ## Phase 2 — Saved discovery shortlist
-- [ ] Establish stable opaque public discovery identifiers that cannot expose private contacts or be guessed to retrieve them
-- [ ] Create a separate workspace-scoped shortlist with its own migration and authorized API
-- [ ] Add Save/Unsave and My shortlist on the discovery UI
+- [x] Establish stable opaque signed public discovery identifiers (not private contact IDs)
+- [x] Create a separate workspace-scoped shortlist with its own migration and authorized API
+- [x] Add Save/Unsave and My shortlist on the discovery UI
 - [ ] Verify another workspace cannot read, modify, or infer shortlist items
 
 ## Phase 3 — Map and touring relevance
-- [ ] Introduce privacy-appropriate coarse coordinates for publicly listed locations only; do not expose private precise contact coordinates
-- [ ] Offer list/map view using approved public or coarse city markers with accessible list alternative
-- [ ] Allow discovery around the band's upcoming show cities, reusing SceneGen tours/shows data
+- [x] Introduce approximate city-only map coordinates, resolved from public city labels; never use private contact coordinates
+- [x] Offer list/map view using coarse city markers with accessible list alternative
+- [x] Add upcoming-show city discovery from the active band’s shows; proximity radius is a separate future enhancement
 - [ ] Prevent coordinates or combined show data from de-anonymizing community-listed contacts
 
 ## Phase 4 — Outreach and quality

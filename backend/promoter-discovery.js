@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 /*
  * Artist-facing promoter discovery.
  *
@@ -90,7 +91,7 @@ function bandTagsFromGroups(value) {
   return normalizeGenres(value.flatMap(group => Array.isArray(group) ? group : []));
 }
 
-function discoverPromoters(profiles, evidence, { genres = [], query = '', excludedEmails = [], excludedProfileIds = [], city = '', country = '', viewerEntityId = '' } = {}) {
+function discoverPromoters(profiles, evidence, { genres = [], query = '', excludedEmails = [], excludedProfileIds = [], city = '', country = '', viewerEntityId = '', signingSecret = '' } = {}) {
   const excluded = new Set(excludedEmails.map(value => String(value).trim().toLowerCase()));
   const excludedProfiles = new Set(excludedProfileIds.map(String));
   const filters = normalizeGenres(genres);
@@ -130,7 +131,7 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
     } else {
       entry = unclaimed.get(key);
       if (!entry) {
-        entry = { profileId: null, name: 'Promoter', own: new Set(), fromBands: new Set(), listed: new Set(), bands: new Map(), locations: new Map(), contactOnly: true };
+        entry = { profileId: null, name: 'Promoter', own: new Set(), fromBands: new Set(), listed: new Set(), bands: new Map(), locations: new Map(), contactOnly: true, discoveryKey: signingSecret ? 'anonymous:' + crypto.createHmac('sha256', signingSecret).update('promoter-discovery:v1:' + key).digest('hex') : null };
         unclaimed.set(key, entry);
       }
     }
@@ -169,6 +170,7 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
       const listedMatch = matchingGenres.some(tag => entry.listed.has(tag));
       return {
         name: entry.profileId ? entry.name : 'Promoter', profileId: entry.profileId,
+        discoveryKey: entry.profileId ? `profile:${entry.profileId}` : entry.discoveryKey || null,
         knownLocations: [...entry.locations.values()].sort((a,b)=>a.city.localeCompare(b.city)).slice(0,20),
         bandsWorkedWith: [...entry.bands.values()].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10).map(item=>item.name),
         registrationStatus: entry.profileId ? 'registered' : 'not_registered',

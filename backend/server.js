@@ -2715,7 +2715,7 @@ app.get('/api/contacts/discover-promoters', authMiddleware, async (req, res) => 
       `SELECT DISTINCT lower(trim(email)) AS email, linked_entity_id::text AS profile_id
        FROM private_contacts WHERE entity_id=$1::uuid`, [req.entityId]);
     const promoters = discoverPromoters(profiles.rows, [...history.rows, ...contactOnly.rows], {
-      genres, query, city, country, viewerEntityId: req.entityId,
+      genres, query, city, country, viewerEntityId: req.entityId, signingSecret: process.env.BACKEND_SERVICE_TOKEN,
       excludedEmails: ownContacts.rows.map(row => row.email).filter(Boolean),
       excludedProfileIds: ownContacts.rows.map(row => row.profile_id).filter(Boolean),
     });
@@ -2723,6 +2723,83 @@ app.get('/api/contacts/discover-promoters', authMiddleware, async (req, res) => 
   } catch (error) {
     console.error('Promoter directory lookup failed:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ error: { message: 'Promoter discovery is temporarily unavailable' } });
+  }
+});
+
+// Workspace-scoped bookmarks of publicly discoverable promoter listings.
+// Never persist private-contact identifiers, email or user-supplied snapshots.
+app.get('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id,discovery_key,public_snapshot,created_at FROM promoter_discovery_shortlists
+       WHERE entity_id=$1::uuid ORDER BY created_at DESC LIMIT 500`, [req.entityId]);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({ saved: result.rows.map(row => ({
+      id: row.id, discoveryKey: row.discovery_key,
+      promoter: row.public_snapshot, createdAt: row.created_at,
+    })) });
+  } catch (error) {
+    console.error('Promoter shortlist fetch failed:', error.message);
+    res.status(500).json({ error: { message: 'Could not load saved promoters' } });
+  }
+});
+
+app.post('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) => {
+  try {
+    const discoveryKey = String(req.body?.discoveryKey || '');
+    if (!/^(?:profile:[0-9a-f-]{36}|anonymous:[0-9a-f]{64})$/i.test(discoveryKey)) {
+      return res.status(422).json({error:{message:'Choose a valid discovered promoter'}});
+    }
+    const workspace = await pool.query('SELECT entity_type FROM entities WHERE id=$1::uuid', [req.entityId]);
+    if (workspace.rows[0]?.entity_type !== 'artist') return res.status(403).json({error:{message:'An artist workspace is required'}});
+    const genres = normalizeGenres(req.body?.genres);
+    const city = String(req.body?.city || '').slice(0, 120);
+    const country = String(req.body?.country || '').slice(0, 120);
+    const query = String(req.body?.query || '').slice(0, 80);
+    if (!genres.length && !city && !country && !query.trim()) return res.status(422).json({error:{message:'A discovery search is required'}});
+    const [profiles, historical, community, ownContacts] = await Promise.all([
+      pool.query(PROFILE_SQL), pool.query(HISTORICAL_PROMOTERS_SQL),
+      pool.query(CONTACT_ONLY_PROMOTERS_SQL),
+      pool.query('SELECT lower(trim(email)) AS email,linked_entity_id::text AS profile_id FROM private_contacts WHERE entity_id=$1::uuid', [req.entityId]),
+    ]);
+    const eligible = discoverPromoters(profiles.rows, [...historical.rows, ...community.rows], {
+      genres, city, country, query, viewerEntityId:req.entityId,
+      signingSecret:process.env.BACKEND_SERVICE_TOKEN,
+      excludedEmails:ownContacts.rows.map(row=>row.email).filter(Boolean),
+      excludedProfileIds:ownContacts.rows.map(row=>row.profile_id).filter(Boolean),
+    });
+    const chosen = eligible.find(item=>item.discoveryKey === discoveryKey);
+    if (!chosen) return res.status(404).json({error:{message:'Promoter is no longer available in this discovery search'}});
+    // Whitelist only public discovery fields from server-generated results.
+    const snapshot = {
+      name:chosen.name,profileId:chosen.profileId,
+      registrationStatus:chosen.registrationStatus,discoverySource:chosen.discoverySource,
+      knownLocations:chosen.knownLocations,matchingGenres:chosen.matchingGenres,
+      matchBasis:chosen.matchBasis,bandsWorkedWith:chosen.bandsWorkedWith,
+    };
+    const inserted = await pool.query(
+      `INSERT INTO promoter_discovery_shortlists(entity_id,discovery_key,public_snapshot,created_by)
+       VALUES($1::uuid,$2,$3::jsonb,$4::uuid)
+       ON CONFLICT(entity_id,discovery_key) DO UPDATE SET public_snapshot=EXCLUDED.public_snapshot
+       RETURNING id`, [req.entityId,discoveryKey,JSON.stringify(snapshot),req.userId]);
+    res.status(201).json({id:inserted.rows[0].id, discoveryKey, promoter:snapshot});
+  } catch (error) {
+    console.error('Promoter shortlist save failed:', error.message);
+    res.status(500).json({error:{message:'Could not save promoter'}});
+  }
+});
+
+app.delete('/api/contacts/promoter-shortlist/:id', authMiddleware, async (req, res) => {
+  try {
+    if (!CONTACT_UUID.test(req.params.id)) return res.status(422).json({error:{message:'A valid bookmark ID is required'}});
+    const deleted = await pool.query(
+      'DELETE FROM promoter_discovery_shortlists WHERE id=$1::uuid AND entity_id=$2::uuid RETURNING id',
+      [req.params.id,req.entityId]);
+    if (!deleted.rowCount) return res.status(404).json({error:{message:'Saved promoter not found'}});
+    res.json({deleted:true});
+  } catch (error) {
+    console.error('Promoter shortlist removal failed:',error.message);
+    res.status(500).json({error:{message:'Could not remove saved promoter'}});
   }
 });
 

@@ -10,6 +10,6 @@ test('discovery cards prioritize location and evidence', () => {
   assert.match(ui, /Contact details stay private until shared/);
 });
 test('only registered promoters get public profile links', () => {
-  assert.match(ui, /promoter\.profileId && <Link/);
+  assert.match(ui, /promoter\.profileId \? <Link/);
   assert.match(ui, /View public profile/);
 });
