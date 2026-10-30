@@ -26,13 +26,14 @@
 - [x] Introduce approximate city-only map coordinates, resolved from public city labels; never use private contact coordinates
 - [x] Offer list/map view using coarse city markers with accessible list alternative
 - [x] Add upcoming-show city discovery from the active band’s shows; proximity radius is a separate future enhancement
-- [ ] Prevent coordinates or combined show data from de-anonymizing community-listed contacts
+- [x] Show at most one disclosed city per anonymous listing and require a shared selected genre, preventing city-only and guessed-hashtag enumeration
+- [ ] Complete a structured privacy review of combined booking-history and location signals
 
 ## Phase 4 — Outreach and quality
 - [ ] Messaging only for registered opt-in promoters, after authentication/permissions/rate-limit/anti-spam review
 - [x] Suppress anonymous duplicates for verified promoter claims, using private emails only for server-side matching
 - [x] Add per-user/workspace database-backed rate limits for promoter searches and shortlist saves
-- [ ] Add broader multi-account duplicate management and stronger anti-enumeration safeguards
+- [ ] Add broader multi-account duplicate management; never merge different private-email identities solely by similar location or genre
 - [ ] Live browser QA using separate artist test accounts and production API visibility checks
 
 ## Release criteria

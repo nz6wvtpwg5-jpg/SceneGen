@@ -168,15 +168,24 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
       const listedGenres = [...entry.listed].sort();
       const all = new Set([...declaredGenres, ...associatedBandGenres, ...listedGenres]);
       const matchingGenres = filters.filter(tag => all.has(tag));
+      const searchGenreMatch = Boolean(search && searchGenre && all.has(searchGenre));
       const nameMatch = !search || (entry.profileId && entry.name.toLocaleLowerCase().includes(search))
-        || (searchGenre && [...all].some(tag => tag.includes(searchGenre.slice(1))));
+        || searchGenreMatch;
       const declaredMatch = matchingGenres.some(tag => entry.own.has(tag));
       const associatedMatch = matchingGenres.some(tag => entry.fromBands.has(tag));
       const listedMatch = matchingGenres.some(tag => entry.listed.has(tag));
       return {
         name: entry.profileId ? entry.name : 'Promoter', profileId: entry.profileId,
         discoveryKey: entry.profileId ? `profile:${entry.profileId}` : entry.discoveryKey || null,
-        knownLocations: [...entry.locations.values()].sort((a,b)=>a.city.localeCompare(b.city)).slice(0,20),
+        // Multiple location hints from someone else's private address book can
+        // identify an unclaimed contact by triangulation. Show one city only.
+        knownLocations: entry.profileId
+          ? [...entry.locations.values()].sort((a,b)=>a.city.localeCompare(b.city)).slice(0,20)
+          : [...entry.locations.values()].filter(place => locationMatch &&
+              (!requestedCity || place.city.toLowerCase() === requestedCity) &&
+              (!requestedCountry || place.country.toLowerCase() === requestedCountry ||
+                (['usa','united states','united states of america'].includes(requestedCountry) && ['usa','united states','united states of america'].includes(place.country.toLowerCase()))))
+            .sort((a,b)=>a.city.localeCompare(b.city)).slice(0,1),
         bandsWorkedWith: [...entry.bands.values()].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10).map(item=>item.name),
         registrationStatus: entry.profileId ? 'registered' : 'not_registered',
         discoverySource: entry.profileId ? 'profile' : entry.contactOnly ? 'contact_only' : 'past_bookings',
@@ -185,8 +194,11 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
           : declaredMatch ? 'promoter_selected' : associatedMatch ? 'past_bookings'
           : listedMatch ? 'contact_listing' : null,
         // Location narrows an explicit genre search; it must never override it.
-        // A location-only search (without selected genres) may include community listings.
-        _accepted: locationMatch && nameMatch && (!filters.length || matchingGenres.length > 0),
+        // Never expose community-listed identities through city-only queries.
+        // An unclaimed listing requires positive genre evidence, even when the
+        // user provides a location but no genre filters.
+        _accepted: locationMatch && nameMatch && (!filters.length || matchingGenres.length > 0)
+          && (Boolean(entry.profileId) || matchingGenres.length > 0),
       };
     })
     .filter(result => result._accepted)

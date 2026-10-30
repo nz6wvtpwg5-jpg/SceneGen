@@ -207,7 +207,7 @@ export default function PromoterDiscovery() {
       <label className="mb-2 block text-sm font-bold">Music genres</label>
       <GenreTagPicker tags={genres} onChange={setGenres} />
       {loaded && genresModified && <button type="button" onClick={() => setGenres([...bandGenres])} className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#b64f31] hover:underline"><RotateCcw size={13} /> Reset to my band's genres</button>}
-      {loaded && !defaultGenresFound && !genres.length && <p className="mt-2 text-xs text-[#686258]">This workspace has no saved music genre hashtags. Add genres to your band profile to see automatic matches, or search by location.</p>}
+      {loaded && !defaultGenresFound && !genres.length && <p className="mt-2 text-xs text-[#686258]">This workspace has no saved music genre hashtags. Add genres to your band profile to see community matches. You can still search registered promoters by name or location.</p>}
     </div>
     {tourCities.length > 0 && <label className="block rounded-lg border border-black/10 bg-[#f7f0e6] p-3">
       <span className="mb-1 block text-[10px] font-black uppercase tracking-[.15em] text-[#86654e]">Discover by upcoming show city</span>

@@ -98,17 +98,17 @@ test('city and country filters match recorded promoter show locations', () => {
   const evidence = [{
     internal_email_key:'location@example.test', promoter_name:'Example private promoter',
     verified_profile_ids:[], band_tag_groups:[['#doommetal']],
-    known_locations:[{city:'Phoenix',country:'USA'},{city:'London',country:'United Kingdom'}],
+    known_locations:[{city:'Phoenix',country:'USA',genres:['#doommetal']},{city:'London',country:'United Kingdom'}],
     bands_worked_with:[{name:'Example Band',date:'2026-01-01'}],
   }];
-  assert.equal(discoverPromoters([],evidence,{city:'Phoenix',country:'USA'}).length,1);
-  assert.equal(discoverPromoters([],evidence,{city:'Phoenix',country:'United Kingdom'}).length,0);
-  assert.equal(discoverPromoters([],evidence,{country:'United States'}).length,1);
-  assert.equal(discoverPromoters([],evidence,{city:'Paris'}).length,0);
-  assert.equal(discoverPromoters([],evidence,{country:'United Kingdom'}).length,1);
+  assert.equal(discoverPromoters([],evidence,{city:'Phoenix',country:'USA',genres:['#doommetal']}).length,1);
+  assert.equal(discoverPromoters([],evidence,{city:'Phoenix',country:'United Kingdom',genres:['#doommetal']}).length,0);
+  assert.equal(discoverPromoters([],evidence,{country:'United States',genres:['#doommetal']}).length,1);
+  assert.equal(discoverPromoters([],evidence,{city:'Paris',genres:['#doommetal']}).length,0);
+  assert.equal(discoverPromoters([],evidence,{country:'United Kingdom',genres:['#doommetal']}).length,1);
 });
 
-test('unregistered promoters become discoverable by location without a show, without exposing private identity', () => {
+test('unregistered promoters require genre evidence and never expose private identity', () => {
   const { CONTACT_ONLY_PROMOTERS_SQL } = require('../promoter-discovery');
   assert.match(CONTACT_ONLY_PROMOTERS_SQL, /FROM private_contacts pc/);
   assert.match(CONTACT_ONLY_PROMOTERS_SQL, /owner.entity_type='artist'/);
@@ -118,8 +118,8 @@ test('unregistered promoters become discoverable by location without a show, wit
     internal_email_key:'private-location@example.test',
     promoter_name:'Promoter', source_entity_id:'11111111-1111-4111-8111-111111111111',
     contact_only:true, verified_profile_ids:[], band_tag_groups:[], bands_worked_with:[],
-    known_locations:[{city:'Liverpool',country:'United Kingdom'}]
-  }], {city:'Liverpool',viewerEntityId:'22222222-2222-4222-8222-222222222222'});
+    listed_genres:['#doommetal'], known_locations:[{city:'Liverpool',country:'United Kingdom'}]
+  }], {city:'Liverpool',genres:['#doommetal'],viewerEntityId:'22222222-2222-4222-8222-222222222222'});
   assert.equal(rows.length,1);
   assert.equal(rows[0].name,'Promoter');
   assert.equal(rows[0].discoverySource,'contact_only');
@@ -177,7 +177,7 @@ test('city search cannot bypass a band genre filter for community-listed promote
   const options = {viewerEntityId:'22222222-2222-4222-8222-222222222222',city:'Bristol',country:'United Kingdom'};
   assert.equal(discoverPromoters([],anonymous,{...options,genres:['#doom']}).length,0);
   assert.equal(discoverPromoters([],anonymous,{...options,genres:['#jazz']}).length,1);
-  assert.equal(discoverPromoters([],anonymous,{...options,genres:[]}).length,1);
+  assert.equal(discoverPromoters([],anonymous,{...options,genres:[]}).length,0);
 });
 
 
@@ -187,4 +187,20 @@ test('claimed public promoter profiles suppress duplicate anonymous contact-only
   assert.match(CONTACT_ONLY_PROMOTERS_SQL,/verified\.entity_type='promoter'/);
   assert.match(CONTACT_ONLY_PROMOTERS_SQL,/claim\.email=lower\(trim\(pc\.email\)\)/);
   assert.doesNotMatch(CONTACT_ONLY_PROMOTERS_SQL,/pc\.(?:given_name|surname|organization|phone|notes)\b/);
+});
+
+
+test('unclaimed listings cannot be enumerated by city-only search or partial genre query', () => {
+  const entry={internal_email_key:'hidden@example.test',promoter_name:'Promoter',
+    source_entity_id:'11111111-1111-4111-8111-111111111111',contact_only:true,
+    listed_genres:['#doommetal'],known_locations:[{city:'Bristol',country:'United Kingdom'},
+      {city:'Liverpool',country:'United Kingdom'}]};
+  const viewerEntityId='22222222-2222-4222-8222-222222222222';
+  assert.equal(discoverPromoters([],[entry],{viewerEntityId,city:'Bristol'}).length,0);
+  assert.equal(discoverPromoters([],[entry],{viewerEntityId,city:'Bristol',query:'doo'}).length,0);
+  const matching=discoverPromoters([],[entry],{viewerEntityId,city:'Bristol',genres:['#doommetal']});
+  assert.equal(matching.length,1);
+  assert.deepEqual(matching[0].knownLocations,[{city:'Bristol',country:'United Kingdom'}]);
+  assert.equal(discoverPromoters([],[entry],{viewerEntityId,query:'#doommetal'}).length,0);
+  assert.equal(discoverPromoters([],[entry],{viewerEntityId,query:'#doommetal',genres:['#doommetal']}).length,1);
 });
