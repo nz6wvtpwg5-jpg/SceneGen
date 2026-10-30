@@ -49,6 +49,8 @@ export default function PromoterDiscovery() {
   const [selectedCity,setSelectedCity] = useState('');
   const [selectedCountry,setSelectedCountry] = useState('');
   const countrySource = useRef<'manual' | 'city' | null>(null);
+  const currentWorkspaceRef = useRef(activeProfile?.id);
+  currentWorkspaceRef.current = activeProfile?.id;
   const [results, setResults] = useState<Promoter[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -129,13 +131,16 @@ export default function PromoterDiscovery() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message || 'Could not update shortlist');
-      if (activeProfile?.id !== workspaceId) return;
+      if (currentWorkspaceRef.current !== workspaceId) return;
       if (prior) setSaved(items => items.filter(item => item.id !== prior.id));
       else setSaved(items => [...items.filter(item => item.discoveryKey !== body.discoveryKey),{
         id:body.id,discoveryKey:body.discoveryKey,promoter:body.promoter,createdAt:new Date().toISOString(),
       }]);
-    } catch (caught) { setSaveError(caught instanceof Error ? caught.message : 'Could not update shortlist'); }
-    finally { setSavingKey(null); }
+    } catch (caught) {
+      if (currentWorkspaceRef.current === workspaceId) setSaveError(caught instanceof Error ? caught.message : 'Could not update shortlist');
+    } finally {
+      if (currentWorkspaceRef.current === workspaceId) setSavingKey(null);
+    }
   }
 
   useEffect(() => {
