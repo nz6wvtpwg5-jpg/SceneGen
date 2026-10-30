@@ -19,7 +19,8 @@
 - [x] Establish stable opaque signed public discovery identifiers (not private contact IDs)
 - [x] Create a separate workspace-scoped shortlist with its own migration and authorized API
 - [x] Add Save/Unsave and My shortlist on the discovery UI
-- [ ] Verify another workspace cannot read, modify, or infer shortlist items
+- [x] Test signed middleware denies cross-workspace shortlist access using two isolated simulated users
+- [ ] Live authenticated two-account verification of actual shortlist rows and actions
 
 ## Phase 3 — Map and touring relevance
 - [x] Introduce approximate city-only map coordinates, resolved from public city labels; never use private contact coordinates
@@ -30,7 +31,8 @@
 ## Phase 4 — Outreach and quality
 - [ ] Messaging only for registered opt-in promoters, after authentication/permissions/rate-limit/anti-spam review
 - [x] Suppress anonymous duplicates for verified promoter claims, using private emails only for server-side matching
-- [ ] Add broader multi-account duplicate management and rate-limit/anti-enumeration safeguards
+- [x] Add per-user/workspace database-backed rate limits for promoter searches and shortlist saves
+- [ ] Add broader multi-account duplicate management and stronger anti-enumeration safeguards
 - [ ] Live browser QA using separate artist test accounts and production API visibility checks
 
 ## Release criteria

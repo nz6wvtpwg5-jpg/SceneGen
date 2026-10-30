@@ -162,7 +162,12 @@ export default function PromoterDiscovery() {
           headers: { 'X-Entity-Id': getEntityId() || activeProfile?.id || '' },
           signal: controller.signal, cache: 'no-store',
         });
-        if (!response.ok) throw new Error('Could not search promoter directory');
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(response.status === 429
+            ? 'You have made too many promoter searches. Please try again in about 15 minutes.'
+            : payload?.error?.message || 'Could not search promoter directory');
+        }
         const data = await response.json();
         if (!controller.signal.aborted) setResults(Array.isArray(data.promoters) ? data.promoters : []);
       } catch (caught) {

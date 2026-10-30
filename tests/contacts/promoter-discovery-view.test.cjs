@@ -20,3 +20,8 @@ test('summary and sorting are derived from returned discovery results',()=>{
 test('roadmap covers privacy and future phases explicitly',()=>{
   for(const topic of ['Phase 1','Phase 2','Phase 3','Phase 4','private','workspace','coordinates']) assert.match(plan,new RegExp(topic,'i'));
 });
+
+test('discovery handles rate limiting with actionable feedback',()=>{
+  assert.match(ui,/response.status === 429/);
+  assert.match(ui,/too many promoter searches/);
+});

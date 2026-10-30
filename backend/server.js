@@ -2656,6 +2656,7 @@ const {
   PROFILE_SQL, HISTORICAL_PROMOTERS_SQL, CONTACT_ONLY_PROMOTERS_SQL,
   normalizeGenres, discoverPromoters,
 } = require('./promoter-discovery');
+const { consumeDiscoveryAllowance } = require('./promoter-discovery-rate-limit');
 
 // Registered SceneGen profiles: same search filters as promoter discovery,
 // but no private contact data or unclaimed promoters.
@@ -2705,6 +2706,10 @@ app.get('/api/contacts/discover-promoters', authMiddleware, async (req, res) => 
     const city = typeof req.query.city === 'string' ? req.query.city.trim().slice(0,120) : '';
     const country = typeof req.query.country === 'string' ? req.query.country.trim().slice(0,120) : '';
     if (!query && !genres.length && !city && !country) return res.json({ promoters: [], suggestedGenres });
+    if (!(await consumeDiscoveryAllowance(pool, { userId:req.userId, entityId:req.entityId }))) {
+      res.setHeader('Retry-After', '900');
+      return res.status(429).json({error:{message:'Too many promoter searches. Please try again later.'}});
+    }
 
     const [profiles, history, contactOnly] = await Promise.all([
       pool.query(PROFILE_SQL),
@@ -2730,6 +2735,8 @@ app.get('/api/contacts/discover-promoters', authMiddleware, async (req, res) => 
 // Never persist private-contact identifiers, email or user-supplied snapshots.
 app.get('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) => {
   try {
+    const workspace = await pool.query('SELECT entity_type FROM entities WHERE id=$1::uuid', [req.entityId]);
+    if (workspace.rows[0]?.entity_type !== 'artist') return res.status(403).json({error:{message:'An artist workspace is required'}});
     const result = await pool.query(
       `SELECT id,discovery_key,public_snapshot,created_at FROM promoter_discovery_shortlists
        WHERE entity_id=$1::uuid ORDER BY created_at DESC LIMIT 500`, [req.entityId]);
@@ -2757,6 +2764,10 @@ app.post('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) =>
     const country = String(req.body?.country || '').slice(0, 120);
     const query = String(req.body?.query || '').slice(0, 80);
     if (!genres.length && !city && !country && !query.trim()) return res.status(422).json({error:{message:'A discovery search is required'}});
+    if (!(await consumeDiscoveryAllowance(pool, { userId:req.userId, entityId:req.entityId, action:'save', maxAttempts:60 }))) {
+      res.setHeader('Retry-After', '900');
+      return res.status(429).json({error:{message:'Too many promoter saves. Please try again later.'}});
+    }
     const [profiles, historical, community, ownContacts] = await Promise.all([
       pool.query(PROFILE_SQL), pool.query(HISTORICAL_PROMOTERS_SQL),
       pool.query(CONTACT_ONLY_PROMOTERS_SQL),
@@ -2791,6 +2802,8 @@ app.post('/api/contacts/promoter-shortlist', authMiddleware, async (req, res) =>
 
 app.delete('/api/contacts/promoter-shortlist/:id', authMiddleware, async (req, res) => {
   try {
+    const workspace = await pool.query('SELECT entity_type FROM entities WHERE id=$1::uuid', [req.entityId]);
+    if (workspace.rows[0]?.entity_type !== 'artist') return res.status(403).json({error:{message:'An artist workspace is required'}});
     if (!CONTACT_UUID.test(req.params.id)) return res.status(422).json({error:{message:'A valid bookmark ID is required'}});
     const deleted = await pool.query(
       'DELETE FROM promoter_discovery_shortlists WHERE id=$1::uuid AND entity_id=$2::uuid RETURNING id',
