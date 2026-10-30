@@ -89,7 +89,7 @@ test('unclaimed names are never returned, while past bands and show cities remai
   }],{genres:['#doommetal']});
   assert.equal(results.length,1);
   assert.equal(results[0].name,'Promoter');
-  assert.deepEqual(results[0].bandsWorkedWith,['CONAN']);
+  assert.deepEqual(results[0].bandsWorkedWith,[]);
   assert.deepEqual(results[0].knownLocations,[{city:'Houston',country:'USA'}]);
   assert.doesNotMatch(JSON.stringify(results),/Top Secret|secret@example.test/);
 });
@@ -263,4 +263,33 @@ test('different private identities stay distinct even when city, genres and name
   assert.notEqual(found[0].discoveryKey,found[1].discoveryKey);
   assert.ok(found.every(item=>item.name==='Promoter'));
   assert.doesNotMatch(JSON.stringify(found),/one@different|two@different/);
+});
+
+
+test('anonymous promoter cannot expose historical band names even with multiple confirmed bookings', () => {
+  const evidence=[{internal_email_key:'private@booking.example',promoter_name:'Promoter',
+    band_tag_groups:[['#doommetal']],
+    bands_worked_with:[{name:'Secret Touring Band',date:'2026-09-21'},
+      {name:'Another Secret Band',date:'2026-08-03'}],
+    known_locations:[{city:'Bristol',country:'United Kingdom'}],
+    verified_profile_ids:[]}];
+  const found=discoverPromoters([],evidence,{genres:['#doommetal'],communityGenres:['#doommetal']});
+  assert.equal(found.length,1);
+  assert.equal(found[0].matchBasis,'past_bookings');
+  assert.deepEqual(found[0].bandsWorkedWith,[]);
+  assert.doesNotMatch(JSON.stringify(found),/Secret Touring Band|Another Secret Band|private@booking/);
+});
+
+
+test('private band names are never queried or disclosed for registered promoters',()=>{
+  assert.doesNotMatch(HISTORICAL_PROMOTERS_SQL,/band\.name AS band_name|jsonb_build_object\('name',band_name/);
+  const verifiedId='77777777-7777-4777-8777-777777777777';
+  const profiles=[{id:verifiedId,name:'Public Promoter',tags:['#doommetal']}];
+  const privateEvidence=[{internal_email_key:'verified@test.example',promoter_name:'Promoter',
+    verified_profile_ids:[verifiedId],band_tag_groups:[['#doommetal']],
+    bands_worked_with:[{name:'Private Band Name',date:'2026-08-01'}]}];
+  const found=discoverPromoters(profiles,privateEvidence,{genres:['#doommetal']});
+  assert.equal(found.length,1);
+  assert.deepEqual(found[0].bandsWorkedWith,[]);
+  assert.doesNotMatch(JSON.stringify(found),/Private Band Name|verified@test.example/);
 });

@@ -16,7 +16,7 @@ const HISTORICAL_PROMOTERS_SQL = [
   "WITH evidence AS (",
   "  SELECT lower(trim(s.promoter_email)) AS internal_email_key,",
   "    trim(s.promoter_name) AS promoter_name, s.date AS show_date, s.id AS show_id,",
-  "    band.name AS band_name, s.city AS show_city, s.country AS show_country,",
+  "    s.city AS show_city, s.country AS show_country,",
   "    CASE WHEN jsonb_typeof(band.tags)='array' THEN band.tags ELSE '[]'::jsonb END AS band_tags,",
   "    linked.id::text AS verified_profile_id",
   "  FROM private_contact_shows pcs",
@@ -35,7 +35,7 @@ const HISTORICAL_PROMOTERS_SQL = [
   "SELECT internal_email_key,",
   "  (array_agg(promoter_name ORDER BY show_date DESC,show_id DESC))[1] AS promoter_name,",
   "  jsonb_agg(DISTINCT band_tags) AS band_tag_groups,",
-  "  jsonb_agg(DISTINCT jsonb_build_object('name',band_name,'date',show_date)) AS bands_worked_with,",
+  "  '[]'::jsonb AS bands_worked_with,",
   "  jsonb_agg(DISTINCT jsonb_build_object('city',show_city,'country',show_country)) AS known_locations,",
   "  array_remove(array_agg(DISTINCT verified_profile_id),NULL) AS verified_profile_ids",
   "FROM evidence GROUP BY internal_email_key",
@@ -114,7 +114,7 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
     if (!name || !/^[0-9a-f-]{36}$/i.test(profileId) || excludedProfiles.has(profileId)) continue;
     claimed.set(profileId, {
       profileId, name, own: new Set(normalizeGenres(profile.tags)),
-      fromBands: new Set(), listed: new Set(), bands: new Map(), locations: new Map(),
+      fromBands: new Set(), listed: new Set(), locations: new Map(),
     });
   }
 
@@ -140,19 +140,13 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
     } else {
       entry = unclaimed.get(key);
       if (!entry) {
-        entry = { profileId: null, name: 'Promoter', own: new Set(), fromBands: new Set(), listed: new Set(), bands: new Map(), locations: new Map(), contactOnly: true, discoveryKey: signingSecret ? 'anonymous:' + crypto.createHmac('sha256', signingSecret).update('promoter-discovery:v1:' + key).digest('hex') : null };
+        entry = { profileId: null, name: 'Promoter', own: new Set(), fromBands: new Set(), listed: new Set(), locations: new Map(), contactOnly: true, discoveryKey: signingSecret ? 'anonymous:' + crypto.createHmac('sha256', signingSecret).update('promoter-discovery:v1:' + key).digest('hex') : null };
         unclaimed.set(key, entry);
       }
     }
     if (!record.contact_only) entry.contactOnly = false;
     for (const tag of bandTagsFromGroups(record.band_tag_groups)) entry.fromBands.add(tag);
     for (const tag of normalizeGenres(record.listed_genres)) entry.listed.add(tag);
-    for (const item of Array.isArray(record.bands_worked_with) ? record.bands_worked_with : []) {
-      const band = typeof item?.name === 'string' ? item.name.trim().slice(0,140) : '';
-      const date = typeof item?.date === 'string' ? item.date.slice(0,10) : '';
-      if (band && (!entry.bands.has(band.toLowerCase()) || date > entry.bands.get(band.toLowerCase()).date))
-        entry.bands.set(band.toLowerCase(), { name:band, date });
-    }
     for (const place of Array.isArray(record.known_locations) ? record.known_locations : []) {
       const city = typeof place?.city === 'string' ? place.city.trim().slice(0,120) : '';
       const country = typeof place?.country === 'string' ? place.country.trim().slice(0,120) : '';
@@ -191,7 +185,9 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
               (!requestedCountry || place.country.toLowerCase() === requestedCountry ||
                 (['usa','united states','united states of america'].includes(requestedCountry) && ['usa','united states','united states of america'].includes(place.country.toLowerCase()))))
             .sort((a,b)=>a.city.localeCompare(b.city)).slice(0,1),
-        bandsWorkedWith: [...entry.bands.values()].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10).map(item=>item.name),
+        // No private artist/promoter booking relationships are public just
+        // because a promoter has a registered profile.
+        bandsWorkedWith: [],
         registrationStatus: entry.profileId ? 'registered' : 'not_registered',
         discoverySource: entry.profileId ? 'profile' : entry.contactOnly ? 'contact_only' : 'past_bookings',
         declaredGenres, associatedBandGenres, listedGenres, matchingGenres,

@@ -28,7 +28,8 @@
 - [x] Offer list/map view using coarse city markers with accessible list alternative
 - [x] Add upcoming-show city discovery from the active band’s shows; proximity radius is a separate future enhancement
 - [x] Show at most one disclosed city per anonymous listing and require a shared selected genre, preventing city-only and guessed-hashtag enumeration
-- [ ] Complete a structured privacy review of combined booking-history and location signals
+- [x] Prevent cross-workspace booking-history band-name disclosure; retain only matching genre evidence and coarse city data
+- [ ] Complete live privacy review of combined booking-history and location signals
 
 ## Phase 4 — Outreach and quality
 - [ ] Messaging only for registered opt-in promoters, after authentication/permissions/rate-limit/anti-spam review
