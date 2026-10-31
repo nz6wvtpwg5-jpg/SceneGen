@@ -10,7 +10,15 @@ const messageSummaryJoin = `
   LEFT JOIN LATERAL (
     SELECT body,created_at,sender_entity_id FROM promoter_introduction_messages
     WHERE introduction_id=i.id ORDER BY created_at DESC,id DESC LIMIT 1
-  ) latest ON TRUE`;
+  ) latest ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT EXISTS (
+      SELECT 1 FROM promoter_introduction_messages unread_message
+      WHERE unread_message.introduction_id=i.id
+        AND unread_message.sender_entity_id<>$1::uuid
+        AND (read_state.last_read_at IS NULL OR unread_message.created_at>read_state.last_read_at)
+    ) AS has_unread
+  ) unread_state ON TRUE`;
 
 function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}) {
   const router=express.Router();
@@ -45,9 +53,7 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
       const result=await pool.query(`SELECT i.id,i.message,i.status,i.created_at,i.responded_at,
         artist.name artist_name,artist.id::text artist_id,
         latest.body last_message, latest.created_at last_message_at,
-        (i.status='accepted' AND latest.created_at IS NOT NULL
-          AND latest.sender_entity_id<>$1::uuid
-          AND (read_state.last_read_at IS NULL OR latest.created_at>read_state.last_read_at)) AS unread
+        (i.status='accepted' AND unread_state.has_unread) AS unread
         FROM promoter_introductions i
         JOIN entities artist ON artist.id=i.artist_entity_id
         ${messageSummaryJoin}
@@ -66,9 +72,7 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
       const result=await pool.query(`SELECT i.id,i.message,i.status,i.created_at,i.responded_at,
         promoter.name promoter_name,promoter.id::text promoter_id,
         latest.body last_message, latest.created_at last_message_at,
-        (i.status='accepted' AND latest.created_at IS NOT NULL
-          AND latest.sender_entity_id<>$1::uuid
-          AND (read_state.last_read_at IS NULL OR latest.created_at>read_state.last_read_at)) AS unread
+        (i.status='accepted' AND unread_state.has_unread) AS unread
         FROM promoter_introductions i JOIN entities promoter ON promoter.id=i.promoter_entity_id
         ${messageSummaryJoin}
         WHERE i.artist_entity_id=$1::uuid ORDER BY COALESCE(latest.created_at,i.created_at) DESC LIMIT 100`,[req.entityId]);
@@ -80,9 +84,7 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
   router.get('/summary',async(req,res)=>{
     try {
       const result=await pool.query(`SELECT COUNT(*) FILTER (WHERE i.status='pending' AND i.promoter_entity_id=$1::uuid)::int pending_requests,
-        COUNT(*) FILTER (WHERE i.status='accepted' AND latest.created_at IS NOT NULL
-          AND latest.sender_entity_id<>$1::uuid
-          AND (read_state.last_read_at IS NULL OR latest.created_at>read_state.last_read_at))::int unread_conversations
+        COUNT(*) FILTER (WHERE i.status='accepted' AND unread_state.has_unread)::int unread_conversations
         FROM promoter_introductions i
         ${messageSummaryJoin}
         WHERE i.artist_entity_id=$1::uuid OR i.promoter_entity_id=$1::uuid`,[req.entityId]);
@@ -93,16 +95,19 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
 
   router.post('/requests/:id/read',async(req,res)=>{
     try {
-      if(!UUID.test(req.params.id))return res.status(422).json({error:{message:'Invalid conversation'}});
-      // Restrict the read marker to an accepted introduction where this
-      // workspace is one of the two participants.
+      if(!UUID.test(req.params.id)||!UUID.test(String(req.body?.lastSeenMessageId||'')))
+        return res.status(422).json({error:{message:'A valid conversation and last seen message are required'}});
+      // Acknowledge only messages actually returned to the client, not NOW().
+      // Otherwise an unseen reply arriving between GET and read-ack can be lost.
       const result=await pool.query(`INSERT INTO promoter_introduction_read_state
         (introduction_id,entity_id,last_read_at)
-        SELECT i.id,$2::uuid,NOW() FROM promoter_introductions i
+        SELECT i.id,$2::uuid,seen.created_at FROM promoter_introductions i
+        JOIN promoter_introduction_messages seen ON seen.introduction_id=i.id AND seen.id=$3::uuid
         WHERE i.id=$1::uuid AND i.status='accepted'
           AND (i.artist_entity_id=$2::uuid OR i.promoter_entity_id=$2::uuid)
-        ON CONFLICT(introduction_id,entity_id) DO UPDATE SET last_read_at=EXCLUDED.last_read_at
-        RETURNING introduction_id`,[req.params.id,req.entityId]);
+        ON CONFLICT(introduction_id,entity_id) DO UPDATE
+          SET last_read_at=GREATEST(promoter_introduction_read_state.last_read_at,EXCLUDED.last_read_at)
+        RETURNING introduction_id`,[req.params.id,req.entityId,req.body.lastSeenMessageId]);
       if(!result.rowCount)return res.status(404).json({error:{message:'Accepted conversation not available'}});
       return res.json({read:true});
     }catch(error){console.error('Mark conversation read failed:',error.message);return res.status(500).json({error:{message:'Unable to mark conversation read'}});}

@@ -39,3 +39,11 @@ Use only dedicated test identities and workspaces. Never approach a real promote
 9. Test responsive desktop and mobile navigation and switching between band workspaces during an in-flight request.
 
 **Release verification status:** Backend route flow passes simulation, production deploy and migration are live. Complete authenticated end-to-end production verification remains open.
+
+## Unread-state regression hardening (31 October 2026)
+
+- Previously, badges checked only the very latest reply. If a member had an unread incoming message, then sent their own reply, the badge could incorrectly disappear.
+- The unread query now tests for **any** message from the other workspace after the saved read watermark.
+- Read acknowledgement now requires the UUID of the last message actually delivered to the client, using that message's stored timestamp (not server `NOW()`). It never acknowledges a newer unseen reply.
+- Concurrent or delayed older acknowledgements cannot move the read watermark backward.
+- Automated stateful two-workspace regression tests cover both scenarios. This is **not** a substitute for an authenticated production browser test.

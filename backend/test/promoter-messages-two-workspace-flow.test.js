@@ -47,13 +47,13 @@ function testHarness(){
       return {rows:[{id:ID,message:item.message,status:item.status,created_at:'2026-10-31',
         artist_name:'Isolation Band',artist_id:BAND,promoter_name:'Isolation Promoter',promoter_id:PROMOTER,
         last_message:last?.body||null,last_message_at:last?.created_at||null,
-        unread:Boolean(last && last.sender_entity_id!==id && !state.read[id])}]};
+        unread:state.messages.some(m=>m.sender_entity_id!==id && (!state.read[id]||m.created_at>state.read[id]))}]};
     }
     if(sql.includes('COUNT(*) FILTER (WHERE i.status=')){
       const workspace=params[0];if(![BAND,PROMOTER].includes(workspace))return {rows:[{pending_requests:0,unread_conversations:0}]};
       const last=state.messages.at(-1);
       return {rows:[{pending_requests:state.introduction?.status==='pending'&&workspace===PROMOTER?1:0,
-        unread_conversations:state.introduction?.status==='accepted'&&last&&last.sender_entity_id!==workspace&&!state.read[workspace]?1:0}]};
+        unread_conversations:state.introduction?.status==='accepted'&&state.messages.some(m=>m.sender_entity_id!==workspace && (!state.read[workspace]||m.created_at>state.read[workspace]))?1:0}]};
     }
     if(sql.includes('SELECT id,artist_entity_id::text AS artist_id')||sql.includes('SELECT artist_entity_id::text artist_id')){
       const participant=[BAND,PROMOTER].includes(params[1]);
@@ -68,14 +68,15 @@ function testHarness(){
       if(!valid)return {rowCount:0,rows:[]};
       const message={id:String(state.messages.length+1).padStart(8,'0')+'-7777-4777-8777-777777777777',
         body:params[3],sender_entity_id:params[1],created_at:new Date(Date.now()+state.messages.length*1000).toISOString()};
-      state.messages.push(message);state.read[params[1]]=true;
-      state.read[params[1]===BAND?PROMOTER:BAND]=false;
+      state.messages.push(message);
       return {rowCount:1,rows:[message]};
     }
     if(sql.includes('INSERT INTO promoter_introduction_read_state')){
-      const valid=params[0]===ID&&[BAND,PROMOTER].includes(params[1])&&state.introduction?.status==='accepted';
+      const seen=state.messages.find(m=>m.id===params[2]);
+      const valid=params[0]===ID&&[BAND,PROMOTER].includes(params[1])&&state.introduction?.status==='accepted'&&seen;
       if(!valid)return {rowCount:0,rows:[]};
-      state.read[params[1]]=true;return {rowCount:1,rows:[{introduction_id:ID}]};
+      state.read[params[1]]=state.read[params[1]]&&state.read[params[1]]>seen.created_at?state.read[params[1]]:seen.created_at;
+      return {rowCount:1,rows:[{introduction_id:ID}]};
     }
     throw new Error('Unexpected SQL: '+sql.slice(0,100));
   }};
@@ -110,7 +111,7 @@ test('two distinct workspace actors: opt-in, send, inbox, accept, two-way replie
   assert.equal((await call('GET','/sent')).payload.requests[0].status,'pending');
   for(const entityId of [BAND,PROMOTER,OUTSIDER]){
     assert.equal((await call('GET','/requests/:id/messages',{entityId})).statusCode,404,'Pending thread stays unreadable');
-    assert.equal((await call('POST','/requests/:id/read',{entityId})).statusCode,404,'Pending thread cannot be marked read');
+    assert.equal((await call('POST','/requests/:id/read',{entityId,body:{lastSeenMessageId:ID}})).statusCode,404,'Pending thread cannot be marked read');
   }
   assert.equal((await call('PATCH','/requests/:id',{entityId:BAND,body:{status:'accepted'}})).statusCode,404,'Sender cannot accept');
   assert.equal((await call('PATCH','/requests/:id',{entityId:OUTSIDER,body:{status:'accepted'}})).statusCode,404);
@@ -118,13 +119,13 @@ test('two distinct workspace actors: opt-in, send, inbox, accept, two-way replie
   assert.equal((await call('GET','/summary',{entityId:PROMOTER})).payload.pendingRequests,0);
   assert.equal((await call('GET','/requests/:id/messages',{entityId:OUTSIDER})).statusCode,404);
   assert.equal((await call('POST','/requests/:id/messages',{entityId:OUTSIDER,body:{body:'unauthorized'}})).statusCode,404);
-  assert.equal((await call('POST','/requests/:id/read',{entityId:OUTSIDER})).statusCode,404);
+  assert.equal((await call('POST','/requests/:id/read',{entityId:OUTSIDER,body:{lastSeenMessageId:ID}})).statusCode,404);
   const first=await call('POST','/requests/:id/messages',{entityId:BAND,body:{body:'Can you confirm whether Friday is available?'}});
   assert.equal(first.statusCode,201);
   assert.equal((await call('GET','/summary',{entityId:PROMOTER})).payload.unreadConversations,1,'Promoter sees unread band reply');
   assert.equal((await call('GET','/summary',{entityId:BAND})).payload.unreadConversations,0);
   assert.equal((await call('GET','/requests/:id/messages',{entityId:PROMOTER})).payload.messages[0].body,'Can you confirm whether Friday is available?');
-  assert.equal((await call('POST','/requests/:id/read',{entityId:PROMOTER})).statusCode,200);
+  assert.equal((await call('POST','/requests/:id/read',{entityId:PROMOTER,body:{lastSeenMessageId:first.payload.message.id}})).statusCode,200);
   assert.equal((await call('GET','/summary',{entityId:PROMOTER})).payload.unreadConversations,0);
   const second=await call('POST','/requests/:id/messages',{entityId:PROMOTER,userId:replyUser,body:{body:'Friday could work; please share your tour routing.'}});
   assert.equal(second.statusCode,201);
@@ -133,7 +134,7 @@ test('two distinct workspace actors: opt-in, send, inbox, accept, two-way replie
   assert.equal(messages.length,2);
   assert.equal(messages[0].senderEntityId,BAND);
   assert.equal(messages[1].senderEntityId,PROMOTER);
-  assert.equal((await call('POST','/requests/:id/read',{entityId:BAND})).statusCode,200);
+  assert.equal((await call('POST','/requests/:id/read',{entityId:BAND,body:{lastSeenMessageId:second.payload.message.id}})).statusCode,200);
   assert.equal((await call('GET','/summary',{entityId:BAND})).payload.unreadConversations,0);
   assert.equal(state.messages.length,2);
   assert.equal(notices.length,4,'Initial request, acceptance, and two replies create notifications');
@@ -146,4 +147,37 @@ test('declining locks the conversation without a reply or retry path',async()=>{
  assert.equal((await call('PATCH','/requests/:id',{entityId:PROMOTER,body:{status:'declined'}})).statusCode,200);
  assert.equal((await call('GET','/requests/:id/messages',{entityId:PROMOTER})).statusCode,404);
  assert.equal((await call('POST','/requests',{body:{promoterId:PROMOTER,message:'We would like to work with your venue this year.'}})).statusCode,403);
+});
+
+test('unread remains when sender replies after an incoming message without opening thread',async()=>{
+ const {call}=testHarness();
+ await call('PUT','/preferences',{entityId:PROMOTER,body:{acceptingIntroductions:true}});
+ await call('POST','/requests',{body:{promoterId:PROMOTER,message:'We would like to discuss available concert dates next month.'}});
+ await call('PATCH','/requests/:id',{entityId:PROMOTER,body:{status:'accepted'}});
+ await call('POST','/requests/:id/messages',{entityId:PROMOTER,body:{body:'Please send us your tour dates.'}});
+ assert.equal((await call('GET','/summary',{entityId:BAND})).payload.unreadConversations,1);
+ await call('POST','/requests/:id/messages',{entityId:BAND,body:{body:'Our dates include November 15 and November 18.'}});
+ assert.equal((await call('GET','/summary',{entityId:BAND})).payload.unreadConversations,1,
+  'Sending a reply must not hide an unread earlier message from the promoter');
+ assert.equal((await call('GET','/sent',{entityId:BAND})).payload.requests[0].unread,true);
+});
+
+test('read acknowledgement cannot clear a message that arrived after the last fetched message',async()=>{
+ const {call}=testHarness();
+ await call('PUT','/preferences',{entityId:PROMOTER,body:{acceptingIntroductions:true}});
+ await call('POST','/requests',{body:{promoterId:PROMOTER,message:'We would like to discuss available concert dates next month.'}});
+ await call('PATCH','/requests/:id',{entityId:PROMOTER,body:{status:'accepted'}});
+ const earlier=await call('POST','/requests/:id/messages',{entityId:PROMOTER,body:{body:'Can we start a conversation?'}});
+ const fetched=await call('GET','/requests/:id/messages',{entityId:BAND});
+ assert.equal(fetched.payload.messages.at(-1).id,earlier.payload.message.id);
+ await call('POST','/requests/:id/messages',{entityId:PROMOTER,body:{body:'Additional availability has opened up.'}});
+ assert.equal((await call('POST','/requests/:id/read',{entityId:BAND,body:{lastSeenMessageId:earlier.payload.message.id}})).statusCode,200);
+ assert.equal((await call('GET','/summary',{entityId:BAND})).payload.unreadConversations,1,
+  'An unseen reply arriving between GET and read ACK must remain unread');
+ const latest=(await call('GET','/requests/:id/messages',{entityId:BAND})).payload.messages.at(-1);
+ await call('POST','/requests/:id/read',{entityId:BAND,body:{lastSeenMessageId:latest.id}});
+ assert.equal((await call('GET','/summary',{entityId:BAND})).payload.unreadConversations,0);
+ assert.equal((await call('POST','/requests/:id/read',{entityId:BAND,body:{lastSeenMessageId:earlier.payload.message.id}})).statusCode,200);
+ assert.equal((await call('GET','/summary',{entityId:BAND})).payload.unreadConversations,0,
+  'Out-of-order older acknowledgement must not roll back read state');
 });

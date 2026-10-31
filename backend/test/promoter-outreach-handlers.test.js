@@ -157,7 +157,7 @@ test('read marker cannot be set for a foreign or pending introduction',async()=>
    return {rowCount:0,rows:[]};
  }};
  const call=routerFor(pool);
- const response=await call('POST','/requests/:id/read',{},'55555555-5555-4555-8555-555555555555');
+ const response=await call('POST','/requests/:id/read',{lastSeenMessageId:requestId},'55555555-5555-4555-8555-555555555555');
  assert.equal(response.statusCode,404);
 });
 
@@ -166,11 +166,13 @@ test('read state is only set for authorized accepted conversations',async()=>{
  const pool={query:async(sql,params)=>{
    assert.match(sql,/INSERT INTO promoter_introduction_read_state/);
    assert.equal(params[1],artist);
+   assert.equal(params[2],requestId);
+   assert.match(sql,/GREATEST\(promoter_introduction_read_state\.last_read_at/);
    checked=true;
    return {rowCount:1,rows:[{introduction_id:requestId}]};
  }};
  const call=routerFor(pool);
- const response=await call('POST','/requests/:id/read',{},artist);
+ const response=await call('POST','/requests/:id/read',{lastSeenMessageId:requestId},artist);
  assert.equal(response.statusCode,200);
  assert.equal(response.payload.read,true);
  assert.equal(checked,true);

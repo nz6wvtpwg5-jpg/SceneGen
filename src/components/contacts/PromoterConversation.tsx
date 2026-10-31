@@ -34,9 +34,9 @@ export function PromoterConversation({entityId,introductionId,onRead}:{entityId:
         // and never update the new workspace from an old request's response.
         const incoming=Array.isArray(data.messages)?data.messages:[];
         const fingerprint=entityId+':'+introductionId+':'+(incoming.at(-1)?.id||'empty');
-        if(lastMarkedRef.current!==fingerprint){
+        if(incoming.length>0 && lastMarkedRef.current!==fingerprint){
           lastMarkedRef.current=fingerprint;
-          void fetch('/api/promoter-outreach/requests/'+encodeURIComponent(introductionId)+'/read',{method:'POST',headers:{'X-Entity-Id':entityId}})
+          void fetch('/api/promoter-outreach/requests/'+encodeURIComponent(introductionId)+'/read',{method:'POST',headers:{'X-Entity-Id':entityId,'Content-Type':'application/json'},body:JSON.stringify({lastSeenMessageId:incoming.at(-1)!.id})})
             .then(response=>{if(response.ok && !signal?.aborted && isCurrent(entityId,introductionId))onReadRef.current?.();
               if(!response.ok)lastMarkedRef.current=null;})
             .catch(()=>{lastMarkedRef.current=null;});

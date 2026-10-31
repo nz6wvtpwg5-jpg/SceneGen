@@ -45,3 +45,17 @@ test('messages center uses active workspace for async operations and discovery l
  const promoterSettings=read('src/components/contacts/PromoterIntroductionsSettings.tsx');
  assert.match(promoterSettings,/Open Messages/);
 });
+
+test('unread state scans all incoming messages since last read, not only the newest message',()=>{
+ assert.match(api,/SELECT EXISTS \(/);
+ assert.match(api,/unread_message\.sender_entity_id<>\$1::uuid/);
+ assert.match(api,/unread_message\.created_at>read_state\.last_read_at/);
+ assert.match(api,/unread_state\.has_unread/);
+ assert.doesNotMatch(api,/latest\.sender_entity_id<>\$1::uuid/);
+});
+test('read acknowledgements include the last displayed message and cannot clear newer unseen replies',()=>{
+ assert.match(api,/seen\.id=\$3::uuid/);
+ assert.match(api,/SELECT i\.id,\$2::uuid,seen\.created_at/);
+ assert.match(api,/GREATEST\(promoter_introduction_read_state\.last_read_at,EXCLUDED\.last_read_at\)/);
+ assert.match(conversation,/lastSeenMessageId:incoming\.at\(-1\)!\.id/);
+});
