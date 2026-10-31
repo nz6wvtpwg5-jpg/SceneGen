@@ -67,6 +67,45 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
       res.json({socialLinks:publicBandLinks(result.rows[0].social_links)});
     }catch(error){console.error('Band links read failed:',error.message);res.status(500).json({error:{message:'Unable to load band links'}});}
   });
+  router.put('/sender-links',async(req,res)=>{
+    try {
+      const incoming=req.body?.socialLinks;
+      if(!incoming || typeof incoming!=='object' || Array.isArray(incoming))
+        return res.status(422).json({error:{message:'Provide the band social links'}});
+      const platforms=['facebook','instagram','bandcamp','spotify'];
+      if(Object.keys(incoming).some(key=>!platforms.includes(key)))
+        return res.status(422).json({error:{message:'Only Facebook, Instagram, Bandcamp and Spotify links can be updated here'}});
+      const updates={};
+      for(const platform of platforms) {
+        if(!Object.prototype.hasOwnProperty.call(incoming,platform))continue;
+        if(typeof incoming[platform]!=='string' || incoming[platform].length>1000)
+          return res.status(422).json({error:{message:'Enter a valid '+platform+' URL'}});
+        const raw=incoming[platform].trim();
+        if(!raw) { updates[platform]=null; continue; }
+        try {
+          const url=new URL(raw);
+          const hosts={
+            facebook:['facebook.com','www.facebook.com','m.facebook.com','fb.com','www.fb.com'],
+            instagram:['instagram.com','www.instagram.com'],
+            bandcamp:['bandcamp.com'],
+            spotify:['open.spotify.com']
+          };
+          const host=url.hostname.toLowerCase();
+          const validHost=hosts[platform].some(domain=>host===domain || (platform==='bandcamp' && host.endsWith('.bandcamp.com')));
+          if(url.protocol!=='https:' || !validHost || url.username || url.password)
+            return res.status(422).json({error:{message:'Use a valid HTTPS '+platform+' link'}});
+          updates[platform]=url.toString();
+        } catch {
+          return res.status(422).json({error:{message:'Use a valid HTTPS '+platform+' link'}});
+        }
+      }
+      const result=await pool.query(`UPDATE entities SET social_links=COALESCE(social_links,'{}'::jsonb) || $2::jsonb,updated_at=NOW()
+        WHERE id=$1::uuid AND entity_type='artist'
+        RETURNING social_links`,[req.entityId,JSON.stringify(updates)]);
+      if(!result.rowCount)return res.status(403).json({error:{message:'An artist workspace is required'}});
+      return res.json({socialLinks:publicBandLinks(result.rows[0].social_links)});
+    }catch(error){console.error('Band links update failed:',error.message);return res.status(500).json({error:{message:'Unable to save band links'}});}
+  });
   router.get('/inbox',async(req,res)=>{
     try {
       const result=await pool.query(`SELECT i.id,i.message,i.status,i.created_at,i.responded_at,

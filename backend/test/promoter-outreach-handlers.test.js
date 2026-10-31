@@ -107,6 +107,31 @@ test('promoter inbox includes only public band links and profile details',async(
  assert.doesNotMatch(JSON.stringify(response.payload),/test@example.com|javascript:/);
 });
 
+test('band social fields are saved to its workspace with explicit platform validation',async()=>{
+ let saved=null;
+ const call=routerFor({query:async(sql,params)=>{
+  if(sql.includes('UPDATE entities SET social_links')){
+   saved=JSON.parse(params[1]);
+   return {rowCount:1,rows:[{social_links:saved}]};
+  }
+  throw Error('unexpected query');
+ }});
+ const invalid=await call('PUT','/sender-links',{socialLinks:{spotify:'https://example.com/artist/no'}});
+ assert.equal(invalid.statusCode,422);
+ assert.equal(saved,null);
+ const valid=await call('PUT','/sender-links',{socialLinks:{
+  facebook:'https://www.facebook.com/exampleband',
+  instagram:'https://www.instagram.com/exampleband',
+  bandcamp:'https://exampleband.bandcamp.com',
+  spotify:'https://open.spotify.com/artist/example'
+ }});
+ assert.equal(valid.statusCode,200);
+ assert.deepEqual(Object.keys(valid.payload.socialLinks).sort(),['bandcamp','facebook','instagram','spotify']);
+ assert.equal(saved.bandcamp,'https://exampleband.bandcamp.com/');
+ const foreign=await call('PUT','/sender-links',{socialLinks:{website:'https://example.com'}});
+ assert.equal(foreign.statusCode,422);
+});
+
 test('promoter acceptance is constrained to a pending item in its own workspace',async()=>{
  let observed=[];
  const pool={query:async(sql,params)=>{
