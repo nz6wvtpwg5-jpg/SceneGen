@@ -68,10 +68,12 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
         LIMIT 1`,[req.params.id,req.entityId]);
       if(!thread.rowCount || thread.rows[0].status!=='accepted')
         return res.status(404).json({error:{message:'Accepted conversation not available'}});
+      // Load the most recent 200 messages, but return them in chronological order.
+      // Otherwise longer threads would get stuck displaying their oldest messages.
       const rows=await pool.query(`SELECT id,body,sender_entity_id::text sender_entity_id,created_at
         FROM promoter_introduction_messages WHERE introduction_id=$1::uuid
-        ORDER BY created_at ASC,id ASC LIMIT 200`,[req.params.id]);
-      return res.json({messages:rows.rows.map(row=>({id:row.id,body:row.body,
+        ORDER BY created_at DESC,id DESC LIMIT 200`,[req.params.id]);
+      return res.json({messages:rows.rows.reverse().map(row=>({id:row.id,body:row.body,
         senderEntityId:row.sender_entity_id,createdAt:row.created_at}))});
     }catch(error){console.error('Introduction messages read failed:',error.message);
       return res.status(500).json({error:{message:'Unable to load conversation'}});}
