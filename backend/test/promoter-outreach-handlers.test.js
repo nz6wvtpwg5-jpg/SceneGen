@@ -190,3 +190,45 @@ test('message summary only counts introductions involving the selected workspace
  assert.equal(response.statusCode,200);
  assert.deepEqual(response.payload,{pendingRequests:2,unreadConversations:3});
 });
+
+test('promoter can opt out, opt in, opt out again; each state is returned by GET and enforced for new enquiries',async()=>{
+ let enabled=false;
+ const pool={query:async(sql,params)=>{
+  if(sql.includes('COALESCE(p.accepting_introductions,FALSE) enabled'))return {rows:[{entity_type:'promoter',enabled}]};
+  if(sql.includes('INSERT INTO promoter_outreach_preferences')){enabled=params[1];return {rows:[{accepting_introductions:enabled}],rowCount:1};}
+  if(sql.includes('AS sender_valid'))return {rows:[{sender_valid:true,recipient_valid:true,opted_in:enabled}]};
+  if(sql.includes('INSERT INTO auth_rate_limits'))return {rows:[{attempts:1}]};
+  if(sql.includes('SELECT status FROM promoter_introductions'))return {rows:[]};
+  if(sql.includes('INSERT INTO promoter_introductions'))return {rows:[{id:requestId,status:'pending',created_at:'2026-10-31'}],rowCount:1};
+  if(sql.includes('SELECT name FROM entities'))return {rows:[{name:'Test Band'}]};
+  throw Error('Unexpected SQL in toggle test');
+ }};
+ const call=routerFor(pool);
+ const enquiry={promoterId:promoter,message:'We would like to invite your promoter workspace to a fictional test event.'};
+ const check=async(expected)=>{
+  const response=await call('GET','/preferences',{},promoter);
+  assert.equal(response.statusCode,200);
+  assert.equal(response.payload.acceptingIntroductions,expected);
+ };
+ await check(false);
+ assert.equal((await call('POST','/requests',enquiry)).statusCode,403);
+ const on=await call('PUT','/preferences',{acceptingIntroductions:true},promoter);
+ assert.equal(on.statusCode,200);await check(true);
+ assert.equal((await call('POST','/requests',enquiry)).statusCode,201);
+ const off=await call('PUT','/preferences',{acceptingIntroductions:false},promoter);
+ assert.equal(off.statusCode,200);await check(false);
+ assert.equal((await call('POST','/requests',enquiry)).statusCode,403);
+ const onAgain=await call('PUT','/preferences',{acceptingIntroductions:true},promoter);
+ assert.equal(onAgain.statusCode,200);await check(true);
+});
+
+test('artist workspaces and unauthorized members cannot toggle promoter opt-in',async()=>{
+ const pool={query:async(sql)=>{
+  if(sql.includes('INSERT INTO promoter_outreach_preferences'))return {rows:[],rowCount:0};
+  throw Error('Unexpected query');
+ }};
+ const call=routerFor(pool);
+ assert.equal((await call('PUT','/preferences',{acceptingIntroductions:true},artist,'viewer')).statusCode,403);
+ assert.equal((await call('PUT','/preferences',{acceptingIntroductions:true},artist)).statusCode,403);
+ assert.equal((await call('PUT','/preferences',{acceptingIntroductions:'true'},promoter)).statusCode,422);
+});
