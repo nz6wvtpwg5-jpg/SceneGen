@@ -33,7 +33,7 @@ test('write is permitted only after explicit opt in, with atomic uniqueness and 
  assert.match(api,/ON CONFLICT DO NOTHING RETURNING id,status,created_at/);
  assert.match(schema,/UNIQUE INDEX IF NOT EXISTS promoter_introductions_pair_unique/);
  assert.match(api,/if\(prior\.rows\[0\]\)/);
- assert.match(schema,/CHECK \(char_length\(message\) BETWEEN 30 AND 1200\)/);
+ assert.match(load('migrations/077_promoter_introduction_length.sql'),/BETWEEN 30 AND 500/);
 });
 test('only the addressed promoter may accept or decline a pending request',()=>{
  assert.match(api,/promoter_entity_id=\$2::uuid AND status='pending'/);
@@ -49,7 +49,7 @@ test('notification goes to workspace owner, and never uses direct email',()=>{
  assert.match(ui,/Request introduction/);
  assert.match(settings,/Accept new booking introductions/);
  assert.match(settings,/Introduction declined/);
- assert.match(composer,/This message is delivered to the promoter's private SceneGen inbox/);
+ assert.match(composer,/promoter's private SceneGen inbox/);
 });
 test('new proxy endpoints use signed identity proxy',()=>{
  const root=path.join(__dirname,'../../src/app/api/promoter-outreach');

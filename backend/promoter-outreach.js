@@ -3,6 +3,18 @@ const express = require('express');
 const {consumeDiscoveryAllowance} = require('./promoter-discovery-rate-limit');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const clean = value => String(value || '').replace(/\r/g,'').trim();
+const allowedSocialNetworks = ['facebook','instagram','spotify','bandcamp','website'];
+function publicBandLinks(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return Object.fromEntries(allowedSocialNetworks.flatMap(network => {
+    const raw = source[network];
+    if(typeof raw !== 'string') return [];
+    try {
+      const url = new URL(raw);
+      return ['https:','http:'].includes(url.protocol) ? [[network,url.toString()]] : [];
+    } catch { return []; }
+  }));
+}
 
 const messageSummaryJoin = `
   LEFT JOIN promoter_introduction_read_state read_state
@@ -48,10 +60,17 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
       res.json({acceptingIntroductions:result.rows[0].accepting_introductions});
     }catch(error){console.error('Promoter preference update failed:',error.message);res.status(500).json({error:{message:'Unable to update preferences'}});}
   });
+  router.get('/sender-links',async(req,res)=>{
+    try {
+      const result=await pool.query('SELECT entity_type,social_links FROM entities WHERE id=$1::uuid',[req.entityId]);
+      if(result.rows[0]?.entity_type!=='artist')return res.status(403).json({error:{message:'An artist workspace is required'}});
+      res.json({socialLinks:publicBandLinks(result.rows[0].social_links)});
+    }catch(error){console.error('Band links read failed:',error.message);res.status(500).json({error:{message:'Unable to load band links'}});}
+  });
   router.get('/inbox',async(req,res)=>{
     try {
       const result=await pool.query(`SELECT i.id,i.message,i.status,i.created_at,i.responded_at,
-        artist.name artist_name,artist.id::text artist_id,
+        artist.name artist_name,artist.id::text artist_id,artist.city artist_city,artist.country artist_country,artist.tags artist_genres,artist.social_links artist_social_links,
         latest.body last_message, latest.created_at last_message_at,
         (i.status='accepted' AND unread_state.has_unread) AS unread
         FROM promoter_introductions i
@@ -61,7 +80,7 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
       const type=await pool.query('SELECT entity_type FROM entities WHERE id=$1::uuid',[req.entityId]);
       if(type.rows[0]?.entity_type!=='promoter') return res.status(403).json({error:{message:'A promoter workspace is required'}});
       res.json({requests:result.rows.map(row=>({id:row.id,message:row.message,status:row.status,
-        artistName:row.artist_name,artistId:row.artist_id,createdAt:row.created_at,respondedAt:row.responded_at,
+        artistName:row.artist_name,artistId:row.artist_id,artistCity:row.artist_city,artistCountry:row.artist_country,artistGenres:Array.isArray(row.artist_genres)?row.artist_genres:[],artistLinks:publicBandLinks(row.artist_social_links),createdAt:row.created_at,respondedAt:row.responded_at,
         lastMessage:row.last_message || null,lastMessageAt:row.last_message_at || null,unread:row.unread === true}))});
     }catch(error){console.error('Promoter inbox failed:',error.message);res.status(500).json({error:{message:'Unable to load introduction inbox'}});}
   });
@@ -182,16 +201,18 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
     try {
       const promoterId=String(req.body?.promoterId || '');
       const message=clean(req.body?.message);
-      if(!UUID.test(promoterId) || message.length<30 || message.length>1200 || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(message))
-        return res.status(422).json({error:{message:'Choose a registered promoter and enter a message of 30–1200 characters'}});
+      if(!UUID.test(promoterId) || message.length<30 || message.length>500 || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(message))
+        return res.status(422).json({error:{message:'Choose a registered promoter and enter a message of 30–500 characters'}});
       const allowed=await pool.query(`SELECT artist.entity_type='artist' AS sender_valid,
-        promoter.entity_type='promoter' AS recipient_valid,COALESCE(p.accepting_introductions,FALSE) AS opted_in
+        promoter.entity_type='promoter' AS recipient_valid,COALESCE(p.accepting_introductions,FALSE) AS opted_in,artist.social_links AS artist_social_links
         FROM entities artist CROSS JOIN entities promoter
         LEFT JOIN promoter_outreach_preferences p ON p.promoter_entity_id=promoter.id
         WHERE artist.id=$1::uuid AND promoter.id=$2::uuid`,[req.entityId,promoterId]);
       const target=allowed.rows[0];
       if(!target?.sender_valid) return res.status(403).json({error:{message:'An artist workspace is required'}});
       if(!target.recipient_valid || !target.opted_in) return res.status(403).json({error:{message:'This promoter is not accepting introductions'}});
+      if(Object.keys(publicBandLinks(target.artist_social_links)).length===0)
+        return res.status(422).json({error:{message:'Add at least one band social or music link in Workspace settings before sending an introduction'}});
       if(!(await consumeDiscoveryAllowance(pool,{userId:req.userId,entityId:req.entityId,action:'outreach',maxAttempts:10,windowSeconds:86400}))) {
         res.setHeader('Retry-After','86400');
         return res.status(429).json({error:{message:'Daily introduction limit reached. Please try again tomorrow.'}});

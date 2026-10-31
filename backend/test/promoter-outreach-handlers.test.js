@@ -56,7 +56,7 @@ test('only owner/admin and valid message may create a request',async()=>{
 test('a single opted-in introduction is persisted and notified in-app, duplicate is rejected',async()=>{
  let inserted=false,notifications=[];
  const pool={query:async(sql)=>{
-  if(sql.includes('AS sender_valid'))return {rows:[{sender_valid:true,recipient_valid:true,opted_in:true}]};
+  if(sql.includes('AS sender_valid'))return {rows:[{sender_valid:true,recipient_valid:true,opted_in:true,artist_social_links:{spotify:'https://open.spotify.com/artist/test'}}]};
   if(sql.includes('INSERT INTO auth_rate_limits'))return {rows:[{attempts:1}]};
   if(sql.includes('SELECT status FROM promoter_introductions'))return {rows:inserted?[{status:'pending'}]:[]};
   if(sql.includes('INSERT INTO promoter_introductions')){inserted=true;return {rowCount:1,rows:[{id:requestId,status:'pending',created_at:'2026-10-30'}]};}
@@ -73,6 +73,38 @@ test('a single opted-in introduction is persisted and notified in-app, duplicate
  const second=await call('POST','/requests',body);
  assert.equal(second.statusCode,409);
  assert.equal(notifications.length,1);
+});
+
+test('new introduction requires a public link and enforces a 500 character limit',async()=>{
+ const query=async sql=>{
+  if(sql.includes('AS sender_valid'))return {rows:[{sender_valid:true,recipient_valid:true,opted_in:true,artist_social_links:{}}]};
+  throw Error('unexpected query');
+ };
+ const call=routerFor({query});
+ const missing=await call('POST','/requests',{promoterId:promoter,message:'We would love to play at your next show.'});
+ assert.equal(missing.statusCode,422);
+ assert.match(missing.payload.error.message,/social or music link/);
+ const long=await call('POST','/requests',{promoterId:promoter,message:'a'.repeat(501)});
+ assert.equal(long.statusCode,422);
+ assert.match(long.payload.error.message,/30–500/);
+});
+
+test('promoter inbox includes only public band links and profile details',async()=>{
+ const call=routerFor({query:async(sql)=>{
+  if(sql.includes('SELECT i.id,i.message,i.status'))return {rows:[{
+   id:requestId,message:'We would love to play at your next show.',status:'pending',
+   artist_name:'Example Band',artist_id:artist,artist_city:'Liverpool',artist_country:'United Kingdom',
+   artist_genres:['#doom'],artist_social_links:{spotify:'https://open.spotify.com/artist/example',facebook:'javascript:alert(1)',privateEmail:'test@example.com'}
+  }]};
+  if(sql.includes('SELECT entity_type FROM entities'))return {rows:[{entity_type:'promoter'}]};
+  throw Error('unexpected query');
+ }});
+ const response=await call('GET','/inbox',{},promoter);
+ assert.equal(response.statusCode,200);
+ assert.equal(response.payload.requests[0].artistCity,'Liverpool');
+ assert.deepEqual(response.payload.requests[0].artistGenres,['#doom']);
+ assert.deepEqual(response.payload.requests[0].artistLinks,{spotify:'https://open.spotify.com/artist/example'});
+ assert.doesNotMatch(JSON.stringify(response.payload),/test@example.com|javascript:/);
 });
 
 test('promoter acceptance is constrained to a pending item in its own workspace',async()=>{
@@ -196,7 +228,7 @@ test('promoter can opt out, opt in, opt out again; each state is returned by GET
  const pool={query:async(sql,params)=>{
   if(sql.includes('COALESCE(p.accepting_introductions,FALSE) enabled'))return {rows:[{entity_type:'promoter',enabled}]};
   if(sql.includes('INSERT INTO promoter_outreach_preferences')){enabled=params[1];return {rows:[{accepting_introductions:enabled}],rowCount:1};}
-  if(sql.includes('AS sender_valid'))return {rows:[{sender_valid:true,recipient_valid:true,opted_in:enabled}]};
+  if(sql.includes('AS sender_valid'))return {rows:[{sender_valid:true,recipient_valid:true,opted_in:enabled,artist_social_links:{spotify:'https://open.spotify.com/artist/test'}}]};
   if(sql.includes('INSERT INTO auth_rate_limits'))return {rows:[{attempts:1}]};
   if(sql.includes('SELECT status FROM promoter_introductions'))return {rows:[]};
   if(sql.includes('INSERT INTO promoter_introductions'))return {rows:[{id:requestId,status:'pending',created_at:'2026-10-31'}],rowCount:1};

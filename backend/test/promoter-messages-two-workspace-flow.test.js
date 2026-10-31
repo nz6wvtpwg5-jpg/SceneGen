@@ -24,7 +24,7 @@ function testHarness(){
     if(sql.includes('INSERT INTO promoter_outreach_preferences')){
       state.optedIn=params[1];return {rows:[{accepting_introductions:state.optedIn}],rowCount:1};
     }
-    if(sql.includes('AS sender_valid'))return {rows:[{sender_valid:params[0]===BAND,recipient_valid:params[1]===PROMOTER,opted_in:state.optedIn}]};
+    if(sql.includes('AS sender_valid'))return {rows:[{sender_valid:params[0]===BAND,recipient_valid:params[1]===PROMOTER,opted_in:state.optedIn,artist_social_links:{spotify:'https://open.spotify.com/artist/test'}}]};
     if(sql.includes('INSERT INTO auth_rate_limits'))return {rows:[{attempts:++state.attempts}]};
     if(sql.includes('SELECT status FROM promoter_introductions'))return {rows:state.introduction?[{status:state.introduction.status}]:[]};
     if(sql.includes('INSERT INTO promoter_introductions(')){

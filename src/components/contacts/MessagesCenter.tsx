@@ -8,7 +8,7 @@ import {PromoterConversation} from '@/components/contacts/PromoterConversation';
 
 type Introduction={
   id:string;message:string;status:'pending'|'accepted'|'declined';createdAt:string;
-  artistName?:string;promoterName?:string;lastMessage?:string|null;lastMessageAt?:string|null;unread?:boolean;
+  artistName?:string;artistCity?:string|null;artistCountry?:string|null;artistGenres?:string[];artistLinks?:Record<string,string>;promoterName?:string;lastMessage?:string|null;lastMessageAt?:string|null;unread?:boolean;
 };
 type View='inbox'|'requests';
 
@@ -118,6 +118,14 @@ export function MessagesCenter(){
       <section className="min-w-0 p-5 sm:p-7" aria-label="Selected conversation">
         {!current?<div className="flex min-h-[300px] flex-col items-center justify-center text-center"><MessageCircle className="text-[#c0ae9a]" size={42}/><h3 className="mt-4 text-lg font-black">Select a conversation</h3><p className="mt-2 max-w-xs text-sm text-[#756d61]">Choose a message on the left to read it or respond.</p>{!isPromoter&&<Link href="/contacts/discover" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#171713] px-5 text-sm font-bold text-white">Discover promoters</Link>}{isPromoter&&<Link href="/settings?tab=workspace" className="mt-5 text-sm font-bold underline">Introduction settings</Link>}</div>
         :<><div className="flex flex-wrap items-start justify-between gap-3 border-b border-black/10 pb-4"><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#a05b41]">{current.status==='accepted'?'Booking conversation':'Booking introduction'}</p><h3 className="mt-1 text-xl font-black">{isPromoter?current.artistName:current.promoterName}</h3></div><span className="text-xs font-bold capitalize text-[#756d61]">{current.status}</span></div>
+          {isPromoter&&<div className="mt-4 rounded-lg border border-black/10 bg-white p-4">
+            <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#887b6d]">About the band</p>
+            {(current.artistCity||current.artistCountry)&&<p className="mt-2 text-sm">{[current.artistCity,current.artistCountry].filter(Boolean).join(', ')}</p>}
+            {Boolean(current.artistGenres?.length)&&<p className="mt-1 text-sm">{current.artistGenres?.join(' · ')}</p>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {Object.entries(current.artistLinks||{}).map(([network,url])=><a key={network} href={url} target="_blank" rel="noopener noreferrer" className="rounded-full border border-black/15 px-3 py-2 text-xs font-bold capitalize underline">{network}</a>)}
+            </div>
+          </div>}
           <div className="mt-5 rounded-lg bg-[#f3e9dd] p-4"><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#887b6d]">Original enquiry</p><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{current.message}</p></div>
           {current.status==='accepted'?<PromoterConversation key={`${workspaceId}-${current.id}`} entityId={workspaceId} introductionId={current.id} onRead={()=>{if(activeWorkspaceRef.current===workspaceId)setItems(existing=>existing.map(item=>item.id===current.id?{...item,unread:false}:item));}}/>:
             current.status==='pending'&&isPromoter?<div className="mt-5"><p className="text-sm text-[#686258]">Accept to open a private conversation, or decline the request. No contact information is shared.</p><div className="mt-4 flex gap-3"><button type="button" disabled={Boolean(processing)} onClick={()=>void respond(current.id,'accepted')} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#171713] px-5 text-sm font-bold text-white disabled:opacity-50"><Check size={16}/> Accept</button><button type="button" disabled={Boolean(processing)} onClick={()=>void respond(current.id,'declined')} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/15 px-5 text-sm font-bold disabled:opacity-50"><X size={16}/> Decline</button></div></div>
