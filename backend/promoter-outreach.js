@@ -16,6 +16,12 @@ function publicBandLinks(value) {
   }));
 }
 
+const socialPlatforms = ['facebook','instagram','bandcamp','spotify'];
+function explicitAbsences(value) {
+  const source=value && typeof value==='object' && !Array.isArray(value) ? value : {};
+  return Object.fromEntries(socialPlatforms.filter(platform=>source[platform]===true).map(platform=>[platform,true]));
+}
+
 const messageSummaryJoin = `
   LEFT JOIN promoter_introduction_read_state read_state
     ON read_state.introduction_id=i.id AND read_state.entity_id=$1::uuid
@@ -62,9 +68,9 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
   });
   router.get('/sender-links',async(req,res)=>{
     try {
-      const result=await pool.query('SELECT entity_type,social_links FROM entities WHERE id=$1::uuid',[req.entityId]);
+      const result=await pool.query('SELECT entity_type,social_links,social_profile_absences FROM entities WHERE id=$1::uuid',[req.entityId]);
       if(result.rows[0]?.entity_type!=='artist')return res.status(403).json({error:{message:'An artist workspace is required'}});
-      res.json({socialLinks:publicBandLinks(result.rows[0].social_links)});
+      res.json({socialLinks:publicBandLinks(result.rows[0].social_links),unavailableProfiles:explicitAbsences(result.rows[0].social_profile_absences)});
     }catch(error){console.error('Band links read failed:',error.message);res.status(500).json({error:{message:'Unable to load band links'}});}
   });
   router.put('/sender-links',async(req,res)=>{
@@ -72,7 +78,10 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
       const incoming=req.body?.socialLinks;
       if(!incoming || typeof incoming!=='object' || Array.isArray(incoming))
         return res.status(422).json({error:{message:'Provide the band social links'}});
-      const platforms=['facebook','instagram','bandcamp','spotify'];
+      const platforms=socialPlatforms;
+      const unavailable=req.body?.unavailableProfiles || {};
+      if(typeof unavailable!=='object' || Array.isArray(unavailable) || Object.entries(unavailable).some(([key,value])=>!platforms.includes(key)||typeof value!=='boolean'))
+        return res.status(422).json({error:{message:'Invalid social profile availability selection'}});
       if(Object.keys(incoming).some(key=>!platforms.includes(key)))
         return res.status(422).json({error:{message:'Only Facebook, Instagram, Bandcamp and Spotify links can be updated here'}});
       const updates={};
@@ -99,17 +108,29 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
           return res.status(422).json({error:{message:'Use a valid HTTPS '+platform+' link'}});
         }
       }
-      const result=await pool.query(`UPDATE entities SET social_links=COALESCE(social_links,'{}'::jsonb) || $2::jsonb,updated_at=NOW()
+      const absentUpdates={};
+      for(const platform of platforms) {
+        if(unavailable[platform]===true && updates[platform])
+          return res.status(422).json({error:{message:'A '+platform+' URL cannot also be marked as unavailable'}});
+        if(unavailable[platform]===true) {
+          updates[platform]=null;
+          absentUpdates[platform]=true;
+        } else if(Object.prototype.hasOwnProperty.call(incoming,platform) || Object.prototype.hasOwnProperty.call(unavailable,platform)) {
+          absentUpdates[platform]=false;
+        }
+      }
+      const result=await pool.query(`UPDATE entities SET social_links=COALESCE(social_links,'{}'::jsonb) || $2::jsonb,
+        social_profile_absences=COALESCE(social_profile_absences,'{}'::jsonb) || $3::jsonb, updated_at=NOW()
         WHERE id=$1::uuid AND entity_type='artist'
-        RETURNING social_links`,[req.entityId,JSON.stringify(updates)]);
+        RETURNING social_links,social_profile_absences`,[req.entityId,JSON.stringify(updates),JSON.stringify(absentUpdates)]);
       if(!result.rowCount)return res.status(403).json({error:{message:'An artist workspace is required'}});
-      return res.json({socialLinks:publicBandLinks(result.rows[0].social_links)});
+      return res.json({socialLinks:publicBandLinks(result.rows[0].social_links),unavailableProfiles:explicitAbsences(result.rows[0].social_profile_absences)});
     }catch(error){console.error('Band links update failed:',error.message);return res.status(500).json({error:{message:'Unable to save band links'}});}
   });
   router.get('/inbox',async(req,res)=>{
     try {
       const result=await pool.query(`SELECT i.id,i.message,i.status,i.created_at,i.responded_at,
-        artist.name artist_name,artist.id::text artist_id,artist.city artist_city,artist.country artist_country,artist.tags artist_genres,artist.social_links artist_social_links,
+        artist.name artist_name,artist.id::text artist_id,artist.city artist_city,artist.country artist_country,artist.tags artist_genres,artist.social_links artist_social_links,artist.social_profile_absences artist_unavailable_profiles,
         latest.body last_message, latest.created_at last_message_at,
         (i.status='accepted' AND unread_state.has_unread) AS unread
         FROM promoter_introductions i
@@ -119,7 +140,7 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
       const type=await pool.query('SELECT entity_type FROM entities WHERE id=$1::uuid',[req.entityId]);
       if(type.rows[0]?.entity_type!=='promoter') return res.status(403).json({error:{message:'A promoter workspace is required'}});
       res.json({requests:result.rows.map(row=>({id:row.id,message:row.message,status:row.status,
-        artistName:row.artist_name,artistId:row.artist_id,artistCity:row.artist_city,artistCountry:row.artist_country,artistGenres:Array.isArray(row.artist_genres)?row.artist_genres:[],artistLinks:publicBandLinks(row.artist_social_links),createdAt:row.created_at,respondedAt:row.responded_at,
+        artistName:row.artist_name,artistId:row.artist_id,artistCity:row.artist_city,artistCountry:row.artist_country,artistGenres:Array.isArray(row.artist_genres)?row.artist_genres:[],artistLinks:publicBandLinks(row.artist_social_links),artistUnavailableProfiles:explicitAbsences(row.artist_unavailable_profiles),createdAt:row.created_at,respondedAt:row.responded_at,
         lastMessage:row.last_message || null,lastMessageAt:row.last_message_at || null,unread:row.unread === true}))});
     }catch(error){console.error('Promoter inbox failed:',error.message);res.status(500).json({error:{message:'Unable to load introduction inbox'}});}
   });

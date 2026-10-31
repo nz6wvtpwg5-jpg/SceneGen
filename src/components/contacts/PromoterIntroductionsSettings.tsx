@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {Check, X, Mail} from 'lucide-react';
 import {PromoterConversation} from '@/components/contacts/PromoterConversation';
 
-type Request={id:string;artistName:string;artistId:string;message:string;status:'pending'|'accepted'|'declined';createdAt:string;artistCity?:string|null;artistCountry?:string|null;artistGenres?:string[];artistLinks?:Record<string,string>};
+type Request={id:string;artistName:string;artistId:string;message:string;status:'pending'|'accepted'|'declined';createdAt:string;artistCity?:string|null;artistCountry?:string|null;artistGenres?:string[];artistLinks?:Record<string,string>;artistUnavailableProfiles?:Record<string,boolean>};
 export function PromoterIntroductionsSettings({entityId}:{entityId:string}){
   const [enabled,setEnabled]=useState(false);
   const [requests,setRequests]=useState<Request[]>([]);
@@ -59,7 +59,7 @@ export function PromoterIntroductionsSettings({entityId}:{entityId:string}){
       {loading?<p className="mt-3 text-sm text-[#686258]">Loading requests…</p>:requests.length===0?<p className="mt-3 text-sm text-[#686258]">No introductions yet.</p>:<div className="mt-3 space-y-3">{requests.map(item=><article key={item.id} className="rounded-lg border border-black/10 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{item.artistName}</strong><span className="text-xs font-bold capitalize text-[#777168]">{item.status}</span></div>
         <p className="mt-2 text-xs text-[#686258]">{[item.artistCity,item.artistCountry].filter(Boolean).join(', ')}{item.artistGenres?.length ? ' · '+item.artistGenres.join(' · ') : ''}</p>
-        <div className="mt-2 flex flex-wrap gap-2">{Object.entries(item.artistLinks||{}).map(([network,url])=><a key={network} href={url} target="_blank" rel="noopener noreferrer" className="rounded-full border border-black/15 px-3 py-2 text-xs font-bold capitalize underline">{network}</a>)}</div>
+        <div className="mt-2 flex flex-wrap gap-2">{Object.entries(item.artistLinks||{}).map(([network,url])=><a key={network} href={url} target="_blank" rel="noopener noreferrer" className="rounded-full border border-black/15 px-3 py-2 text-xs font-bold capitalize underline">{network}</a>)}{Object.entries(item.artistUnavailableProfiles||{}).filter(([,absent])=>absent).map(([network])=><span key={network} className="rounded-full bg-[#f3e9dd] px-3 py-2 text-xs font-medium capitalize">{network}: No profile</span>)}</div>
         <p className="mt-2 whitespace-pre-wrap break-words text-sm text-[#504b43]">{item.message}</p>
         {item.status==='accepted'&&<PromoterConversation key={item.id} entityId={entityId} introductionId={item.id}/>}
         {item.status==='pending'&&<div className="mt-4 flex flex-wrap gap-2">

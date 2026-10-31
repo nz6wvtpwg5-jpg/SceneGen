@@ -8,7 +8,7 @@ import {PromoterConversation} from '@/components/contacts/PromoterConversation';
 
 type Introduction={
   id:string;message:string;status:'pending'|'accepted'|'declined';createdAt:string;
-  artistName?:string;artistCity?:string|null;artistCountry?:string|null;artistGenres?:string[];artistLinks?:Record<string,string>;promoterName?:string;lastMessage?:string|null;lastMessageAt?:string|null;unread?:boolean;
+  artistName?:string;artistCity?:string|null;artistCountry?:string|null;artistGenres?:string[];artistLinks?:Record<string,string>;artistUnavailableProfiles?:Record<string,boolean>;promoterName?:string;lastMessage?:string|null;lastMessageAt?:string|null;unread?:boolean;
 };
 type View='inbox'|'requests';
 
@@ -124,6 +124,7 @@ export function MessagesCenter(){
             {Boolean(current.artistGenres?.length)&&<p className="mt-1 text-sm">{current.artistGenres?.join(' · ')}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
               {Object.entries(current.artistLinks||{}).map(([network,url])=><a key={network} href={url} target="_blank" rel="noopener noreferrer" className="rounded-full border border-black/15 px-3 py-2 text-xs font-bold capitalize underline">{network}</a>)}
+              {Object.entries(current.artistUnavailableProfiles||{}).filter(([,absent])=>absent).map(([network])=><span key={network} className="rounded-full bg-[#f3e9dd] px-3 py-2 text-xs font-medium capitalize">{network}: No profile</span>)}
             </div>
           </div>}
           <div className="mt-5 rounded-lg bg-[#f3e9dd] p-4"><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#887b6d]">Original enquiry</p><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{current.message}</p></div>

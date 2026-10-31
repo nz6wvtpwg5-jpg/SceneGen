@@ -132,6 +132,42 @@ test('band social fields are saved to its workspace with explicit platform valid
  assert.equal(foreign.statusCode,422);
 });
 
+test('band can explicitly mark a platform unavailable without inventing a link',async()=>{
+ let stored={};
+ const call=routerFor({query:async(sql,params)=>{
+   if(sql.includes('UPDATE entities SET social_links')){
+     stored={...stored,...JSON.parse(params[2])};
+     return {rowCount:1,rows:[{social_links:{spotify:'https://open.spotify.com/artist/example'},social_profile_absences:stored}]};
+   }
+   throw Error('unexpected query');
+ }});
+ const response=await call('PUT','/sender-links',{socialLinks:{facebook:'',instagram:'',bandcamp:'',spotify:'https://open.spotify.com/artist/example'},
+   unavailableProfiles:{facebook:true,instagram:false,bandcamp:true,spotify:false}});
+ assert.equal(response.statusCode,200);
+ assert.deepEqual(response.payload.unavailableProfiles,{facebook:true,bandcamp:true});
+ assert.deepEqual(response.payload.socialLinks,{spotify:'https://open.spotify.com/artist/example'});
+ const contradictory=await call('PUT','/sender-links',{socialLinks:{facebook:'https://facebook.com/example'},unavailableProfiles:{facebook:true}});
+ assert.equal(contradictory.statusCode,422);
+ assert.match(contradictory.payload.error.message,/cannot also be marked as unavailable/);
+});
+
+test('promoter inbox discloses only explicitly confirmed missing profiles',async()=>{
+ const call=routerFor({query:async sql=>{
+   if(sql.includes('SELECT i.id,i.message,i.status'))return {rows:[{
+     id:requestId,message:'We would like to play a show with you.',status:'pending',artist_name:'Demo Band',artist_id:artist,
+     artist_social_links:{spotify:'https://open.spotify.com/artist/example'},
+     artist_unavailable_profiles:{facebook:true,instagram:false,bandcamp:true}
+   }]};
+   if(sql.includes('SELECT entity_type FROM entities'))return {rows:[{entity_type:'promoter'}]};
+   throw Error('unexpected query');
+ }});
+ const response=await call('GET','/inbox',{},promoter);
+ assert.equal(response.statusCode,200);
+ assert.deepEqual(response.payload.requests[0].artistUnavailableProfiles,{facebook:true,bandcamp:true});
+ assert.deepEqual(response.payload.requests[0].artistLinks,{spotify:'https://open.spotify.com/artist/example'});
+ assert.equal(response.payload.requests[0].artistUnavailableProfiles.instagram,undefined);
+});
+
 test('promoter acceptance is constrained to a pending item in its own workspace',async()=>{
  let observed=[];
  const pool={query:async(sql,params)=>{

@@ -17,6 +17,8 @@ export function PromoterIntroductionComposer({entityId,selected,onClose}:{entity
   const [sent,setSent]=useState<SentRequest[]>([]);
   const [links,setLinks]=useState<Record<string,string>>({});
   const [savedLinks,setSavedLinks]=useState<Record<string,string>>({});
+  const [unavailable,setUnavailable]=useState<Record<string,boolean>>({});
+  const [savedUnavailable,setSavedUnavailable]=useState<Record<string,boolean>>({});
   const [linksError,setLinksError]=useState('');
   const [linksLoadError,setLinksLoadError]=useState('');
   const [linksLoading,setLinksLoading]=useState(true);
@@ -29,17 +31,18 @@ export function PromoterIntroductionComposer({entityId,selected,onClose}:{entity
     return()=>controller.abort();
   },[entityId]);
   useEffect(()=>{
-    const controller=new AbortController();setLinksLoading(true);setLinks({});setSavedLinks({});setLinksError('');setLinksLoadError('');
+    const controller=new AbortController();setLinksLoading(true);setLinks({});setSavedLinks({});setUnavailable({});setSavedUnavailable({});setLinksError('');setLinksLoadError('');
     fetch('/api/promoter-outreach/sender-links',{headers:{'X-Entity-Id':entityId},signal:controller.signal,cache:'no-store'})
       .then(async response=>response.ok?response.json():Promise.reject(new Error('Unable to load band links')))
-      .then(data=>{if(!controller.signal.aborted){setLinks(data.socialLinks||{});setSavedLinks(data.socialLinks||{});}})
+      .then(data=>{if(!controller.signal.aborted){setLinks(data.socialLinks||{});setSavedLinks(data.socialLinks||{});setUnavailable(data.unavailableProfiles||{});setSavedUnavailable(data.unavailableProfiles||{});}})
       .catch(()=>{if(!controller.signal.aborted)setLinksLoadError("Unable to load your band's saved links. Close and reopen this window to retry.");}).finally(()=>{if(!controller.signal.aborted)setLinksLoading(false);});
     return()=>controller.abort();
   },[entityId]);
   const linksModified=SOCIAL_FIELDS.some(field=>(links[field.key]||'').trim()!==(savedLinks[field.key]||'').trim());
+  const availabilityModified=SOCIAL_FIELDS.some(field=>Boolean(unavailable[field.key])!==Boolean(savedUnavailable[field.key]));
   const hasSavedLink=SOCIAL_FIELDS.some(field=>Boolean(savedLinks[field.key]));
   const linkError=SOCIAL_FIELDS.find(field=>{
-    const value=(links[field.key]||'').trim();
+    const value=unavailable[field.key]?'':(links[field.key]||'').trim();
     if(!value)return false;
     try{
       const url=new URL(value);
@@ -52,7 +55,7 @@ export function PromoterIntroductionComposer({entityId,selected,onClose}:{entity
       return url.protocol!=='https:'||!validHost||Boolean(url.username||url.password);
     }catch{return true;}
   });
-  const linksValid=!linkError&&SOCIAL_FIELDS.some(field=>Boolean((links[field.key]||'').trim()));
+  const linksValid=!linkError&&SOCIAL_FIELDS.some(field=>Boolean((links[field.key]||'').trim())&&!unavailable[field.key]);
   if(!selected)return null;
   const promoterId=selected.id;
   const previous=sent.find(item=>item.promoterId===promoterId);
@@ -61,16 +64,16 @@ export function PromoterIntroductionComposer({entityId,selected,onClose}:{entity
     const update=Object.fromEntries(SOCIAL_FIELDS.map(field=>[field.key,(links[field.key]||'').trim()]));
     const response=await fetch('/api/promoter-outreach/sender-links',{
       method:'PUT',headers:{'Content-Type':'application/json','X-Entity-Id':entityId},
-      body:JSON.stringify({socialLinks:update})
+      body:JSON.stringify({socialLinks:update,unavailableProfiles:Object.fromEntries(SOCIAL_FIELDS.map(field=>[field.key,Boolean(unavailable[field.key])]))})
     });
     const data=await response.json();
     if(!response.ok)throw new Error(data.error?.message||'Unable to save band links');
-    setSavedLinks(data.socialLinks||{});setLinks(data.socialLinks||{});setLinksError('');
+    setSavedLinks(data.socialLinks||{});setLinks(data.socialLinks||{});setUnavailable(data.unavailableProfiles||{});setSavedUnavailable(data.unavailableProfiles||{});setLinksError('');
   }
   async function submit(){
     if(!canSend)return;setBusy(true);setLinksError('');
     try{
-      if(linksModified || !hasSavedLink) await saveLinks();
+      if(linksModified || availabilityModified || !hasSavedLink) await saveLinks();
       const response=await fetch('/api/promoter-outreach/requests',{method:'POST',headers:{'Content-Type':'application/json','X-Entity-Id':entityId},body:JSON.stringify({promoterId,message:message.trim()})});
       const data=await response.json();if(!response.ok)throw new Error(data.error?.message||'Unable to send introduction');
       setSent(items=>[{id:data.id,promoterId,status:'pending'},...items]);
@@ -90,13 +93,22 @@ export function PromoterIntroductionComposer({entityId,selected,onClose}:{entity
           <div className="mt-1 text-right text-xs text-[#777168]">{message.trim().length}/500 characters · minimum 30</div>
           <div className="mt-4 rounded-lg border border-black/10 bg-white p-4">
             <p className="text-sm font-bold">Your band's social and music links</p>
-            <p className="mt-1 text-xs leading-5 text-[#686258]">These four platforms are requested specifically. Add the ones your band uses (at least one); SceneGen saves them and automatically includes them with booking enquiries.</p>
+            <p className="mt-1 text-xs leading-5 text-[#686258]">Enter your links or tick “We don't have this profile”. Both your links and confirmed unavailable profiles are shown to the promoter. At least one link is required.</p>
             {linksLoading?<p className="mt-3 text-sm">Loading saved links…</p>:<div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {SOCIAL_FIELDS.map(field=><label key={field.key} className="block text-xs font-semibold" htmlFor={'band-'+field.key}>{field.label}
-                <input id={'band-'+field.key} type="url" autoComplete="url" value={links[field.key]||''} maxLength={1000} placeholder={field.placeholder}
-                  onChange={event=>setLinks(current=>({...current,[field.key]:event.target.value}))}
-                  className="mt-1 block w-full rounded-lg border border-black/20 bg-white px-3 py-2 text-sm font-normal outline-none focus:border-[#ff5a36]"/>
-              </label>)}
+              {SOCIAL_FIELDS.map(field=><div key={field.key} className="space-y-2">
+                <label className="block text-xs font-semibold" htmlFor={'band-'+field.key}>{field.label}
+                  <input id={'band-'+field.key} type="url" autoComplete="url" value={unavailable[field.key]?'':links[field.key]||''} maxLength={1000} placeholder={field.placeholder} disabled={Boolean(unavailable[field.key])}
+                    onChange={event=>setLinks(current=>({...current,[field.key]:event.target.value}))}
+                    className="mt-1 block w-full rounded-lg border border-black/20 bg-white px-3 py-2 text-sm font-normal outline-none focus:border-[#ff5a36] disabled:bg-[#f5f0e9] disabled:opacity-65"/>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-[#686258]">
+                  <input type="checkbox" checked={Boolean(unavailable[field.key])} onChange={event=>{
+                    setUnavailable(current=>({...current,[field.key]:event.target.checked}));
+                    if(event.target.checked)setLinks(current=>({...current,[field.key]:''}));
+                  }}/>
+                  We don't have a {field.label} profile
+                </label>
+              </div>)}
             </div>}
             {linksLoadError&&<p role="alert" className="mt-2 text-xs text-red-700">{linksLoadError}</p>}
             {linkError&&<p role="alert" className="mt-2 text-xs text-red-700">Please enter a valid HTTPS {linkError.label} URL.</p>}
