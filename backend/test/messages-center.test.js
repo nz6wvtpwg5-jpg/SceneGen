@@ -59,3 +59,14 @@ test('read acknowledgements include the last displayed message and cannot clear 
  assert.match(api,/GREATEST\(promoter_introduction_read_state\.last_read_at,EXCLUDED\.last_read_at\)/);
  assert.match(conversation,/lastSeenMessageId:incoming\.at\(-1\)!\.id/);
 });
+
+test('opening a conversation does not clear its unread state until the server confirms read',()=>{
+ const select=center.split('function select(item:Introduction)')[1].split('if(!workspaceId)')[0];
+ assert.match(select,/setSelected\(item\.id\)/);
+ assert.doesNotMatch(select,/unread:false/);
+ assert.match(center,/onRead=\{\(\)=>\{if\(activeWorkspaceRef\.current===workspaceId\)setItems/);
+});
+test('late refresh responses cannot replace newer message-list results',()=>{
+ assert.match(center,/const loadId=\+\+latestLoadRef\.current/);
+ assert.match(center,/latestLoadRef\.current===loadId/);
+});

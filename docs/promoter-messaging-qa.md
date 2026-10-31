@@ -47,3 +47,10 @@ Use only dedicated test identities and workspaces. Never approach a real promote
 - Read acknowledgement now requires the UUID of the last message actually delivered to the client, using that message's stored timestamp (not server `NOW()`). It never acknowledges a newer unseen reply.
 - Concurrent or delayed older acknowledgements cannot move the read watermark backward.
 - Automated stateful two-workspace regression tests cover both scenarios. This is **not** a substitute for an authenticated production browser test.
+
+## Message-centre UI acknowledgement and refresh QA (31 October 2026)
+
+- Opening an unread conversation no longer clears its badge optimistically. The unread indicator is cleared only after a successful read acknowledgement from the authenticated API.
+- Message-list refreshes carry a monotonically increasing request ID, preventing late responses from overwriting newer results in the same workspace.
+- Existing active-workspace checks remain in place for cross-workspace switching.
+- Automated tests cover both conditions. Live two-account browser validation remains outstanding.

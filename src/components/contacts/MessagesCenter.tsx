@@ -21,6 +21,7 @@ export function MessagesCenter(){
   const canMessage=Boolean(workspaceId && ['owner','admin'].includes(role||''));
   const [view,setView]=useState<View>(params.get('tab')==='requests'?'requests':'inbox');
   const activeWorkspaceRef=useRef(workspaceId);
+  const latestLoadRef=useRef(0);
   activeWorkspaceRef.current=workspaceId;
   const [items,setItems]=useState<Introduction[]>([]);
   const [selected,setSelected]=useState<string|null>(null);
@@ -32,6 +33,7 @@ export function MessagesCenter(){
 
   const load=useCallback(async(quiet=false,signal?:AbortSignal)=>{
     if(!workspaceId||!canMessage)return;
+    const loadId=++latestLoadRef.current;
     if(!quiet)setLoading(true);else setRefreshing(true);
     try{
       const response=await fetch(isPromoter?'/api/promoter-outreach/inbox':'/api/promoter-outreach/sent',{
@@ -39,9 +41,9 @@ export function MessagesCenter(){
       });
       const result=await response.json();
       if(!response.ok)throw new Error(result.error?.message||'Unable to load messages');
-      if(!signal?.aborted && activeWorkspaceRef.current===workspaceId){setItems(Array.isArray(result.requests)?result.requests:[]);setError('');}
-    }catch(caught){if(!signal?.aborted && activeWorkspaceRef.current===workspaceId)setError(caught instanceof Error?caught.message:'Unable to load messages');}
-    finally{if(!signal?.aborted && activeWorkspaceRef.current===workspaceId){setLoading(false);setRefreshing(false);}}
+      if(!signal?.aborted && latestLoadRef.current===loadId && activeWorkspaceRef.current===workspaceId){setItems(Array.isArray(result.requests)?result.requests:[]);setError('');}
+    }catch(caught){if(!signal?.aborted && latestLoadRef.current===loadId && activeWorkspaceRef.current===workspaceId)setError(caught instanceof Error?caught.message:'Unable to load messages');}
+    finally{if(!signal?.aborted && latestLoadRef.current===loadId && activeWorkspaceRef.current===workspaceId){setLoading(false);setRefreshing(false);}}
   },[workspaceId,canMessage,isPromoter]);
   useEffect(()=>{
     const controller=new AbortController();
@@ -88,8 +90,8 @@ export function MessagesCenter(){
     finally{if(activeWorkspaceRef.current===workspaceId)setProcessing(null);}
   }
   function select(item:Introduction){
+    // Keep the unread badge until the conversation confirms a successful read.
     setSelected(item.id);
-    if(item.unread)setItems(existing=>existing.map(existingItem=>existingItem.id===item.id?{...existingItem,unread:false}:existingItem));
   }
   if(!workspaceId)return <p className="rounded-xl border border-black/10 bg-white p-6 text-sm">Choose a workspace to view messages.</p>;
   if(!canMessage)return <p className="rounded-xl border border-black/10 bg-white p-6 text-sm">Messages are available to workspace owners and administrators.</p>;
@@ -117,7 +119,7 @@ export function MessagesCenter(){
         {!current?<div className="flex min-h-[300px] flex-col items-center justify-center text-center"><MessageCircle className="text-[#c0ae9a]" size={42}/><h3 className="mt-4 text-lg font-black">Select a conversation</h3><p className="mt-2 max-w-xs text-sm text-[#756d61]">Choose a message on the left to read it or respond.</p>{!isPromoter&&<Link href="/contacts/discover" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#171713] px-5 text-sm font-bold text-white">Discover promoters</Link>}{isPromoter&&<Link href="/settings?tab=workspace" className="mt-5 text-sm font-bold underline">Introduction settings</Link>}</div>
         :<><div className="flex flex-wrap items-start justify-between gap-3 border-b border-black/10 pb-4"><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#a05b41]">{current.status==='accepted'?'Booking conversation':'Booking introduction'}</p><h3 className="mt-1 text-xl font-black">{isPromoter?current.artistName:current.promoterName}</h3></div><span className="text-xs font-bold capitalize text-[#756d61]">{current.status}</span></div>
           <div className="mt-5 rounded-lg bg-[#f3e9dd] p-4"><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#887b6d]">Original enquiry</p><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{current.message}</p></div>
-          {current.status==='accepted'?<PromoterConversation key={`${workspaceId}-${current.id}`} entityId={workspaceId} introductionId={current.id} onRead={()=>{setItems(existing=>existing.map(item=>item.id===current.id?{...item,unread:false}:item));}}/>:
+          {current.status==='accepted'?<PromoterConversation key={`${workspaceId}-${current.id}`} entityId={workspaceId} introductionId={current.id} onRead={()=>{if(activeWorkspaceRef.current===workspaceId)setItems(existing=>existing.map(item=>item.id===current.id?{...item,unread:false}:item));}}/>:
             current.status==='pending'&&isPromoter?<div className="mt-5"><p className="text-sm text-[#686258]">Accept to open a private conversation, or decline the request. No contact information is shared.</p><div className="mt-4 flex gap-3"><button type="button" disabled={Boolean(processing)} onClick={()=>void respond(current.id,'accepted')} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#171713] px-5 text-sm font-bold text-white disabled:opacity-50"><Check size={16}/> Accept</button><button type="button" disabled={Boolean(processing)} onClick={()=>void respond(current.id,'declined')} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/15 px-5 text-sm font-bold disabled:opacity-50"><X size={16}/> Decline</button></div></div>
             :<p className="mt-5 inline-flex items-center gap-2 text-sm text-[#766b5e]"><ShieldCheck size={16}/>{current.status==='declined'?'This introduction was declined. Replies are disabled.':'Waiting for the promoter to respond. Replies open only after acceptance.'}</p>}
         </>}
