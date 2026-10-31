@@ -12,7 +12,6 @@ import { discoverySummary, sortDiscoveryResults, type DiscoverySort } from '@/li
 import { publicDiscoveryCities } from '@/lib/promoterDiscoveryLocations';
 import { upcomingShowCities } from '@/lib/promoterTourCities';
 import { PromoterIntroductionComposer } from '@/components/contacts/PromoterIntroductionComposer';
-import { SentPromoterIntroductions } from '@/components/contacts/SentPromoterIntroductions';
 const PromoterDiscoveryMap = dynamic(() => import('@/components/contacts/PromoterDiscoveryMap'), {ssr:false,loading:()=> <p className="text-sm text-[#686258]">Loading map…</p>});
 
 type Promoter = {
@@ -41,7 +40,7 @@ export default function PromoterDiscovery() {
   const [defaultGenresFound, setDefaultGenresFound] = useState(false);
   const [bandGenres, setBandGenres] = useState<string[]>([]);
   const [sort, setSort] = useState<DiscoverySort>('relevance');
-  const [viewMode,setViewMode] = useState<'discover'|'saved'|'sent'>('discover');
+  const [viewMode,setViewMode] = useState<'discover'|'saved'>('discover');
   const [resultView,setResultView] = useState<'list'|'map'>('list');
   const [saved,setSaved] = useState<SavedPromoter[]>([]);
   const [savingKey,setSavingKey] = useState<string | null>(null);
@@ -207,8 +206,7 @@ export default function PromoterDiscovery() {
         className={`min-h-11 rounded-full px-5 text-sm font-bold ${viewMode === 'discover' ? 'bg-[#171713] text-white' : 'bg-[#eee6da] text-[#504b43]'}`}>Explore promoters</button>
       <button type="button" role="tab" aria-selected={viewMode === 'saved'} onClick={() => setViewMode('saved')}
         className={`inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-bold ${viewMode === 'saved' ? 'bg-[#171713] text-white' : 'bg-[#eee6da] text-[#504b43]'}`}><Bookmark size={15}/> My shortlist ({saved.length})</button>
-      <button type="button" role="tab" aria-selected={viewMode === 'sent'} onClick={() => setViewMode('sent')}
-        className={`min-h-11 rounded-full px-5 text-sm font-bold ${viewMode === 'sent' ? 'bg-[#171713] text-white' : 'bg-[#eee6da] text-[#504b43]'}`}>Sent enquiries</button>
+      <Link href="/messages?tab=requests" className="inline-flex min-h-11 items-center rounded-full bg-[#eee6da] px-5 text-sm font-bold text-[#504b43] hover:bg-[#e3d8c8]">Messages and enquiries</Link>
     </div>
     {viewMode === 'discover' && <>
     <div>
@@ -313,7 +311,6 @@ export default function PromoterDiscovery() {
     {saveError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
     {viewMode === 'saved' && <div className="rounded-lg bg-[#f2e9dd] px-4 py-3 text-sm font-semibold text-[#504b43]">{saved.length ? `${saved.length} saved ${saved.length === 1 ? 'promoter' : 'promoters'} for this band. Private contact details remain hidden.` : 'No promoters saved yet. Explore matches and use Save to shortlist them.'}</div>}
     {viewMode === 'discover' && resultView === 'map' && <PromoterDiscoveryMap locations={publicDiscoveryCities(sortedResults)} />}
-    {viewMode === 'sent' && activeProfile?.id && <SentPromoterIntroductions key={activeProfile.id} entityId={activeProfile.id}/> }
     {(viewMode === 'saved' || (viewMode === 'discover' && resultView === 'list')) && <div className="grid gap-4 md:grid-cols-2">
       {displayResults.map((promoter, index) => {
         const mainLocation = promoter.knownLocations?.[0];

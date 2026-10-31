@@ -4,6 +4,14 @@ const {consumeDiscoveryAllowance} = require('./promoter-discovery-rate-limit');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const clean = value => String(value || '').replace(/\r/g,'').trim();
 
+const messageSummaryJoin = `
+  LEFT JOIN promoter_introduction_read_state read_state
+    ON read_state.introduction_id=i.id AND read_state.entity_id=$1::uuid
+  LEFT JOIN LATERAL (
+    SELECT body,created_at,sender_entity_id FROM promoter_introduction_messages
+    WHERE introduction_id=i.id ORDER BY created_at DESC,id DESC LIMIT 1
+  ) latest ON TRUE`;
+
 function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}) {
   const router=express.Router();
   router.use((req,res,next)=>{
@@ -35,14 +43,20 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
   router.get('/inbox',async(req,res)=>{
     try {
       const result=await pool.query(`SELECT i.id,i.message,i.status,i.created_at,i.responded_at,
-        artist.name artist_name,artist.id::text artist_id
+        artist.name artist_name,artist.id::text artist_id,
+        latest.body last_message, latest.created_at last_message_at,
+        (i.status='accepted' AND latest.created_at IS NOT NULL
+          AND latest.sender_entity_id<>$1::uuid
+          AND (read_state.last_read_at IS NULL OR latest.created_at>read_state.last_read_at)) AS unread
         FROM promoter_introductions i
         JOIN entities artist ON artist.id=i.artist_entity_id
-        WHERE i.promoter_entity_id=$1::uuid ORDER BY i.created_at DESC LIMIT 100`,[req.entityId]);
+        ${messageSummaryJoin}
+        WHERE i.promoter_entity_id=$1::uuid ORDER BY COALESCE(latest.created_at,i.created_at) DESC LIMIT 100`,[req.entityId]);
       const type=await pool.query('SELECT entity_type FROM entities WHERE id=$1::uuid',[req.entityId]);
       if(type.rows[0]?.entity_type!=='promoter') return res.status(403).json({error:{message:'A promoter workspace is required'}});
       res.json({requests:result.rows.map(row=>({id:row.id,message:row.message,status:row.status,
-        artistName:row.artist_name,artistId:row.artist_id,createdAt:row.created_at,respondedAt:row.responded_at}))});
+        artistName:row.artist_name,artistId:row.artist_id,createdAt:row.created_at,respondedAt:row.responded_at,
+        lastMessage:row.last_message || null,lastMessageAt:row.last_message_at || null,unread:row.unread === true}))});
     }catch(error){console.error('Promoter inbox failed:',error.message);res.status(500).json({error:{message:'Unable to load introduction inbox'}});}
   });
   router.get('/sent',async(req,res)=>{
@@ -50,13 +64,50 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
       const type=await pool.query('SELECT entity_type FROM entities WHERE id=$1::uuid',[req.entityId]);
       if(type.rows[0]?.entity_type!=='artist') return res.status(403).json({error:{message:'An artist workspace is required'}});
       const result=await pool.query(`SELECT i.id,i.message,i.status,i.created_at,i.responded_at,
-        promoter.name promoter_name,promoter.id::text promoter_id
+        promoter.name promoter_name,promoter.id::text promoter_id,
+        latest.body last_message, latest.created_at last_message_at,
+        (i.status='accepted' AND latest.created_at IS NOT NULL
+          AND latest.sender_entity_id<>$1::uuid
+          AND (read_state.last_read_at IS NULL OR latest.created_at>read_state.last_read_at)) AS unread
         FROM promoter_introductions i JOIN entities promoter ON promoter.id=i.promoter_entity_id
-        WHERE i.artist_entity_id=$1::uuid ORDER BY i.created_at DESC LIMIT 100`,[req.entityId]);
+        ${messageSummaryJoin}
+        WHERE i.artist_entity_id=$1::uuid ORDER BY COALESCE(latest.created_at,i.created_at) DESC LIMIT 100`,[req.entityId]);
       res.json({requests:result.rows.map(row=>({id:row.id,message:row.message,status:row.status,
-        promoterName:row.promoter_name,promoterId:row.promoter_id,createdAt:row.created_at,respondedAt:row.responded_at}))});
+        promoterName:row.promoter_name,promoterId:row.promoter_id,createdAt:row.created_at,respondedAt:row.responded_at,
+        lastMessage:row.last_message || null,lastMessageAt:row.last_message_at || null,unread:row.unread === true}))});
     }catch(error){console.error('Promoter outgoing requests failed:',error.message);res.status(500).json({error:{message:'Unable to load sent introductions'}});}
   });
+  router.get('/summary',async(req,res)=>{
+    try {
+      const result=await pool.query(`SELECT COUNT(*) FILTER (WHERE i.status='pending' AND i.promoter_entity_id=$1::uuid)::int pending_requests,
+        COUNT(*) FILTER (WHERE i.status='accepted' AND latest.created_at IS NOT NULL
+          AND latest.sender_entity_id<>$1::uuid
+          AND (read_state.last_read_at IS NULL OR latest.created_at>read_state.last_read_at))::int unread_conversations
+        FROM promoter_introductions i
+        ${messageSummaryJoin}
+        WHERE i.artist_entity_id=$1::uuid OR i.promoter_entity_id=$1::uuid`,[req.entityId]);
+      res.json({pendingRequests:result.rows[0]?.pending_requests || 0,
+        unreadConversations:result.rows[0]?.unread_conversations || 0});
+    }catch(error){console.error('Message summary failed:',error.message);res.status(500).json({error:{message:'Unable to load message counts'}});}
+  });
+
+  router.post('/requests/:id/read',async(req,res)=>{
+    try {
+      if(!UUID.test(req.params.id))return res.status(422).json({error:{message:'Invalid conversation'}});
+      // Restrict the read marker to an accepted introduction where this
+      // workspace is one of the two participants.
+      const result=await pool.query(`INSERT INTO promoter_introduction_read_state
+        (introduction_id,entity_id,last_read_at)
+        SELECT i.id,$2::uuid,NOW() FROM promoter_introductions i
+        WHERE i.id=$1::uuid AND i.status='accepted'
+          AND (i.artist_entity_id=$2::uuid OR i.promoter_entity_id=$2::uuid)
+        ON CONFLICT(introduction_id,entity_id) DO UPDATE SET last_read_at=EXCLUDED.last_read_at
+        RETURNING introduction_id`,[req.params.id,req.entityId]);
+      if(!result.rowCount)return res.status(404).json({error:{message:'Accepted conversation not available'}});
+      return res.json({read:true});
+    }catch(error){console.error('Mark conversation read failed:',error.message);return res.status(500).json({error:{message:'Unable to mark conversation read'}});}
+  });
+
   // Both endpoints require authenticated owner/admin membership in the selected
   // workspace, and only the two parties of an ACCEPTED introduction may read or reply.
   router.get('/requests/:id/messages',async(req,res)=>{
@@ -114,7 +165,7 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
       try {
         await createEntityNotification(counterpart,'promoter_introduction_reply','New booking conversation reply',
           'You have a new message in an accepted SceneGen booking introduction.',
-          counterpart===thread.rows[0].promoter_id?'/settings?tab=workspace':'/contacts/discover');
+          '/messages?thread='+encodeURIComponent(req.params.id));
       }catch(notificationError){console.error('Introduction reply notification failed:',notificationError.message);}
       return res.status(201).json({message:{id:message.id,body:message.body,
         senderEntityId:message.sender_entity_id,createdAt:message.created_at}});
@@ -156,7 +207,7 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
         const artist=await pool.query('SELECT name FROM entities WHERE id=$1::uuid',[req.entityId]);
         await createEntityNotification(promoterId,'promoter_introduction', 'New booking introduction',
           (artist.rows[0]?.name || 'A band')+' sent a booking introduction. Open Workspace settings to review.',
-          '/settings?tab=workspace');
+          '/messages?tab=requests');
       } catch (notificationError) {console.error('Promoter intro notification failed:',notificationError.message);}
       res.status(201).json({id:saved.rows[0].id,status:saved.rows[0].status,createdAt:saved.rows[0].created_at});
     }catch(error){console.error('Promoter introduction failed:',error.message);res.status(500).json({error:{message:'Unable to send introduction'}});}
@@ -172,7 +223,7 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
       try {
         await createEntityNotification(result.rows[0].artist_entity_id,'promoter_introduction_response',
           'Promoter introduction update','A promoter has '+result.rows[0].status+' your booking introduction.',
-          '/contacts/discover');
+          '/messages');
       } catch (notificationError) {console.error('Promoter response notification failed:',notificationError.message);}
       res.json({id:result.rows[0].id,status:result.rows[0].status,respondedAt:result.rows[0].responded_at});
     }catch(error){console.error('Promoter response failed:',error.message);res.status(500).json({error:{message:'Unable to respond to introduction'}});}

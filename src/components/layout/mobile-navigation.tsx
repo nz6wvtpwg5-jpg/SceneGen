@@ -9,6 +9,7 @@ import { useProfileStore } from '@/store/useProfileStore';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog-provider';
 import { clearOfflineDataForUser } from '@/lib/offline-road-pack';
 import { clearEntityId } from '@/lib/entity';
+import { useMessageCounts } from '@/hooks/useMessageCounts';
 
 const primary = [
   { label: 'Today', href: '/dashboard', icon: CalendarDays },
@@ -20,6 +21,7 @@ const primary = [
 const secondary = [
   { label: 'Offers', href: '/show-proposals' },
   { label: 'Notifications', href: '/notifications' },
+  { label: 'Messages', href: '/messages' },
   { label: 'Merch', href: '/merch' },
   { label: 'Bookkeeping', href: '/bookkeeping' },
 ];
@@ -29,6 +31,7 @@ export function MobileNavigation() {
   const { data: session } = useSession();
   const { activeProfile, setActiveProfile } = useProfileStore();
   const confirmDialog = useConfirmDialog();
+  const { total: unreadMessages } = useMessageCounts();
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -36,8 +39,9 @@ export function MobileNavigation() {
   const sheetRef = useRef<HTMLElement>(null);
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const provisionalAgent = activeProfile?.membershipRole === 'provisional_agent';
+  const canMessage=['owner','admin'].includes(activeProfile?.membershipRole||'');
   const visiblePrimary = provisionalAgent ? primary.filter((item) => item.href !== '/contacts') : primary;
-  const visibleSecondary = provisionalAgent ? secondary.filter((item) => ['/show-proposals', '/notifications'].includes(item.href)) : secondary;
+  const visibleSecondary = provisionalAgent ? secondary.filter((item) => ['/show-proposals', '/notifications'].includes(item.href)) : secondary.filter(item=>item.href!=='/messages'||canMessage);
 
   useEffect(() => { setOpen(false); }, [pathname]);
   useEffect(() => {
@@ -106,7 +110,7 @@ export function MobileNavigation() {
       <section ref={sheetRef} id="mobile-more-menu" className="mobile-safe-bottom absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[28px] bg-[#fbf8f1] p-5 pb-4 shadow-2xl">
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-black/15" />
         <div className="flex items-start justify-between gap-4"><div><p className="text-[9px] font-black uppercase tracking-[0.22em] text-[#ff5a36]">Workspace</p><h2 id="mobile-more-title" className="mt-1 text-2xl font-black">{activeProfile?.name || 'SceneGen'}</h2><p className="mt-1 text-sm text-[#716b61]">More tools and account settings</p></div><button ref={closeRef} type="button" onClick={dismiss} className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-black/10" aria-label="Close menu"><X className="h-5 w-5" /></button></div>
-        <div className="mt-6 divide-y divide-black/10 border-y border-black/10">{visibleSecondary.map(({ label, href }) => <Link key={href} href={href} className="flex min-h-14 items-center justify-between py-3 text-base font-black"><span>{label}</span><span aria-hidden="true" className="text-[#ff5a36]">-&gt;</span></Link>)}</div>
+        <div className="mt-6 divide-y divide-black/10 border-y border-black/10">{visibleSecondary.map(({ label, href }) => <Link key={href} href={href} className="flex min-h-14 items-center justify-between py-3 text-base font-black"><span>{label}{href==='/messages' && unreadMessages>0 ? ` (${unreadMessages})` : ''}</span><span aria-hidden="true" className="text-[#ff5a36]">-&gt;</span></Link>)}</div>
         <Link href={provisionalAgent ? "/settings?tab=personal" : "/settings"} className="mt-5 flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#11100e] px-5 text-sm font-black text-white"><Settings className="h-4 w-4" />{provisionalAgent ? 'Personal settings' : 'Account and workspace'}</Link>
         <button type="button" disabled={signingOut} onClick={() => void logout()} className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#c94d39]/35 px-5 text-sm font-black text-[#a53723] disabled:opacity-50"><LogOut className="h-4 w-4" />{signingOut ? 'Signing out…' : 'Sign out'}</button>
         <p className="mt-5 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-black/35"><ShoppingBag className="mr-1 inline h-3 w-3" />Road tools, always within reach</p>

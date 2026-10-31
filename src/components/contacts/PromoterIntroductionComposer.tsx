@@ -26,7 +26,7 @@ export function PromoterIntroductionComposer({entityId,selected,onClose}:{entity
       const response=await fetch('/api/promoter-outreach/requests',{method:'POST',headers:{'Content-Type':'application/json','X-Entity-Id':entityId},body:JSON.stringify({promoterId,message:message.trim()})});
       const data=await response.json();if(!response.ok)throw new Error(data.error?.message||'Unable to send introduction');
       setSent(items=>[{id:data.id,promoterId,status:'pending'},...items]);
-      toast.success('Introduction sent inside SceneGen');setMessage('');onClose();
+      toast.success('Introduction sent. Track it in Messages → Sent requests.');setMessage('');onClose();
     }catch(error){toast.error(error instanceof Error?error.message:'Unable to send introduction');}finally{setBusy(false);}
   }
   return <div role="presentation" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}>

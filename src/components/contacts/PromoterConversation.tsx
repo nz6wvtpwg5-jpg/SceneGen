@@ -4,7 +4,7 @@ import {RefreshCw,Send,MessageCircle} from 'lucide-react';
 
 type Message={id:string;body:string;senderEntityId:string;createdAt:string};
 const REFRESH_INTERVAL_MS=30000;
-export function PromoterConversation({entityId,introductionId}:{entityId:string;introductionId:string}){
+export function PromoterConversation({entityId,introductionId,onRead}:{entityId:string;introductionId:string;onRead?:()=>void}){
   const [messages,setMessages]=useState<Message[]>([]);
   const [loading,setLoading]=useState(true);
   const [refreshing,setRefreshing]=useState(false);
@@ -12,8 +12,11 @@ export function PromoterConversation({entityId,introductionId}:{entityId:string;
   const [body,setBody]=useState('');
   const [sending,setSending]=useState(false);
   const busyRef=useRef(false);
+  const onReadRef=useRef(onRead);
+  const lastMarkedRef=useRef<string|null>(null);
   const activeRef=useRef({entityId,introductionId});
   activeRef.current={entityId,introductionId};
+  onReadRef.current=onRead;
   busyRef.current=Boolean(sending||loading||refreshing);
   const url='/api/promoter-outreach/requests/'+encodeURIComponent(introductionId)+'/messages';
   const isCurrent=useCallback((entity:string,id:string)=>activeRef.current.entityId===entity && activeRef.current.introductionId===id,[]);
@@ -27,6 +30,17 @@ export function PromoterConversation({entityId,introductionId}:{entityId:string;
       if(!signal?.aborted && isCurrent(entityId,introductionId)){
         setMessages(Array.isArray(data.messages)?data.messages:[]);
         setError('');
+        // Don't write on every poll. Only acknowledge a new latest message,
+        // and never update the new workspace from an old request's response.
+        const incoming=Array.isArray(data.messages)?data.messages:[];
+        const fingerprint=entityId+':'+introductionId+':'+(incoming.at(-1)?.id||'empty');
+        if(lastMarkedRef.current!==fingerprint){
+          lastMarkedRef.current=fingerprint;
+          void fetch('/api/promoter-outreach/requests/'+encodeURIComponent(introductionId)+'/read',{method:'POST',headers:{'X-Entity-Id':entityId}})
+            .then(response=>{if(response.ok && !signal?.aborted && isCurrent(entityId,introductionId))onReadRef.current?.();
+              if(!response.ok)lastMarkedRef.current=null;})
+            .catch(()=>{lastMarkedRef.current=null;});
+        }
       }
     }catch(caught){
       if(!signal?.aborted && isCurrent(entityId,introductionId))setError(caught instanceof Error?caught.message:'Unable to load messages');

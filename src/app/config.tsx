@@ -4,13 +4,15 @@ import { usePathname } from 'next/navigation';
 import { useProfileStore } from '@/store/useProfileStore';
 import { useShowCount } from '@/hooks/useShowCount';
 import { useTourCount } from '@/hooks/useTourCount';
-import { Bell, Settings, Compass, Calendar, Users, Notebook, Map, ShoppingBag, Handshake } from 'lucide-react';
+import { useMessageCounts } from '@/hooks/useMessageCounts';
+import { Bell, Settings, Compass, Calendar, Users, Notebook, Map, ShoppingBag, Handshake, MessageCircle } from 'lucide-react';
 
 export const NavItems = () => {
   const pathname = usePathname();
   const { activeProfile } = useProfileStore();
   const { count: futureShowCount, totalCount: totalShowCount } = useShowCount();
   const { count: tourCount } = useTourCount();
+  const { total: messageCount } = useMessageCounts();
   const provisionalAgent = activeProfile?.membershipRole === 'provisional_agent';
   const canManageWorkspace = Boolean(activeProfile?.membershipRole && ['owner', 'admin'].includes(activeProfile.membershipRole));
 
@@ -58,6 +60,14 @@ export const NavItems = () => {
       position: 'top',
     },
     {
+      name: 'Messages',
+      href: '/messages',
+      icon: <MessageCircle size={20} />,
+      active: isNavItemActive(pathname, '/messages'),
+      position: 'top',
+      badge: messageCount > 0 ? messageCount : undefined,
+    },
+    {
       name: 'Notifications',
       href: '/notifications',
       icon: <Bell size={20} />,
@@ -102,6 +112,10 @@ export const NavItems = () => {
     }
   }
 
+  if (!canManageWorkspace) {
+    const messagesIndex=items.findIndex(item=>item.href==='/messages');
+    if(messagesIndex>=0)items.splice(messagesIndex,1);
+  }
   const settingsIndex = items.findIndex((item) => item.href === '/settings');
   if (!canManageWorkspace && settingsIndex >= 0) items.splice(settingsIndex, 1);
   return provisionalAgent

@@ -1,6 +1,7 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
 import {toast} from 'sonner';
+import Link from 'next/link';
 import {Check, X, Mail} from 'lucide-react';
 import {PromoterConversation} from '@/components/contacts/PromoterConversation';
 
@@ -54,7 +55,7 @@ export function PromoterIntroductionsSettings({entityId}:{entityId:string}){
       <span className="text-sm font-bold">Accept new booking introductions</span>
     </label>
     <div className="mt-6 border-t border-black/10 pt-5">
-      <h4 className="text-sm font-black">Your introduction inbox</h4>
+      <div className="flex flex-wrap items-center justify-between gap-3"><h4 className="text-sm font-black">Recent message requests</h4><Link href="/messages?tab=requests" className="inline-flex min-h-10 items-center rounded-full bg-[#171713] px-4 text-xs font-bold text-white">Open Messages</Link></div>
       {loading?<p className="mt-3 text-sm text-[#686258]">Loading requests…</p>:requests.length===0?<p className="mt-3 text-sm text-[#686258]">No introductions yet.</p>:<div className="mt-3 space-y-3">{requests.map(item=><article key={item.id} className="rounded-lg border border-black/10 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{item.artistName}</strong><span className="text-xs font-bold capitalize text-[#777168]">{item.status}</span></div>
         <p className="mt-2 whitespace-pre-wrap break-words text-sm text-[#504b43]">{item.message}</p>

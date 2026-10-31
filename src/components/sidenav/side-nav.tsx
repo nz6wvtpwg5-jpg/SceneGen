@@ -6,7 +6,7 @@ import SidebarEntities from './SidebarEntities';
 
 const sectionFor = (href: string) => {
   if (['/dashboard', '/shows', '/show-proposals', '/tours', '/touring'].includes(href)) return 'Plan';
-  if (['/contacts', '/notifications'].includes(href)) return 'Network';
+  if (['/contacts', '/messages', '/notifications'].includes(href)) return 'Network';
   return 'Business';
 };
 

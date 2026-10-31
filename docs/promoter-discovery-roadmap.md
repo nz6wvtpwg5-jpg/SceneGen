@@ -47,3 +47,11 @@
 - No loss of the current matching functionality; TypeScript, targeted tests and deploy pass.
 - Results and shortlist items never expose private-contact fields or other workspaces' private record IDs.
 - Map and touring modes do not go live without safe geographic data and authorization coverage.
+
+## Messages centre (LinkedIn-style booking requests)
+- [x] New Messages destination in desktop and mobile navigation
+- [x] Separate accepted-conversation Inbox and outstanding Message Requests (Sent requests for artists)
+- [x] Workspace-scoped unread conversation counts and new-request counts
+- [x] Server-side read acknowledgment for accepted conversations only
+- [x] Continue private replies within accepted introductions, with refresh and notifications routing to the new centre
+- [ ] Live test with two separate real authenticated workspaces (promoter opt-in, request, accept, two-way reply, unread transitions)

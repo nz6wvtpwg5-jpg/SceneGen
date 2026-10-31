@@ -149,3 +149,42 @@ test('replies reject empty and oversized messages before accessing database',asy
  assert.equal((await call('POST','/requests/:id/messages',{body:'  '})).statusCode,422);
  assert.equal((await call('POST','/requests/:id/messages',{body:'x'.repeat(2001)})).statusCode,422);
 });
+
+test('read marker cannot be set for a foreign or pending introduction',async()=>{
+ const pool={query:async(sql,params)=>{
+   assert.match(sql,/WHERE i.id=\$1::uuid AND i.status='accepted'/);
+   assert.match(sql,/i.artist_entity_id=\$2::uuid OR i.promoter_entity_id=\$2::uuid/);
+   return {rowCount:0,rows:[]};
+ }};
+ const call=routerFor(pool);
+ const response=await call('POST','/requests/:id/read',{},'55555555-5555-4555-8555-555555555555');
+ assert.equal(response.statusCode,404);
+});
+
+test('read state is only set for authorized accepted conversations',async()=>{
+ let checked=false;
+ const pool={query:async(sql,params)=>{
+   assert.match(sql,/INSERT INTO promoter_introduction_read_state/);
+   assert.equal(params[1],artist);
+   checked=true;
+   return {rowCount:1,rows:[{introduction_id:requestId}]};
+ }};
+ const call=routerFor(pool);
+ const response=await call('POST','/requests/:id/read',{},artist);
+ assert.equal(response.statusCode,200);
+ assert.equal(response.payload.read,true);
+ assert.equal(checked,true);
+});
+
+test('message summary only counts introductions involving the selected workspace',async()=>{
+ const pool={query:async(sql,params)=>{
+   assert.match(sql,/i.artist_entity_id=\$1::uuid OR i.promoter_entity_id=\$1::uuid/);
+   assert.match(sql,/read_state.last_read_at/);
+   assert.equal(params[0],promoter);
+   return {rows:[{pending_requests:2,unread_conversations:3}]};
+ }};
+ const call=routerFor(pool);
+ const response=await call('GET','/summary',{},promoter);
+ assert.equal(response.statusCode,200);
+ assert.deepEqual(response.payload,{pendingRequests:2,unreadConversations:3});
+});
