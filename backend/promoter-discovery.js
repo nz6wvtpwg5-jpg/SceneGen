@@ -6,7 +6,7 @@ const crypto = require('node:crypto');
  * profiles are searchable. Private contact details never leave this module.
  */
 const PROFILE_SQL = [
-  "SELECT e.id::text AS id, e.name, COALESCE(outreach.accepting_introductions,FALSE) AS accepting_introductions,",
+  "SELECT e.id::text AS id, e.name, e.city, e.country, COALESCE(outreach.accepting_introductions,FALSE) AS accepting_introductions,",
   "  CASE WHEN jsonb_typeof(e.tags)='array' THEN e.tags ELSE '[]'::jsonb END AS tags",
   "FROM entities e LEFT JOIN promoter_outreach_preferences outreach ON outreach.promoter_entity_id=e.id",
   "WHERE e.entity_type='promoter'",
@@ -116,7 +116,10 @@ function discoverPromoters(profiles, evidence, { genres = [], query = '', exclud
     claimed.set(profileId, {
       profileId, name, acceptingIntroductions:profile.accepting_introductions === true,
       own: new Set(normalizeGenres(profile.tags)),
-      fromBands: new Set(), listed: new Set(), locations: new Map(),
+      fromBands: new Set(), listed: new Set(),
+      locations: new Map(profile.city && profile.country
+        ? [[String(profile.city).trim().toLowerCase()+'|'+String(profile.country).trim().toLowerCase(),
+          {city:String(profile.city).trim(),country:String(profile.country).trim()}]] : []),
     });
   }
 
