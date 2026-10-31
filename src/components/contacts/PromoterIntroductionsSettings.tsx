@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useState} from 'react';
 import {toast} from 'sonner';
 import {Check, X, Mail} from 'lucide-react';
+import {PromoterConversation} from '@/components/contacts/PromoterConversation';
 
 type Request={id:string;artistName:string;artistId:string;message:string;status:'pending'|'accepted'|'declined';createdAt:string};
 export function PromoterIntroductionsSettings({entityId}:{entityId:string}){
@@ -57,6 +58,7 @@ export function PromoterIntroductionsSettings({entityId}:{entityId:string}){
       {loading?<p className="mt-3 text-sm text-[#686258]">Loading requests…</p>:requests.length===0?<p className="mt-3 text-sm text-[#686258]">No introductions yet.</p>:<div className="mt-3 space-y-3">{requests.map(item=><article key={item.id} className="rounded-lg border border-black/10 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{item.artistName}</strong><span className="text-xs font-bold capitalize text-[#777168]">{item.status}</span></div>
         <p className="mt-2 whitespace-pre-wrap break-words text-sm text-[#504b43]">{item.message}</p>
+        {item.status==='accepted'&&<PromoterConversation key={item.id} entityId={entityId} introductionId={item.id}/>}
         {item.status==='pending'&&<div className="mt-4 flex flex-wrap gap-2">
           <button type="button" disabled={Boolean(processing)} onClick={()=>void respond(item,'accepted')} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#171713] px-4 text-xs font-bold text-white disabled:opacity-50"><Check size={15}/> Accept</button>
           <button type="button" disabled={Boolean(processing)} onClick={()=>void respond(item,'declined')} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 px-4 text-xs font-bold disabled:opacity-50"><X size={15}/> Decline</button>

@@ -105,3 +105,47 @@ test('promoter opt-in starts disabled and can be explicitly enabled',async()=>{
  assert.equal(updated.statusCode,200);
  assert.equal(updated.payload.acceptingIntroductions,true);
 });
+
+test('messages are inaccessible to a foreign workspace and to unaccepted threads',async()=>{
+ const pool={query:async(sql)=>{
+  if(sql.includes('FROM promoter_introductions'))return {rowCount:0,rows:[]};
+  throw Error('must not query messages without an accepted, authorized thread');
+ }};
+ const call=routerFor(pool);
+ const denied=await call('GET','/requests/:id/messages',{},'55555555-5555-4555-8555-555555555555');
+ assert.equal(denied.statusCode,404);
+ const rejected=await call('POST','/requests/:id/messages',{body:'Please let us know about availability.'},artist);
+ assert.equal(rejected.statusCode,404);
+});
+
+test('accepted thread replies are scoped at read and atomic insert to a member workspace',async()=>{
+ const inserts=[],alerts=[];
+ const pool={query:async(sql,params)=>{
+   if(sql.includes('SELECT id,artist_entity_id::text AS artist_id'))return {rowCount:1,rows:[{id:requestId,artist_id:artist,promoter_id:promoter,status:'accepted'}]};
+   if(sql.includes('SELECT artist_entity_id::text artist_id'))return {rowCount:1,rows:[{artist_id:artist,promoter_id:promoter}]};
+   if(sql.includes('SELECT id,body,sender_entity_id::text sender_entity_id,created_at'))return {rows:[{id:'66666666-6666-4666-8666-666666666666',body:'Hello',sender_entity_id:artist,created_at:'2026-10-31'}]};
+   if(sql.includes('INSERT INTO auth_rate_limits'))return {rows:[{attempts:1}]};
+   if(sql.includes('INSERT INTO promoter_introduction_messages')){
+     inserts.push({sql,params});
+     return {rowCount:1,rows:[{id:'77777777-7777-4777-8777-777777777777',body:params[3],sender_entity_id:params[1],created_at:'2026-10-31'}]};
+   }
+   throw Error('Unexpected query');
+ }};
+ const call=routerFor(pool,async(...args)=>alerts.push(args));
+ const read=await call('GET','/requests/:id/messages',{},artist);
+ assert.equal(read.statusCode,200);
+ assert.equal(read.payload.messages.length,1);
+ const sent=await call('POST','/requests/:id/messages',{body:'Our band would be available next month.'},artist);
+ assert.equal(sent.statusCode,201);
+ assert.equal(sent.payload.message.senderEntityId,artist);
+ assert.equal(inserts[0].params[1],artist);
+ assert.match(inserts[0].sql,/i.status='accepted'/);
+ assert.match(inserts[0].sql,/i.artist_entity_id=\$2::uuid OR i.promoter_entity_id=\$2::uuid/);
+ assert.equal(alerts[0][0],promoter);
+});
+
+test('replies reject empty and oversized messages before accessing database',async()=>{
+ const call=routerFor({query:async()=>{throw Error('unexpected query')}});
+ assert.equal((await call('POST','/requests/:id/messages',{body:'  '})).statusCode,422);
+ assert.equal((await call('POST','/requests/:id/messages',{body:'x'.repeat(2001)})).statusCode,422);
+});

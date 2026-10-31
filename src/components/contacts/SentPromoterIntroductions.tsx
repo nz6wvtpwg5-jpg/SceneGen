@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {Mail} from 'lucide-react';
+import {PromoterConversation} from '@/components/contacts/PromoterConversation';
 type Introduction={id:string;promoterName:string;promoterId:string;message:string;status:'pending'|'accepted'|'declined';createdAt:string};
 export function SentPromoterIntroductions({entityId}:{entityId:string}){
   const [items,setItems]=useState<Introduction[]>([]);
@@ -23,6 +24,7 @@ export function SentPromoterIntroductions({entityId}:{entityId:string}){
     {items.map(item=><article key={item.id} className="rounded-lg border border-black/10 bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><strong className="text-sm">{item.promoterName}</strong><span className="rounded-full bg-[#eee6da] px-3 py-1 text-xs font-black capitalize">{item.status}</span></div>
       <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-[#504b43]">{item.message}</p>
+      {item.status==='accepted'&&<PromoterConversation key={item.id} entityId={entityId} introductionId={item.id}/>}
     </article>)}
   </section>;
 }

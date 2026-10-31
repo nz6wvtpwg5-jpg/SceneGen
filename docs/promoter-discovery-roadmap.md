@@ -34,7 +34,8 @@
 
 ## Phase 4 — Outreach and quality
 - [x] Add opt-in, owner/admin-authorized, rate-limited in-app introductions for registered promoters, with accept/decline and sender status
-- [ ] Add threaded replies only after a separate mutual-permission and anti-spam review
+- [x] Add private threaded replies only after promoter acceptance, with workspace authorization, per-user rate limit, and in-app notifications
+- [ ] Live two-account testing for accepted conversation send/read and delivery
 - [x] Suppress anonymous duplicates for verified promoter claims, using private emails only for server-side matching
 - [x] Add per-user/workspace database-backed rate limits for promoter searches and shortlist saves
 - [x] Require band-profile genre authorization for anonymous community results, including shortlist lifecycle checks

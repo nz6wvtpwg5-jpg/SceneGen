@@ -57,6 +57,69 @@ function createPromoterOutreachRouter(pool, createEntityNotification=async()=>{}
         promoterName:row.promoter_name,promoterId:row.promoter_id,createdAt:row.created_at,respondedAt:row.responded_at}))});
     }catch(error){console.error('Promoter outgoing requests failed:',error.message);res.status(500).json({error:{message:'Unable to load sent introductions'}});}
   });
+  // Both endpoints require authenticated owner/admin membership in the selected
+  // workspace, and only the two parties of an ACCEPTED introduction may read or reply.
+  router.get('/requests/:id/messages',async(req,res)=>{
+    try {
+      if(!UUID.test(req.params.id)) return res.status(422).json({error:{message:'Invalid introduction'}});
+      const thread=await pool.query(`SELECT id,artist_entity_id::text AS artist_id,
+        promoter_entity_id::text AS promoter_id,status FROM promoter_introductions
+        WHERE id=$1::uuid AND (artist_entity_id=$2::uuid OR promoter_entity_id=$2::uuid)
+        LIMIT 1`,[req.params.id,req.entityId]);
+      if(!thread.rowCount || thread.rows[0].status!=='accepted')
+        return res.status(404).json({error:{message:'Accepted conversation not available'}});
+      const rows=await pool.query(`SELECT id,body,sender_entity_id::text sender_entity_id,created_at
+        FROM promoter_introduction_messages WHERE introduction_id=$1::uuid
+        ORDER BY created_at ASC,id ASC LIMIT 200`,[req.params.id]);
+      return res.json({messages:rows.rows.map(row=>({id:row.id,body:row.body,
+        senderEntityId:row.sender_entity_id,createdAt:row.created_at}))});
+    }catch(error){console.error('Introduction messages read failed:',error.message);
+      return res.status(500).json({error:{message:'Unable to load conversation'}});}
+  });
+
+  router.post('/requests/:id/messages',async(req,res)=>{
+    try {
+      if(!UUID.test(req.params.id)) return res.status(422).json({error:{message:'Invalid introduction'}});
+      const body=clean(req.body?.body);
+      if(body.length<1 || body.length>2000 || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(body))
+        return res.status(422).json({error:{message:'Enter a reply of 1–2000 characters'}});
+      // Do not spend the daily allowance or expose counterpart details until
+      // authorization has been established using the selected workspace.
+      const thread=await pool.query(`SELECT artist_entity_id::text artist_id,
+        promoter_entity_id::text promoter_id FROM promoter_introductions
+        WHERE id=$1::uuid AND status='accepted'
+          AND (artist_entity_id=$2::uuid OR promoter_entity_id=$2::uuid)
+        LIMIT 1`,[req.params.id,req.entityId]);
+      if(!thread.rowCount) return res.status(404).json({error:{message:'Accepted conversation not available'}});
+      if(!(await consumeDiscoveryAllowance(pool,{userId:req.userId,entityId:req.entityId,
+        action:'outreach-reply',maxAttempts:30,windowSeconds:86400}))) {
+        res.setHeader('Retry-After','86400');
+        return res.status(429).json({error:{message:'Daily reply limit reached. Please try again tomorrow.'}});
+      }
+      // Recheck status atomically at insert time, in case the conversation
+      // is no longer accepted between authorization and the write.
+      const result=await pool.query(`INSERT INTO promoter_introduction_messages
+        (introduction_id,sender_entity_id,sender_user_id,body)
+        SELECT i.id,$2::uuid,$3::uuid,$4 FROM promoter_introductions i
+        WHERE i.id=$1::uuid AND i.status='accepted'
+          AND (i.artist_entity_id=$2::uuid OR i.promoter_entity_id=$2::uuid)
+        RETURNING id,body,sender_entity_id::text sender_entity_id,created_at`,
+        [req.params.id,req.entityId,req.userId,body]);
+      if(!result.rowCount) return res.status(404).json({error:{message:'Accepted conversation not available'}});
+      const message=result.rows[0];
+      const counterpart=thread.rows[0].artist_id===req.entityId
+        ?thread.rows[0].promoter_id:thread.rows[0].artist_id;
+      try {
+        await createEntityNotification(counterpart,'promoter_introduction_reply','New booking conversation reply',
+          'You have a new message in an accepted SceneGen booking introduction.',
+          counterpart===thread.rows[0].promoter_id?'/settings?tab=workspace':'/contacts/discover');
+      }catch(notificationError){console.error('Introduction reply notification failed:',notificationError.message);}
+      return res.status(201).json({message:{id:message.id,body:message.body,
+        senderEntityId:message.sender_entity_id,createdAt:message.created_at}});
+    }catch(error){console.error('Introduction message send failed:',error.message);
+      return res.status(500).json({error:{message:'Unable to send reply'}});}
+  });
+
   router.post('/requests',async(req,res)=>{
     try {
       const promoterId=String(req.body?.promoterId || '');
